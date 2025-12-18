@@ -1,0 +1,178 @@
+// Prisma Schema para Jira Killer
+// Modelo de domínio com hierarquia rígida
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// =============================================================================
+// Organizations (Tenants)
+// =============================================================================
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  createdAt DateTime  @default(now()) @map("created_at")
+  
+  projects  Project[]
+  
+  @@map("organizations")
+}
+
+// =============================================================================
+// Projects (Produtos)
+// =============================================================================
+model Project {
+  id        String   @id @default(uuid())
+  orgId     String   @map("org_id")
+  name      String
+  key       String   // Prefixo para IDs (ex: "APP")
+  modules   String[] @default([]) // Ex: ['SDK', 'API', 'WEB']
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  epics        Epic[]
+  docs         ProjectDoc[]
+  
+  @@unique([orgId, key])
+  @@index([orgId])
+  @@map("projects")
+}
+
+// =============================================================================
+// Project Docs (Memória da IA)
+// =============================================================================
+model ProjectDoc {
+  id        String   @id @default(uuid())
+  projectId String   @map("project_id")
+  title     String
+  content   String   // Markdown puro
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+  @@map("project_docs")
+}
+
+// =============================================================================
+// Epics (Objetivos Macro)
+// =============================================================================
+model Epic {
+  id          String     @id @default(uuid())
+  projectId   String     @map("project_id")
+  title       String
+  description String?
+  status      EpicStatus @default(TODO)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  features Feature[]
+  
+  @@index([projectId])
+  @@map("epics")
+}
+
+enum EpicStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+// =============================================================================
+// Features (Entregáveis)
+// =============================================================================
+model Feature {
+  id          String        @id @default(uuid())
+  epicId      String        @map("epic_id")
+  title       String
+  description String?
+  status      FeatureStatus @default(TODO)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  
+  epic  Epic   @relation(fields: [epicId], references: [id], onDelete: Cascade)
+  tasks Task[]
+  
+  @@index([epicId])
+  @@map("features")
+}
+
+enum FeatureStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+// =============================================================================
+// Tasks & Bugs
+// =============================================================================
+model Task {
+  id          String     @id @default(uuid())
+  featureId   String     @map("feature_id")
+  key         String     @unique // Ex: "APP-001"
+  title       String
+  description String?    // Markdown suportado
+  status      TaskStatus @default(BACKLOG)
+  type        TaskType   @default(TASK)
+  points      Int?
+  priority    Priority   @default(MEDIUM)
+  module      String?    // Deve existir em project.modules
+  assigneeId  String?    @map("assignee_id")
+  createdBy   String     @map("created_by")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  
+  feature    Feature     @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  pokerVotes PokerVote[]
+  
+  @@index([featureId])
+  @@index([assigneeId, status])
+  @@index([module])
+  @@index([type])
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  DOING
+  REVIEW
+  QA_READY
+  DONE
+}
+
+enum TaskType {
+  TASK
+  BUG
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// =============================================================================
+// Poker Votes (Scrum Poker)
+// =============================================================================
+model PokerVote {
+  id        String   @id @default(uuid())
+  taskId    String   @map("task_id")
+  userId    String   @map("user_id")
+  vote      Int      // -1 = "?", outros = story points
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  @@unique([taskId, userId])
+  @@index([taskId])
+  @@map("poker_votes")
+}

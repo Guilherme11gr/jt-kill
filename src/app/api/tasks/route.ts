@@ -86,13 +86,13 @@ export async function POST(request: NextRequest) {
     const task = await createTask({
       orgId: tenantId,
       ...parsed.data,
-      points: undefined,
+      // points: parsed.data.points,
     }, { taskRepository });
 
     return jsonSuccess(task, { status: 201 });
 
-  } catch (error: any) {
-    // const { status, body } = handleError(error);
-    return jsonError('INTERNAL_ERROR', error.message || String(error), 500);
+  } catch (error) {
+    const { status, body } = handleError(error);
+    return jsonError(body.error.code, body.error.message, status);
   }
 }

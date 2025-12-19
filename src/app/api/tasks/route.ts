@@ -56,7 +56,15 @@ const createTaskSchema = z.object({
   description: z.string().max(10000).optional(),
   type: z.enum(['TASK', 'BUG']).default('TASK'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
-  points: z.number().int().optional().nullable(),
+  points: z.union([
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(5),
+    z.literal(8),
+    z.literal(13),
+    z.literal(21),
+  ]).optional().nullable(),
   module: z.string().max(50).optional().nullable(),
   assigneeId: z.string().uuid().optional().nullable(),
 });

@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FolderKanban, Loader2 } from "lucide-react";
+import { Plus, FolderKanban, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Project {
   id: string;
@@ -26,8 +29,14 @@ interface Project {
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  // Delete Project State
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+
   const [formData, setFormData] = useState({
     name: "",
     key: "",
@@ -48,14 +57,19 @@ export default function ProjectsPage() {
       }
     } catch (error) {
       console.error("Erro ao buscar projetos:", error);
+      toast.error("Erro ao carregar projetos");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const resetForm = () => {
+    setFormData({ name: "", key: "", description: "", modules: "" });
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCreating(true);
+    setSaving(true);
 
     try {
       const res = await fetch("/api/projects", {
@@ -72,18 +86,104 @@ export default function ProjectsPage() {
       });
 
       if (res.ok) {
-        setFormData({ name: "", key: "", description: "", modules: "" });
-        setIsDialogOpen(false);
+        resetForm();
+        setIsCreateDialogOpen(false);
         fetchProjects();
+        toast.success("Projeto criado com sucesso!");
       } else {
         const error = await res.json();
-        alert(error.error?.message || "Erro ao criar projeto");
+        toast.error(error.error?.message || "Erro ao criar projeto");
       }
     } catch (error) {
       console.error("Erro:", error);
-      alert("Erro ao criar projeto");
+      toast.error("Erro ao criar projeto");
     } finally {
-      setCreating(false);
+      setSaving(false);
+    }
+  };
+
+  const handleEditClick = useCallback((project: Project, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingProject(project);
+    setFormData({
+      name: project.name,
+      key: project.key,
+      description: project.description || "",
+      modules: project.modules.join(", "),
+    });
+    setIsEditDialogOpen(true);
+  }, []);
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject) return;
+    setSaving(true);
+
+    try {
+      const res = await fetch(`/api/projects/${editingProject.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          description: formData.description || null,
+          modules: formData.modules
+            ? formData.modules.split(",").map((m) => m.trim()).filter(Boolean)
+            : [],
+        }),
+      });
+
+      if (res.ok) {
+        resetForm();
+        setEditingProject(null);
+        setIsEditDialogOpen(false);
+        fetchProjects();
+        toast.success("Projeto atualizado com sucesso!");
+      } else {
+        const error = await res.json();
+        toast.error(error.error?.message || "Erro ao atualizar projeto");
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error("Erro ao atualizar projeto");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteClick = useCallback((project: Project, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setProjectToDelete(project);
+  }, []);
+
+  const confirmDeleteProject = async () => {
+    if (!projectToDelete) return;
+
+    try {
+      const res = await fetch(`/api/projects/${projectToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        fetchProjects();
+        setProjectToDelete(null);
+        toast.success("Projeto excluído com sucesso!");
+      } else {
+        const error = await res.json();
+        toast.error(error.error?.message || "Erro ao excluir projeto");
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error("Erro ao excluir projeto");
+    }
+  };
+
+  const handleEditDialogClose = (open: boolean) => {
+    setIsEditDialogOpen(open);
+    if (!open) {
+      setEditingProject(null);
+      resetForm();
     }
   };
 
@@ -102,7 +202,7 @@ export default function ProjectsPage() {
           <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">Projetos</h1>
           <p className="text-muted-foreground">Gerencie seus projetos e tarefas</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2 w-full sm:w-auto">
               <Plus className="w-4 h-4" />
@@ -116,7 +216,7 @@ export default function ProjectsPage() {
                 Crie um projeto para organizar suas epics, features e tasks
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div>
                 <Label htmlFor="name">Nome do Projeto</Label>
                 <Input
@@ -163,13 +263,13 @@ export default function ProjectsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                  disabled={creating}
+                  onClick={() => setIsCreateDialogOpen(false)}
+                  disabled={saving}
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={creating}>
-                  {creating ? (
+                <Button type="submit" disabled={saving}>
+                  {saving ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Criando...
@@ -185,60 +285,191 @@ export default function ProjectsPage() {
       </div>
 
       {projects.length === 0 ? (
-        <Card className="text-center p-12">
-          <FolderKanban className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-xl font-semibold mb-2">Nenhum projeto ainda</h3>
-          <p className="text-muted-foreground mb-4">
-            Comece criando seu primeiro projeto
-          </p>
-          <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Criar Primeiro Projeto
-          </Button>
-        </Card>
+        <EmptyState
+          icon={FolderKanban}
+          title="Nenhum projeto ainda"
+          description="Comece criando seu primeiro projeto para organizar suas epics, features e tasks."
+          action={
+            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Criar Primeiro Projeto
+            </Button>
+          }
+        />
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="hover:border-primary transition-colors cursor-pointer h-full">
-                <CardHeader>
-                  <div className="flex justify-between items-start mb-2">
-                    <Badge variant="outline-info" className="font-mono">
-                      {project.key}
-                    </Badge>
-                    <div className="flex gap-2 text-xs text-muted-foreground">
-                      <span>{project._count?.epics || 0} epics</span>
-                      <span>•</span>
-                      <span>{project._count?.tasks || 0} tasks</span>
+            <div key={project.id} className="relative group">
+              <Link href={`/projects/${project.id}`}>
+                <Card className="hover:border-primary transition-colors cursor-pointer h-full">
+                  <CardHeader>
+                    <div className="flex justify-between items-start mb-2">
+                      <Badge variant="outline-info" className="font-mono">
+                        {project.key}
+                      </Badge>
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        <span>{project._count?.epics || 0} epics</span>
+                        <span>•</span>
+                        <span>{project._count?.tasks || 0} tasks</span>
+                      </div>
                     </div>
-                  </div>
-                  <CardTitle>{project.name}</CardTitle>
-                  {project.description && (
-                    <CardDescription className="line-clamp-2">
-                      {project.description}
-                    </CardDescription>
+                    <CardTitle>{project.name}</CardTitle>
+                    {project.description && (
+                      <CardDescription className="line-clamp-2">
+                        {project.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  {project.modules && project.modules.length > 0 && (
+                    <CardContent>
+                      <div className="flex flex-wrap gap-1">
+                        {project.modules.map((module) => (
+                          <Badge
+                            key={module}
+                            variant="secondary"
+                            className="text-xs"
+                          >
+                            {module}
+                          </Badge>
+                        ))}
+                      </div>
+                    </CardContent>
                   )}
-                </CardHeader>
-                {project.modules && project.modules.length > 0 && (
-                  <CardContent>
-                    <div className="flex flex-wrap gap-1">
-                      {project.modules.map((module) => (
-                        <Badge
-                          key={module}
-                          variant="secondary"
-                          className="text-xs"
-                        >
-                          {module}
-                        </Badge>
-                      ))}
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-            </Link>
+                </Card>
+              </Link>
+              {/* Action Menu */}
+              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-sm">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={(e) => handleEditClick(project, e)}>
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => handleDeleteClick(project, e)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Excluir
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
           ))}
         </div>
       )}
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogClose}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Projeto</DialogTitle>
+            <DialogDescription>
+              Altere os dados do projeto. A chave não pode ser modificada.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Nome do Projeto</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Meu Projeto Incrível"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-key">Chave</Label>
+              <Input
+                id="edit-key"
+                value={formData.key}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                A chave não pode ser alterada após a criação
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="edit-description">Descrição (opcional)</Label>
+              <Textarea
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Descrição do projeto..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-modules">Módulos (separados por vírgula)</Label>
+              <Input
+                id="edit-modules"
+                value={formData.modules}
+                onChange={(e) => setFormData({ ...formData, modules: e.target.value })}
+                placeholder="backend, frontend, mobile"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleEditDialogClose(false)}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar Alterações"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!projectToDelete} onOpenChange={(open) => !open && setProjectToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Você tem certeza?</DialogTitle>
+            <DialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente o projeto
+              <span className="font-medium text-foreground"> "{projectToDelete?.name}" </span>
+              {((projectToDelete?._count?.epics || 0) > 0 || (projectToDelete?._count?.tasks || 0) > 0) && (
+                <>
+                  e todos os seus itens associados ({projectToDelete?._count?.epics || 0} epics, {projectToDelete?._count?.tasks || 0} tasks).
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setProjectToDelete(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteProject}
+            >
+              Excluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

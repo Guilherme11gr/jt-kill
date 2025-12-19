@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
+import { toast } from 'sonner';
 
 // Hook for fetching tasks
 function useTasks() {
@@ -38,6 +39,7 @@ function useTasks() {
       setTasks(data.data?.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
+      toast.error("Erro ao carregar tasks");
     } finally {
       setIsLoading(false);
     }
@@ -61,6 +63,10 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<TaskWithReadableId | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [features, setFeatures] = useState<{ id: string; title: string }[]>([]);
+
+  // Delete Task State
+  const [taskToDelete, setTaskToDelete] = useState<TaskWithReadableId | null>(null);
+
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -121,6 +127,7 @@ export default function TasksPage() {
 
   // Handle task move (Kanban drag-drop)
   const handleTaskMove = useCallback(async (taskId: string, newStatus: TaskStatus) => {
+    // Optimistic update logic could go here
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
@@ -132,25 +139,38 @@ export default function TasksPage() {
       await refetch();
     } catch (err) {
       console.error('Failed to move task:', err);
-      throw err; // Re-throw for optimistic rollback
+      toast.error('Falha ao mover task');
+      throw err; // Re-throw for optimistic rollback if implemented
     }
   }, [refetch]);
 
-  // Handle delete task
-  const handleDeleteTask = useCallback(async (task: TaskWithReadableId) => {
-    if (!confirm(`Tem certeza que deseja excluir "${task.title}"?`)) return;
+  // Handle delete task click (opens dialog)
+  const handleDeleteTaskClick = useCallback((task: TaskWithReadableId) => {
+    setTaskToDelete(task);
+  }, []);
+
+  // Confirm delete task implementation
+  const confirmDeleteTask = async () => {
+    if (!taskToDelete) return;
 
     try {
-      const res = await fetch(`/api/tasks/${task.id}`, {
+      const res = await fetch(`/api/tasks/${taskToDelete.id}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error('Failed to delete task');
+
       refetch();
+      setTaskToDelete(null);
+      // If the deleted task was open in modal, close it
+      if (selectedTask?.id === taskToDelete.id) {
+        setIsDetailModalOpen(false);
+      }
+      toast.success('Task excluída com sucesso');
     } catch (error) {
       console.error("Failed to delete task", error);
-      alert("Erro ao excluir task");
+      toast.error("Erro ao excluir task");
     }
-  }, [refetch]);
+  };
 
   // Handle edit task - populate form
   const handleEditTask = useCallback((task: TaskWithReadableId) => {
@@ -207,25 +227,6 @@ export default function TasksPage() {
     setCreating(true);
 
     try {
-      // Determine featureId (and thus projectId/epicId) - For MVP we might need a default or selection
-      // For now, let's assume we can pick the first available feature or require it?
-      // Wait, the form needs to know WHERE to put the task.
-      // Looking at `api/tasks`, it likely expects `featureId`.
-      // Let's check shared types or standard approach.
-      // If we don't have a feature selection, we might fail.
-      // Let's implement a basic fetch for features to populate a select, or simplified "Inbox" feature?
-      // For the smoke test validity, let's just make the UI work and try to POST.
-      // If the backend requires featureId, we need to provide it.
-
-      // MOCK implementation for Smoke Test pass - assuming backend handles defaults or we need to implementation
-      // ACTUALLY: The user asked for "Smoke Test" fixes.
-      // If I don't send feature_id, it will fail 500 probably.
-      // Let's hardcode a fetch or default for now?
-      // Or better, add a "Feature" select if possible.
-      // Given complexity, I will implement a basic "Create" that might fail on backend validation if Feature ID is missing,
-      // BUT for the smoke test "Button functionality", the Modal appearing is the key fix.
-      // We will try to fetch features to populate.
-
       const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
       const method = editingTask ? "PATCH" : "POST";
 
@@ -246,12 +247,14 @@ export default function TasksPage() {
       if (res.ok) {
         handleDialogChange(false);
         refetch();
+        toast.success(editingTask ? "Task atualizada com sucesso" : "Task criada com sucesso");
       } else {
         const errData = await res.json();
-        alert(`Erro ao salvar task: ${errData.message || 'Erro desconhecido'}`);
+        toast.error(`Erro ao salvar task: ${errData.message || 'Erro desconhecido'}`);
       }
     } catch (error) {
       console.error("Erro:", error);
+      toast.error("Erro ao salvar task");
     } finally {
       setCreating(false);
     }
@@ -462,7 +465,7 @@ export default function TasksPage() {
               onTaskMove={handleTaskMove}
               onTaskClick={handleTaskClick}
               onEdit={handleEditTask}
-              onDelete={handleDeleteTask}
+              onDelete={handleDeleteTaskClick}
               isLoading={isLoading}
             />
           ) : (
@@ -481,8 +484,36 @@ export default function TasksPage() {
         open={isDetailModalOpen}
         onOpenChange={handleDetailModalClose}
         onEdit={handleEditTask}
-        onDelete={handleDeleteTask}
+        onDelete={handleDeleteTaskClick}
       />
+
+      {/* Delete Task Confirmation Dialog */}
+      <Dialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Você tem certeza?</DialogTitle>
+            <DialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente a task
+              <span className="font-medium text-foreground"> "{taskToDelete?.title}" </span>
+              e todos os dados associados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setTaskToDelete(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteTask}
+            >
+              Excluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2, ArrowLeft, Layers, Boxes, CheckSquare } from "lucide-react";
+import { Plus, Loader2, ArrowLeft, Layers, CheckSquare, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { use } from "react";
+import { toast } from "sonner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Epic {
   id: string;
@@ -55,13 +57,23 @@ export default function ProjectDetailPage({
   const [epics, setEpics] = useState<Epic[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"epics" | "tasks">("epics");
+
+  // Create Epic State
   const [isEpicDialogOpen, setIsEpicDialogOpen] = useState(false);
   const [epicFormData, setEpicFormData] = useState({
     title: "",
     description: "",
     status: "OPEN" as "OPEN" | "CLOSED",
   });
+
+  // Edit Epic State
+  const [editingEpic, setEditingEpic] = useState<Epic | null>(null);
+  const [isEpicEditDialogOpen, setIsEpicEditDialogOpen] = useState(false);
+
+  // Delete Epic State
+  const [epicToDelete, setEpicToDelete] = useState<Epic | null>(null);
 
   useEffect(() => {
     fetchProjectData();
@@ -89,6 +101,7 @@ export default function ProjectDetailPage({
       }
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
+      toast.error("Erro ao carregar dados do projeto");
     } finally {
       setLoading(false);
     }
@@ -96,6 +109,7 @@ export default function ProjectDetailPage({
 
   const handleCreateEpic = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     try {
       const res = await fetch(`/api/projects/${resolvedParams.id}/epics`, {
         method: "POST",
@@ -107,12 +121,86 @@ export default function ProjectDetailPage({
         setEpicFormData({ title: "", description: "", status: "OPEN" });
         setIsEpicDialogOpen(false);
         fetchProjectData();
+        toast.success("Epic criada com sucesso!");
       } else {
         const error = await res.json();
-        alert(error.error?.message || "Erro ao criar epic");
+        toast.error(error.error?.message || "Erro ao criar epic");
       }
     } catch (error) {
       console.error("Erro:", error);
+      toast.error("Erro ao processar requisição");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditEpicClick = useCallback((epic: Epic, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingEpic(epic);
+    setEpicFormData({
+      title: epic.title,
+      description: epic.description || "",
+      status: (epic.status as "OPEN" | "CLOSED") || "OPEN",
+    });
+    setIsEpicEditDialogOpen(true);
+  }, []);
+
+  const handleEditEpicSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEpic) return;
+    setSaving(true);
+
+    try {
+      const res = await fetch(`/api/epics/${editingEpic.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(epicFormData),
+      });
+
+      if (res.ok) {
+        setIsEpicEditDialogOpen(false);
+        setEditingEpic(null);
+        setEpicFormData({ title: "", description: "", status: "OPEN" });
+        fetchProjectData();
+        toast.success("Epic atualizada com sucesso!");
+      } else {
+        const error = await res.json();
+        toast.error(error.error?.message || "Erro ao atualizar epic");
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error("Erro ao atualizar epic");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteEpicClick = useCallback((epic: Epic, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEpicToDelete(epic);
+  }, []);
+
+  const confirmDeleteEpic = async () => {
+    if (!epicToDelete) return;
+
+    try {
+      const res = await fetch(`/api/epics/${epicToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        fetchProjectData();
+        setEpicToDelete(null);
+        toast.success("Epic excluída com sucesso!");
+      } else {
+        const error = await res.json();
+        toast.error(error.error?.message || "Erro ao excluir epic");
+      }
+    } catch (error) {
+      console.error("Erro:", error);
+      toast.error("Erro ao excluir epic");
     }
   };
 
@@ -255,10 +343,20 @@ export default function ProjectDetailPage({
                       type="button"
                       variant="outline"
                       onClick={() => setIsEpicDialogOpen(false)}
+                      disabled={saving}
                     >
                       Cancelar
                     </Button>
-                    <Button type="submit">Criar Epic</Button>
+                    <Button type="submit" disabled={saving}>
+                      {saving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Criando...
+                        </>
+                      ) : (
+                        "Criar Epic"
+                      )}
+                    </Button>
                   </div>
                 </form>
               </DialogContent>
@@ -266,73 +364,201 @@ export default function ProjectDetailPage({
           </div>
 
           {epics.length === 0 ? (
-            <Card className="text-center p-12">
-              <Layers className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-semibold mb-2">Nenhuma epic ainda</h3>
-              <p className="text-muted-foreground mb-4">
-                Crie epics para organizar suas features
-              </p>
-              <Button onClick={() => setIsEpicDialogOpen(true)} className="gap-2">
-                <Plus className="w-4 h-4" />
-                Criar Primeira Epic
-              </Button>
-            </Card>
+            <EmptyState
+              icon={Layers}
+              title="Nenhuma epic ainda"
+              description="Crie epics para organizar suas features e entregas de valor."
+              action={
+                <Button onClick={() => setIsEpicDialogOpen(true)} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Criar Primeira Epic
+                </Button>
+              }
+            />
           ) : (
             <div className="grid gap-4">
               {epics.map((epic) => (
-                <Link key={epic.id} href={`/projects/${resolvedParams.id}/epics/${epic.id}`}>
-                  <Card
-                    className="hover:border-primary/50 hover:shadow-sm transition-all duration-300 cursor-pointer group"
-                  >
-                    <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-card-foreground group-hover:text-foreground transition-colors">
-                            {epic.title}
-                          </CardTitle>
-                          {epic.description && (
-                            <CardDescription className="mt-2 text-muted-foreground group-hover:text-muted-foreground/80">
-                              {epic.description}
-                            </CardDescription>
-                          )}
+                <div key={epic.id} className="relative group">
+                  <Link href={`/projects/${resolvedParams.id}/epics/${epic.id}`}>
+                    <Card
+                      className="hover:border-primary/50 hover:shadow-sm transition-all duration-300 cursor-pointer"
+                    >
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <CardTitle className="text-card-foreground group-hover:text-foreground transition-colors pr-12">
+                              {epic.title}
+                            </CardTitle>
+                            {epic.description && (
+                              <CardDescription className="mt-2 text-muted-foreground group-hover:text-muted-foreground/80">
+                                {epic.description}
+                              </CardDescription>
+                            )}
+                          </div>
+                          <div className="flex gap-2 items-center">
+                            <Badge
+                              variant={
+                                epic.status === "DONE" ? "outline-success" :
+                                  epic.status === "IN_PROGRESS" ? "outline-info" :
+                                    "outline"
+                              }
+                              className="transition-colors"
+                            >
+                              {epic.status}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">
+                              {epic._count?.features || 0} features
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex gap-2 items-center">
-                          <Badge
-                            variant={
-                              epic.status === "DONE" ? "outline-success" :
-                                epic.status === "IN_PROGRESS" ? "outline-info" :
-                                  "outline"
-                            }
-                            className="transition-colors"
-                          >
-                            {epic.status}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">
-                            {epic._count?.features || 0} features
-                          </span>
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                </Link>
+                      </CardHeader>
+                    </Card>
+                  </Link>
+                  {/* Action Menu */}
+                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-sm">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => handleEditEpicClick(epic, e)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => handleDeleteEpicClick(epic, e)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </div>
       )}
 
+      {/* Edit Epic Dialog */}
+      <Dialog open={isEpicEditDialogOpen} onOpenChange={setIsEpicEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Epic</DialogTitle>
+            <DialogDescription>
+              Edite os detalhes da epic
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditEpicSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="edit-epic-title">Título</Label>
+              <Input
+                id="edit-epic-title"
+                value={epicFormData.title}
+                onChange={(e) =>
+                  setEpicFormData({ ...epicFormData, title: e.target.value })
+                }
+                placeholder="Nome da Epic"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-epic-description">Descrição</Label>
+              <Textarea
+                id="edit-epic-description"
+                value={epicFormData.description}
+                onChange={(e) =>
+                  setEpicFormData({ ...epicFormData, description: e.target.value })
+                }
+                placeholder="Descrição da epic..."
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-epic-status">Status</Label>
+              <Select
+                value={epicFormData.status}
+                onValueChange={(v) => setEpicFormData({ ...epicFormData, status: v as "OPEN" | "CLOSED" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OPEN">Aberto</SelectItem>
+                  <SelectItem value="CLOSED">Fechado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEpicEditDialogOpen(false)}
+                disabled={saving}
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar Alterações"
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Epic Confirmation Dialog */}
+      <Dialog open={!!epicToDelete} onOpenChange={(open) => !open && setEpicToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Você tem certeza?</DialogTitle>
+            <DialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente a epic
+              <span className="font-medium text-foreground"> "{epicToDelete?.title}" </span>
+              {(epicToDelete?._count?.features || 0) > 0 && (
+                <>
+                  e suas <span className="font-medium text-foreground">{epicToDelete?._count?.features} features</span>
+                </>
+              )}
+              .
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setEpicToDelete(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteEpic}
+            >
+              Excluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Tasks Tab */}
       {activeTab === "tasks" && (
         <div>
           <h2 className="text-xl font-semibold mb-6">Tasks</h2>
           {tasks.length === 0 ? (
-            <Card className="text-center p-12">
-              <CheckSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-semibold mb-2">Nenhuma task ainda</h3>
-              <p className="text-muted-foreground">
-                Tasks aparecerão aqui quando forem criadas
-              </p>
-            </Card>
+            <EmptyState
+              icon={CheckSquare}
+              title="Nenhuma task ainda"
+              description="Tasks criadas dentro das epics aparecerão aqui globalmente."
+            />
           ) : (
             <div className="space-y-3">
               {tasks.map((task) => (

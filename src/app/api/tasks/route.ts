@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
 
     return jsonSuccess(task, { status: 201 });
 
-  } catch (error) {
-    const { status, body } = handleError(error);
-    return jsonError(body.error.code, body.error.message, status);
+  } catch (error: any) {
+    // const { status, body } = handleError(error);
+    return jsonError('INTERNAL_ERROR', error.message || String(error), 500);
   }
 }

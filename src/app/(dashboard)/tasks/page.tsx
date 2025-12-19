@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Plus, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +12,7 @@ import {
   type ViewMode,
   type TaskFiltersState,
 } from '@/components/features/tasks';
+import { TaskDetailModal } from '@/components/features/tasks/task-detail-modal';
 import { KanbanBoard } from '@/lib/views/kanban';
 import { TaskTable } from '@/lib/views/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -50,10 +52,14 @@ function useTasks() {
 }
 
 export default function TasksPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [view, setView] = useState<ViewMode>('kanban');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithReadableId | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskWithReadableId | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [features, setFeatures] = useState<{ id: string; title: string }[]>([]);
   const [formData, setFormData] = useState({
     title: "",
@@ -251,11 +257,40 @@ export default function TasksPage() {
     }
   };
 
-  // Handle task click (open modal - TODO)
+  // Handle task click - open detail modal and update URL
   const handleTaskClick = useCallback((task: TaskWithReadableId) => {
-    console.log('Task clicked:', task.readableId);
-    // TODO: Open task modal
-  }, []);
+    setSelectedTask(task);
+    setIsDetailModalOpen(true);
+    // Update URL with task id for sharing
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('task', task.id);
+    router.push(`/tasks?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
+  // Handle closing detail modal
+  const handleDetailModalClose = useCallback((open: boolean) => {
+    setIsDetailModalOpen(open);
+    if (!open) {
+      setSelectedTask(null);
+      // Remove task param from URL
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('task');
+      const newUrl = params.toString() ? `/tasks?${params.toString()}` : '/tasks';
+      router.push(newUrl, { scroll: false });
+    }
+  }, [router, searchParams]);
+
+  // Open task from URL query param
+  useEffect(() => {
+    const taskId = searchParams.get('task');
+    if (taskId && tasks.length > 0 && !isDetailModalOpen) {
+      const task = tasks.find(t => t.id === taskId);
+      if (task) {
+        setSelectedTask(task);
+        setIsDetailModalOpen(true);
+      }
+    }
+  }, [searchParams, tasks, isDetailModalOpen]);
 
   return (
     <div className="space-y-6">
@@ -425,7 +460,7 @@ export default function TasksPage() {
             <KanbanBoard
               tasks={filteredTasks}
               onTaskMove={handleTaskMove}
-              onTaskClick={handleEditTask}
+              onTaskClick={handleTaskClick}
               onEdit={handleEditTask}
               onDelete={handleDeleteTask}
               isLoading={isLoading}
@@ -433,12 +468,21 @@ export default function TasksPage() {
           ) : (
             <TaskTable
               tasks={filteredTasks}
-              onTaskClick={handleEditTask}
+              onTaskClick={handleTaskClick}
               isLoading={isLoading}
             />
           )}
         </div>
       )}
+
+      {/* Task Detail Modal */}
+      <TaskDetailModal
+        task={selectedTask}
+        open={isDetailModalOpen}
+        onOpenChange={handleDetailModalClose}
+        onEdit={handleEditTask}
+        onDelete={handleDeleteTask}
+      />
     </div>
   );
 }

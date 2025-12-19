@@ -16,37 +16,15 @@ import { KanbanBoard } from '@/lib/views/kanban';
 import { TaskTable } from '@/lib/views/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
-import { toast } from 'sonner';
-
-// Hook for fetching tasks
-function useTasks() {
-  const [tasks, setTasks] = useState<TaskWithReadableId[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchTasks = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/tasks?pageSize=100');
-      if (!res.ok) throw new Error('Failed to fetch tasks');
-      const data = await res.json();
-      setTasks(data.data?.items || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      toast.error("Erro ao carregar tasks");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Initial fetch
-  useState(() => {
-    fetchTasks();
-  });
-
-  return { tasks, isLoading, error, refetch: fetchTasks, setTasks };
-}
+import {
+  useTasks,
+  useProjects,
+  useModules,
+  useMoveTask,
+  useDeleteTask,
+  useAllFeatures,
+} from '@/lib/query';
+import { useAllEpics } from '@/lib/query/hooks/use-epics';
 
 export default function TasksPage() {
   const router = useRouter();
@@ -56,8 +34,6 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<TaskWithReadableId | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskWithReadableId | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [features, setFeatures] = useState<{ id: string; title: string }[]>([]);
-  const [modules, setModules] = useState<string[]>([]);
 
   // Delete Task State
   const [taskToDelete, setTaskToDelete] = useState<TaskWithReadableId | null>(null);
@@ -67,9 +43,28 @@ export default function TasksPage() {
     status: 'all',
     priority: 'all',
     module: 'all',
+    projectId: 'all',
+    epicId: 'all',
+    featureId: 'all',
   });
 
-  const { tasks, isLoading, error, refetch } = useTasks();
+  // React Query hooks for shared cache
+  const { data: tasksData, isLoading, error, refetch, isFetching } = useTasks();
+  const { data: projectsData } = useProjects();
+  const { data: epicsData } = useAllEpics();
+  const { data: featuresData } = useAllFeatures();
+  const { data: modulesData } = useModules();
+
+  // Mutations
+  const moveTaskMutation = useMoveTask();
+  const deleteTaskMutation = useDeleteTask();
+
+  // Derived data
+  const tasks = tasksData?.items ?? [];
+  const projects = projectsData ?? [];
+  const epics = epicsData ?? [];
+  const features = featuresData ?? [];
+  const modules = modulesData ?? [];
 
   // Filter tasks client-side
   const filteredTasks = useMemo(() => {
@@ -97,26 +92,32 @@ export default function TasksPage() {
         return false;
       }
 
+      // Project (via feature.epic.project)
+      if (filters.projectId !== 'all') {
+        const projectId = task.feature?.epic?.project?.id;
+        if (projectId !== filters.projectId) return false;
+      }
+
+      // Epic (via feature.epic)
+      if (filters.epicId !== 'all') {
+        const epicId = task.feature?.epic?.id;
+        if (epicId !== filters.epicId) return false;
+      }
+
+      // Feature
+      if (filters.featureId !== 'all') {
+        const featureId = task.feature?.id || task.featureId;
+        if (featureId !== filters.featureId) return false;
+      }
+
       return true;
     });
   }, [tasks, filters]);
 
-  // Handle task move (Kanban drag-drop)
+  // Handle task move (Kanban drag-drop) - now uses optimistic updates
   const handleTaskMove = useCallback(async (taskId: string, newStatus: TaskStatus) => {
-    try {
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) throw new Error('Failed to update task');
-      await refetch();
-    } catch (err) {
-      console.error('Failed to move task:', err);
-      toast.error('Falha ao mover task');
-      throw err;
-    }
-  }, [refetch]);
+    await moveTaskMutation.mutateAsync({ id: taskId, status: newStatus });
+  }, [moveTaskMutation]);
 
   // Handle delete task click (opens dialog)
   const handleDeleteTaskClick = useCallback((task: TaskWithReadableId) => {
@@ -127,22 +128,11 @@ export default function TasksPage() {
   const confirmDeleteTask = async () => {
     if (!taskToDelete) return;
 
-    try {
-      const res = await fetch(`/api/tasks/${taskToDelete.id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Failed to delete task');
-
-      refetch();
-      setTaskToDelete(null);
-      // If the deleted task was open in modal, close it
-      if (selectedTask?.id === taskToDelete.id) {
-        setIsDetailModalOpen(false);
-      }
-      toast.success('Task excluída com sucesso');
-    } catch (error) {
-      console.error("Failed to delete task", error);
-      toast.error("Erro ao excluir task");
+    await deleteTaskMutation.mutateAsync(taskToDelete.id);
+    setTaskToDelete(null);
+    // If the deleted task was open in modal, close it
+    if (selectedTask?.id === taskToDelete.id) {
+      setIsDetailModalOpen(false);
     }
   };
 
@@ -159,46 +149,6 @@ export default function TasksPage() {
       setEditingTask(null);
     }
   };
-
-  // Fetch features for dropdown
-  const fetchFeatures = useCallback(async () => {
-    try {
-      const res = await fetch('/api/features');
-      if (res.ok) {
-        const data = await res.json();
-        setFeatures(data.data || []);
-      }
-    } catch (error) {
-      console.error("Failed to fetch features", error);
-    }
-  }, []);
-
-  // Fetch features on mount
-  useState(() => {
-    fetchFeatures();
-  });
-
-  // Fetch modules from projects
-  const fetchModules = useCallback(async () => {
-    try {
-      const res = await fetch('/api/projects');
-      if (res.ok) {
-        const data = await res.json();
-        const allModules = new Set<string>();
-        (data.data || []).forEach((project: { modules?: string[] }) => {
-          project.modules?.forEach((m: string) => allModules.add(m));
-        });
-        setModules(Array.from(allModules).sort());
-      }
-    } catch (error) {
-      console.error("Failed to fetch modules", error);
-    }
-  }, []);
-
-  // Fetch modules on mount
-  useState(() => {
-    fetchModules();
-  });
 
   // Handle task click - open detail modal and update URL
   const handleTaskClick = useCallback((task: TaskWithReadableId) => {
@@ -296,6 +246,9 @@ export default function TasksPage() {
         filters={filters}
         onChange={setFilters}
         modules={modules}
+        projects={projects}
+        epics={epics}
+        features={features}
       />
 
       {/* Error state */}

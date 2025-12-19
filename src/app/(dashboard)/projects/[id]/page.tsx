@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useCallback, use } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,8 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Loader2, ArrowLeft, Layers, CheckSquare, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useProject, useEpics, useTasks } from "@/lib/query";
+import { useCreateEpic, useUpdateEpic, useDeleteEpic } from "@/lib/query/hooks/use-epics";
 
 interface Epic {
   id: string;
@@ -21,14 +22,6 @@ interface Epic {
   description: string | null;
   status: string;
   _count?: { features: number };
-}
-
-interface Feature {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  epicId: string;
 }
 
 interface Task {
@@ -53,11 +46,21 @@ export default function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const resolvedParams = use(params);
-  const [project, setProject] = useState<any>(null);
-  const [epics, setEpics] = useState<Epic[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  // React Query hooks
+  const { data: project, isLoading: projectLoading } = useProject(resolvedParams.id);
+  const { data: epics = [], isLoading: epicsLoading } = useEpics(resolvedParams.id);
+  const { data: tasksData } = useTasks({ projectId: resolvedParams.id });
+  const tasks = (tasksData?.items ?? []) as Task[];
+
+  // Mutations
+  const createEpicMutation = useCreateEpic();
+  const updateEpicMutation = useUpdateEpic();
+  const deleteEpicMutation = useDeleteEpic();
+
+  const loading = projectLoading || epicsLoading;
+  const saving = createEpicMutation.isPending || updateEpicMutation.isPending;
+
   const [activeTab, setActiveTab] = useState<"epics" | "tasks">("epics");
 
   // Create Epic State
@@ -75,62 +78,18 @@ export default function ProjectDetailPage({
   // Delete Epic State
   const [epicToDelete, setEpicToDelete] = useState<Epic | null>(null);
 
-  useEffect(() => {
-    fetchProjectData();
-  }, [resolvedParams.id]);
-
-  const fetchProjectData = async () => {
-    try {
-      const [projectRes, epicsRes, tasksRes] = await Promise.all([
-        fetch(`/api/projects/${resolvedParams.id}`),
-        fetch(`/api/projects/${resolvedParams.id}/epics`),
-        fetch(`/api/tasks?projectId=${resolvedParams.id}`),
-      ]);
-
-      if (projectRes.ok) {
-        const projectData = await projectRes.json();
-        setProject(projectData.data || projectData);
-      }
-      if (epicsRes.ok) {
-        const epicsData = await epicsRes.json();
-        setEpics(epicsData.data || []);
-      }
-      if (tasksRes.ok) {
-        const data = await tasksRes.json();
-        setTasks(data.data?.items || data.items || []);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-      toast.error("Erro ao carregar dados do projeto");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleCreateEpic = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${resolvedParams.id}/epics`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(epicFormData),
+      await createEpicMutation.mutateAsync({
+        projectId: resolvedParams.id,
+        title: epicFormData.title,
+        description: epicFormData.description || undefined,
       });
-
-      if (res.ok) {
-        setEpicFormData({ title: "", description: "", status: "OPEN" });
-        setIsEpicDialogOpen(false);
-        fetchProjectData();
-        toast.success("Epic criada com sucesso!");
-      } else {
-        const error = await res.json();
-        toast.error(error.error?.message || "Erro ao criar epic");
-      }
+      setEpicFormData({ title: "", description: "", status: "OPEN" });
+      setIsEpicDialogOpen(false);
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao processar requisição");
-    } finally {
-      setSaving(false);
+      // Error handled by mutation
     }
   };
 
@@ -149,30 +108,20 @@ export default function ProjectDetailPage({
   const handleEditEpicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEpic) return;
-    setSaving(true);
 
     try {
-      const res = await fetch(`/api/epics/${editingEpic.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(epicFormData),
+      await updateEpicMutation.mutateAsync({
+        id: editingEpic.id,
+        data: {
+          title: epicFormData.title,
+          description: epicFormData.description || undefined,
+        },
       });
-
-      if (res.ok) {
-        setIsEpicEditDialogOpen(false);
-        setEditingEpic(null);
-        setEpicFormData({ title: "", description: "", status: "OPEN" });
-        fetchProjectData();
-        toast.success("Epic atualizada com sucesso!");
-      } else {
-        const error = await res.json();
-        toast.error(error.error?.message || "Erro ao atualizar epic");
-      }
+      setIsEpicEditDialogOpen(false);
+      setEditingEpic(null);
+      setEpicFormData({ title: "", description: "", status: "OPEN" });
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao atualizar epic");
-    } finally {
-      setSaving(false);
+      // Error handled by mutation
     }
   };
 
@@ -186,21 +135,10 @@ export default function ProjectDetailPage({
     if (!epicToDelete) return;
 
     try {
-      const res = await fetch(`/api/epics/${epicToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        fetchProjectData();
-        setEpicToDelete(null);
-        toast.success("Epic excluída com sucesso!");
-      } else {
-        const error = await res.json();
-        toast.error(error.error?.message || "Erro ao excluir epic");
-      }
+      await deleteEpicMutation.mutateAsync(epicToDelete.id);
+      setEpicToDelete(null);
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao excluir epic");
+      // Error handled by mutation
     }
   };
 

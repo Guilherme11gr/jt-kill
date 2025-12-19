@@ -160,6 +160,7 @@ BACKLOG → TODO → DOING → REVIEW → QA_READY → DONE
 
 | Informação | Arquivo |
 |------------|---------|
+| **Roadmap técnico** | `docs/ROADMAP.md` |
 | Schema do banco | `docs/database/schema.md` |
 | Workflows detalhados | `docs/architecture/workflows.md` |
 | Modelo de domínio | `docs/architecture/domain-model.md` |

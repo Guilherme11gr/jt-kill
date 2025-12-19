@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
+import { useState, useCallback, use } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -13,8 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Plus, Box, Loader2, MoreVertical, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature } from "@/lib/query";
 
 interface Feature {
   id: string;
@@ -24,14 +24,6 @@ interface Feature {
   _count?: { tasks: number };
 }
 
-interface Epic {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  epicId: string;
-}
-
 export default function EpicDetailPage({
   params,
 }: {
@@ -39,10 +31,18 @@ export default function EpicDetailPage({
 }) {
   const resolvedParams = use(params);
   const router = useRouter();
-  const [epic, setEpic] = useState<Epic | null>(null);
-  const [features, setFeatures] = useState<Feature[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  // React Query hooks
+  const { data: epic, isLoading: epicLoading } = useEpic(resolvedParams.epicId);
+  const { data: features = [], isLoading: featuresLoading } = useFeaturesByEpic(resolvedParams.epicId);
+
+  // Mutations
+  const createFeatureMutation = useCreateFeature();
+  const updateFeatureMutation = useUpdateFeature();
+  const deleteFeatureMutation = useDeleteFeature();
+
+  const loading = epicLoading || featuresLoading;
+  const saving = createFeatureMutation.isPending || updateFeatureMutation.isPending;
 
   // Create Feature State
   const [isFeatureDialogOpen, setIsFeatureDialogOpen] = useState(false);
@@ -59,56 +59,18 @@ export default function EpicDetailPage({
   // Delete Feature State
   const [featureToDelete, setFeatureToDelete] = useState<Feature | null>(null);
 
-  useEffect(() => {
-    fetchEpicData();
-  }, [resolvedParams.epicId]);
-
-  const fetchEpicData = async () => {
-    try {
-      const [epicRes, featuresRes] = await Promise.all([
-        fetch(`/api/epics/${resolvedParams.epicId}`),
-        fetch(`/api/epics/${resolvedParams.epicId}/features`),
-      ]);
-
-      if (epicRes.ok) {
-        const data = await epicRes.json();
-        setEpic(data.data);
-      }
-      if (featuresRes.ok) {
-        const data = await featuresRes.json();
-        setFeatures(data.data || []);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-      toast.error("Erro ao carregar dados da epic");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleCreateFeature = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
     try {
-      const res = await fetch(`/api/epics/${resolvedParams.epicId}/features`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(featureFormData),
+      await createFeatureMutation.mutateAsync({
+        epicId: resolvedParams.epicId,
+        title: featureFormData.title,
+        description: featureFormData.description || undefined,
       });
-
-      if (res.ok) {
-        setFeatureFormData({ title: "", description: "", status: "BACKLOG" });
-        setIsFeatureDialogOpen(false);
-        fetchEpicData();
-        toast.success("Feature criada com sucesso!");
-      } else {
-        toast.error("Erro ao criar feature");
-      }
+      setFeatureFormData({ title: "", description: "", status: "BACKLOG" });
+      setIsFeatureDialogOpen(false);
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao criar feature");
-    } finally {
-      setSaving(false);
+      // Error handled by mutation
     }
   };
 
@@ -127,29 +89,20 @@ export default function EpicDetailPage({
   const handleEditFeatureSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingFeature) return;
-    setSaving(true);
 
     try {
-      const res = await fetch(`/api/features/${editingFeature.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(featureFormData),
+      await updateFeatureMutation.mutateAsync({
+        id: editingFeature.id,
+        data: {
+          title: featureFormData.title,
+          description: featureFormData.description || undefined,
+        },
       });
-
-      if (res.ok) {
-        setIsFeatureEditDialogOpen(false);
-        setEditingFeature(null);
-        setFeatureFormData({ title: "", description: "", status: "BACKLOG" });
-        fetchEpicData();
-        toast.success("Feature atualizada com sucesso!");
-      } else {
-        toast.error("Erro ao atualizar feature");
-      }
+      setIsFeatureEditDialogOpen(false);
+      setEditingFeature(null);
+      setFeatureFormData({ title: "", description: "", status: "BACKLOG" });
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao atualizar feature");
-    } finally {
-      setSaving(false);
+      // Error handled by mutation
     }
   };
 
@@ -163,20 +116,10 @@ export default function EpicDetailPage({
     if (!featureToDelete) return;
 
     try {
-      const res = await fetch(`/api/features/${featureToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        fetchEpicData();
-        setFeatureToDelete(null);
-        toast.success("Feature excluída com sucesso!");
-      } else {
-        toast.error("Erro ao excluir feature");
-      }
+      await deleteFeatureMutation.mutateAsync(featureToDelete.id);
+      setFeatureToDelete(null);
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao excluir feature");
+      // Error handled by mutation
     }
   };
 

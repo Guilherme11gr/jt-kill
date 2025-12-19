@@ -71,9 +71,19 @@ export function StatusColumnHeader({ status, count }: StatusColumnHeaderProps) {
   const style = STATUS_STYLES[status];
 
   return (
-    <div className="flex items-center gap-2">
-      <span className={cn('font-medium', style.text)}>{style.label}</span>
-      <span className="text-xs text-muted-foreground">({count})</span>
+    <div className="flex items-center justify-between">
+      <div className={cn(
+        "flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors",
+        style.bg.replace('/20', '/10'), // Lighter bg
+        style.text,
+        "border-transparent"
+      )}>
+        <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
+        {style.label}
+      </div>
+      <span className="text-xs font-medium text-muted-foreground bg-background/50 px-2 py-0.5 rounded-md border shadow-sm h-6 min-w-[1.5rem] flex items-center justify-center">
+        {count}
+      </span>
     </div>
   );
 }

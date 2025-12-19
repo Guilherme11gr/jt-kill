@@ -39,12 +39,27 @@ export const taskTypeSchema = z.enum(['TASK', 'BUG']);
 // Task priority validator
 export const taskPrioritySchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 
-// Story points validator (Fibonacci)
-export const storyPointsSchema = z
-  .number()
-  .int()
-  .refine((v) => [1, 2, 3, 5, 8, 13, 21].includes(v), 'Deve ser Fibonacci')
-  .nullable();
+// Story points validator (Fibonacci) - handles string inputs from forms
+export const storyPointsSchema = z.preprocess(
+  (val) => {
+    if (typeof val === 'string') {
+      if (val === 'Sem estimativa' || val === '') return null;
+      const num = Number(val);
+      return isNaN(num) ? null : num;
+    }
+    return val;
+  },
+  z.union([
+    z.literal(0),
+    z.literal(1),
+    z.literal(2),
+    z.literal(3),
+    z.literal(5),
+    z.literal(8),
+    z.literal(13),
+    z.literal(21),
+  ]).nullable()
+);
 
 // Create task input validator
 export const createTaskSchema = z.object({

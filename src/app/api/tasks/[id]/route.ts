@@ -7,18 +7,7 @@ import { taskRepository } from '@/infra/adapters/prisma';
 import { updateTask } from '@/domain/use-cases/tasks/update-task';
 import { deleteTask } from '@/domain/use-cases/tasks/delete-task';
 import type { StoryPoints } from '@/shared/types';
-import { z } from 'zod';
-
-const updateTaskSchema = z.object({
-  title: z.string().min(1).max(500).optional(),
-  description: z.string().max(10000).nullable().optional(),
-  status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE']).optional(),
-  type: z.enum(['TASK', 'BUG']).optional(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
-  points: z.number().int().refine((v) => [1, 2, 3, 5, 8, 13, 21].includes(v)).nullable().optional(),
-  module: z.string().max(50).nullable().optional(),
-  assigneeId: z.string().uuid().nullable().optional(),
-});
+import { updateTaskSchema } from '@/shared/utils';
 
 /**
  * GET /api/tasks/[id] - Get task with relations

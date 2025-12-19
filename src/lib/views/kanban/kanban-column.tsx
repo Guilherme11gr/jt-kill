@@ -35,9 +35,8 @@ export function KanbanColumn({ status, tasks, onTaskClick, onEdit, onDelete }: K
     <div
       ref={setNodeRef}
       className={cn(
-        'flex-shrink-0 w-72 bg-card rounded-lg p-4',
-        'transition-colors duration-200',
-        isOver && 'bg-accent/50 ring-1 ring-primary/50'
+        'flex-shrink-0 w-80 bg-muted/30 rounded-xl p-4 border border-transparent hover:border-border/40 transition-all duration-300',
+        isOver && 'bg-accent/40 ring-2 ring-primary/20 border-primary/30'
       )}
     >
       {/* Header */}
@@ -59,8 +58,8 @@ export function KanbanColumn({ status, tasks, onTaskClick, onEdit, onDelete }: K
 
         {/* Empty state */}
         {tasks.length === 0 && (
-          <div className="flex items-center justify-center h-24 border border-dashed rounded-lg">
-            <p className="text-xs text-muted-foreground">Arraste tasks aqui</p>
+          <div className="flex items-center justify-center h-24 border-2 border-dashed border-muted-foreground/10 rounded-lg bg-background/20">
+            <p className="text-xs text-muted-foreground/60 font-medium">Vazio</p>
           </div>
         )}
       </div>

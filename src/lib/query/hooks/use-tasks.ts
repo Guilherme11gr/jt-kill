@@ -1,0 +1,179 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '../query-keys';
+import { CACHE_TIMES } from '../cache-config';
+import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
+import type { TaskFiltersState } from '@/components/features/tasks';
+import { toast } from 'sonner';
+
+// ============ Types ============
+
+interface TasksResponse {
+  items: TaskWithReadableId[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+interface UpdateTaskInput {
+  id: string;
+  data: Partial<{
+    title: string;
+    description: string;
+    status: TaskStatus;
+    priority: string;
+    points: number | null;
+    module: string | null;
+    assigneeId: string | null;
+  }>;
+}
+
+// ============ Fetch Functions ============
+
+async function fetchTasks(filters?: Partial<TaskFiltersState>): Promise<TasksResponse> {
+  const params = new URLSearchParams();
+  params.set('pageSize', '100');
+
+  // Add filters to params (skip 'all' values)
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value !== 'all' && value !== '') {
+        params.set(key, String(value));
+      }
+    });
+  }
+
+  const res = await fetch(`/api/tasks?${params.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch tasks');
+  const json = await res.json();
+  return json.data;
+}
+
+async function updateTask({ id, data }: UpdateTaskInput): Promise<TaskWithReadableId> {
+  const res = await fetch(`/api/tasks/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update task');
+  const json = await res.json();
+  return json.data;
+}
+
+async function deleteTask(id: string): Promise<void> {
+  const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to delete task');
+}
+
+// ============ Hooks ============
+
+/**
+ * Fetch tasks with filters
+ * 
+ * @example
+ * const { data, isLoading } = useTasks({ status: 'DOING' });
+ */
+export function useTasks(filters?: Partial<TaskFiltersState>) {
+  return useQuery({
+    queryKey: queryKeys.tasks.list(filters),
+    queryFn: () => fetchTasks(filters),
+    ...CACHE_TIMES.FRESH,
+  });
+}
+
+/**
+ * Update a task
+ * Automatically invalidates task list cache on success.
+ * 
+ * @example
+ * const { mutate } = useUpdateTask();
+ * mutate({ id: 'uuid', data: { status: 'DONE' } });
+ */
+export function useUpdateTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateTask,
+    onSuccess: () => {
+      // Invalidate all task lists to refresh data
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+    },
+    onError: (error) => {
+      toast.error('Erro ao atualizar task');
+      console.error('Update task error:', error);
+    },
+  });
+}
+
+/**
+ * Delete a task
+ * Automatically invalidates task list cache on success.
+ */
+export function useDeleteTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+      toast.success('Task excluída');
+    },
+    onError: (error) => {
+      toast.error('Erro ao excluir task');
+      console.error('Delete task error:', error);
+    },
+  });
+}
+
+/**
+ * Move task to new status (optimistic update)
+ * Updates UI immediately, reverts on error.
+ */
+export function useMoveTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
+      updateTask({ id, data: { status } }),
+
+    // Optimistic update
+    onMutate: async ({ id, status }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() });
+
+      // Snapshot previous value
+      const previousTasks = queryClient.getQueriesData({ queryKey: queryKeys.tasks.lists() });
+
+      // Optimistically update
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.tasks.lists() },
+        (old: TasksResponse | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((task) =>
+              task.id === id ? { ...task, status } : task
+            ),
+          };
+        }
+      );
+
+      return { previousTasks };
+    },
+
+    onError: (_err, _vars, context) => {
+      // Revert on error
+      if (context?.previousTasks) {
+        context.previousTasks.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+      toast.error('Erro ao mover task');
+    },
+
+    onSettled: () => {
+      // Refetch after mutation settles
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+    },
+  });
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -13,6 +13,7 @@ import { Plus, FolderKanban, Loader2, MoreHorizontal, Pencil, Trash2 } from "luc
 import Link from "next/link";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from "@/lib/query";
 
 interface Project {
   id: string;
@@ -27,9 +28,12 @@ interface Project {
 }
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  // React Query hooks
+  const { data: projects = [], isLoading: loading } = useProjects();
+  const createProjectMutation = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
+  const deleteProjectMutation = useDeleteProject();
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -44,61 +48,26 @@ export default function ProjectsPage() {
     modules: "",
   });
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
-    try {
-      const res = await fetch("/api/projects");
-      if (res.ok) {
-        const response = await res.json();
-        setProjects(response.data || []);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar projetos:", error);
-      toast.error("Erro ao carregar projetos");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const resetForm = () => {
     setFormData({ name: "", key: "", description: "", modules: "" });
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
 
     try {
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: formData.name,
-          key: formData.key.toUpperCase(),
-          description: formData.description || null,
-          modules: formData.modules
-            ? formData.modules.split(",").map((m) => m.trim()).filter(Boolean)
-            : [],
-        }),
+      await createProjectMutation.mutateAsync({
+        name: formData.name,
+        key: formData.key.toUpperCase(),
+        description: formData.description || undefined,
+        modules: formData.modules
+          ? formData.modules.split(",").map((m) => m.trim()).filter(Boolean)
+          : [],
       });
-
-      if (res.ok) {
-        resetForm();
-        setIsCreateDialogOpen(false);
-        fetchProjects();
-        toast.success("Projeto criado com sucesso!");
-      } else {
-        const error = await res.json();
-        toast.error(error.error?.message || "Erro ao criar projeto");
-      }
+      resetForm();
+      setIsCreateDialogOpen(false);
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao criar projeto");
-    } finally {
-      setSaving(false);
+      // Error handled by mutation
     }
   };
 
@@ -118,36 +87,23 @@ export default function ProjectsPage() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject) return;
-    setSaving(true);
 
     try {
-      const res = await fetch(`/api/projects/${editingProject.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await updateProjectMutation.mutateAsync({
+        id: editingProject.id,
+        data: {
           name: formData.name,
-          description: formData.description || null,
+          description: formData.description || undefined,
           modules: formData.modules
             ? formData.modules.split(",").map((m) => m.trim()).filter(Boolean)
             : [],
-        }),
+        },
       });
-
-      if (res.ok) {
-        resetForm();
-        setEditingProject(null);
-        setIsEditDialogOpen(false);
-        fetchProjects();
-        toast.success("Projeto atualizado com sucesso!");
-      } else {
-        const error = await res.json();
-        toast.error(error.error?.message || "Erro ao atualizar projeto");
-      }
+      resetForm();
+      setEditingProject(null);
+      setIsEditDialogOpen(false);
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao atualizar projeto");
-    } finally {
-      setSaving(false);
+      // Error handled by mutation
     }
   };
 
@@ -161,21 +117,10 @@ export default function ProjectsPage() {
     if (!projectToDelete) return;
 
     try {
-      const res = await fetch(`/api/projects/${projectToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (res.ok) {
-        fetchProjects();
-        setProjectToDelete(null);
-        toast.success("Projeto excluído com sucesso!");
-      } else {
-        const error = await res.json();
-        toast.error(error.error?.message || "Erro ao excluir projeto");
-      }
+      await deleteProjectMutation.mutateAsync(projectToDelete.id);
+      setProjectToDelete(null);
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao excluir projeto");
+      // Error handled by mutation
     }
   };
 
@@ -186,6 +131,9 @@ export default function ProjectsPage() {
       resetForm();
     }
   };
+
+  // Derived state for saving indicator
+  const saving = createProjectMutation.isPending || updateProjectMutation.isPending;
 
   if (loading) {
     return (

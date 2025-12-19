@@ -80,17 +80,8 @@ export class TaskRepository {
         orgId: input.orgId,
         projectId: feature.epic.projectId, // Will be verified by trigger
         featureId: input.featureId,
-        // Bypass missing trigger by calculating localId manually
-        // localId: 0, 
-        localId: (await this.prisma.task.findFirst({
-          where: { projectId: feature.epic.projectId },
-          orderBy: { localId: 'desc' },
-          select: { localId: true }
-        }))?.localId ? (await this.prisma.task.findFirst({
-          where: { projectId: feature.epic.projectId },
-          orderBy: { localId: 'desc' },
-          select: { localId: true }
-        })).localId + 1 : 1,
+        // Calculate next localId (bypass missing trigger)
+        localId: await this.getNextLocalId(feature.epic.projectId),
         title: input.title,
         description: input.description,
         type: input.type ?? 'TASK',
@@ -124,7 +115,30 @@ export class TaskRepository {
 
     const tasks = await this.prisma.task.findMany({
       where,
-      include: {
+      select: {
+        id: true,
+        orgId: true,
+        projectId: true,
+        title: true,
+        description: true,
+        status: true,
+        type: true,
+        priority: true,
+        points: true,
+        module: true,
+        localId: true,
+        assigneeId: true,
+        featureId: true,
+        createdAt: true,
+        updatedAt: true,
+        // Use direct project relation (1 JOIN instead of 3)
+        project: {
+          select: {
+            id: true,
+            key: true,
+            name: true,
+          },
+        },
         feature: {
           select: {
             id: true,
@@ -133,34 +147,28 @@ export class TaskRepository {
               select: {
                 id: true,
                 title: true,
-                project: {
-                  select: {
-                    id: true,
-                    name: true,
-                    key: true,
-                  },
-                },
               },
             },
           },
         },
-        // Assignee info (from auth.users via Supabase)
-        // Note: Prisma doesn't have access to auth schema
-        // This would need to be fetched separately or via Supabase client
       },
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { [sortBy]: sortOrder },
     });
 
-    // Build readable IDs (APP-1, APP-2, etc)
-    // Cast points to StoryPoints type (Prisma returns number | null)
+    // Build readable IDs using direct project.key
     return tasks.map((task) => ({
       ...task,
-      readableId: buildReadableId(
-        task.feature.epic.project.key,
-        task.localId
-      ),
+      readableId: buildReadableId(task.project.key, task.localId),
+      // Add nested project for compatibility with existing frontend
+      feature: {
+        ...task.feature,
+        epic: {
+          ...task.feature.epic,
+          project: task.project,
+        },
+      },
     })) as TaskWithReadableId[];
   }
 
@@ -397,6 +405,19 @@ export class TaskRepository {
     }
 
     return where;
+  }
+
+  /**
+   * Get the next localId for a project (auto-increment workaround)
+   * @private
+   */
+  private async getNextLocalId(projectId: string): Promise<number> {
+    const lastTask = await this.prisma.task.findFirst({
+      where: { projectId },
+      orderBy: { localId: 'desc' },
+      select: { localId: true },
+    });
+    return (lastTask?.localId ?? 0) + 1;
   }
 
   /**

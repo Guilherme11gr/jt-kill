@@ -7,7 +7,7 @@ export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type PokerStatus = 'VOTING' | 'REVEALED' | 'CLOSED';
 
 // Fibonacci points
-export type StoryPoints = 1 | 2 | 3 | 5 | 8 | 13 | 21 | null;
+export type StoryPoints = 0 | 1 | 2 | 3 | 5 | 8 | 13 | 21 | null;
 export type PokerVote = 0 | 1 | 2 | 3 | 5 | 8 | 13 | 21; // 0 = "?"
 
 // Organization (Tenant)

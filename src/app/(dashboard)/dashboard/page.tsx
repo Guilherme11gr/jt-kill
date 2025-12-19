@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
+import { useTasks } from '@/lib/query';
 
 // Priority order for status (lower = higher priority)
 const statusPriority: Record<TaskStatus, number> = {
@@ -152,34 +153,16 @@ function ModuleSection({
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [tasks, setTasks] = useState<TaskWithReadableId[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  // Fetch my tasks (all tasks for now - in a real app, filter by assignee)
-  const fetchMyTasks = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Fetch tasks that are not DONE (active work)
-      const res = await fetch('/api/tasks?pageSize=100');
-      if (!res.ok) throw new Error('Failed to fetch tasks');
-      const data = await res.json();
-      // Filter out DONE tasks for "My Focus"
-      const activeTasks = (data.data?.items || []).filter(
-        (t: TaskWithReadableId) => t.status !== 'DONE'
-      );
-      setTasks(activeTasks);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  // Use React Query for shared cache with Kanban
+  const { data, isLoading, error, refetch, isFetching } = useTasks();
 
-  useEffect(() => {
-    fetchMyTasks();
-  }, [fetchMyTasks]);
+  // Filter out DONE tasks for "My Focus" view
+  const tasks = useMemo((): TaskWithReadableId[] => {
+    return (data?.items ?? []).filter(
+      (t: TaskWithReadableId) => t.status !== 'DONE'
+    );
+  }, [data?.items]);
 
   // Sort tasks: Bugs first, then by status priority, then by priority
   const sortedTasks = useMemo(() => {
@@ -249,10 +232,10 @@ export default function DashboardPage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={fetchMyTasks}
-            disabled={isLoading}
+            onClick={() => refetch()}
+            disabled={isFetching}
           >
-            {isLoading ? (
+            {isFetching ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <RefreshCw className="w-4 h-4" />
@@ -314,8 +297,8 @@ export default function DashboardPage() {
       {/* Error state */}
       {error && (
         <div className="p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/50">
-          <p>Erro ao carregar tasks: {error}</p>
-          <Button variant="outline" size="sm" onClick={fetchMyTasks} className="mt-2">
+          <p>Erro ao carregar tasks: {error.message}</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
             Tentar novamente
           </Button>
         </div>

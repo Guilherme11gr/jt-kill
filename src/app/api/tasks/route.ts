@@ -9,6 +9,7 @@ import { taskRepository } from '@/infra/adapters/prisma';
 import { searchTasks } from '@/domain/use-cases/tasks/search-tasks';
 import { createTask } from '@/domain/use-cases/tasks/create-task';
 import { z } from 'zod';
+import { createTaskSchema } from '@/shared/utils';
 
 const searchTasksSchema = z.object({
   status: z.string().or(z.array(z.string())).optional(),
@@ -50,24 +51,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-const createTaskSchema = z.object({
-  featureId: z.string().uuid(),
-  title: z.string().min(1).max(500),
-  description: z.string().max(10000).optional(),
-  type: z.enum(['TASK', 'BUG']).default('TASK'),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
-  points: z.union([
-    z.literal(1),
-    z.literal(2),
-    z.literal(3),
-    z.literal(5),
-    z.literal(8),
-    z.literal(13),
-    z.literal(21),
-  ]).optional().nullable(),
-  module: z.string().max(50).optional().nullable(),
-  assigneeId: z.string().uuid().optional().nullable(),
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,7 +69,6 @@ export async function POST(request: NextRequest) {
     const task = await createTask({
       orgId: tenantId,
       ...parsed.data,
-      // points: parsed.data.points,
     }, { taskRepository });
 
     return jsonSuccess(task, { status: 201 });

@@ -1,36 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback, use, useMemo } from "react";
+import { useState, useCallback, use, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Plus, Loader2, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CheckSquare } from "lucide-react";
 
-import { TaskDialog } from "@/components/features/tasks";
+import { TaskDialog, TaskDetailModal } from "@/components/features/tasks";
 import { KanbanBoard } from "@/lib/views/kanban";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import type { TaskWithReadableId, TaskStatus } from "@/shared/types";
-
-interface Feature {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  epic: {
-    id: string;
-    title: string;
-    project: {
-      id: string;
-      name: string;
-      key: string;
-      modules?: string[];
-    };
-  };
-}
+import { useFeature, useTasks, useProject, useMoveTask, useDeleteTask, useModules } from "@/lib/query";
 
 export default function FeatureDetailPage({
   params,
@@ -38,101 +22,52 @@ export default function FeatureDetailPage({
   params: Promise<{ id: string; epicId: string; featureId: string }>;
 }) {
   const resolvedParams = use(params);
-  const [feature, setFeature] = useState<Feature | null>(null);
-  const [tasks, setTasks] = useState<TaskWithReadableId[]>([]);
-  const [loading, setLoading] = useState(true);
+
+  // React Query hooks
+  const { data: feature, isLoading: featureLoading } = useFeature(resolvedParams.featureId);
+  const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks, isFetching } = useTasks({ featureId: resolvedParams.featureId });
+  const { data: modules = [] } = useModules();
+
+  // Mutations
+  const moveTaskMutation = useMoveTask();
+  const deleteTaskMutation = useDeleteTask();
+
+  const loading = featureLoading || tasksLoading;
+  const tasks = (tasksData?.items ?? []) as TaskWithReadableId[];
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   // Dialog States
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithReadableId | null>(null);
+
+  // Detail Modal State (sidebar)
+  const [selectedTask, setSelectedTask] = useState<TaskWithReadableId | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<TaskWithReadableId | null>(null);
 
-  // Data for Dialog
-  const [modules, setModules] = useState<string[]>([]);
-
-  const fetchFeatureData = async () => {
-    try {
-      const featureRes = await fetch(`/api/features/${resolvedParams.featureId}`);
-      if (!featureRes.ok) throw new Error("Falha ao carregar feature");
-
-      const featureData = await featureRes.json();
-      setFeature(featureData.data);
-
-      // Extract modules from project directly if available in feature response
-      // or fetch project details if needed. Assuming typical structure.
-      // If feature.epic.project has modules, use them.
-      // Otherwise might need to fetch project. For now, let's assume we can get it or lazy load.
-      // But let's fetch tasks first.
-    } catch (error) {
-      console.error("Erro ao buscar feature:", error);
-      toast.error("Erro ao carregar dados da feature");
-    }
-  };
-
-  const fetchTasks = async () => {
-    try {
-      const tasksRes = await fetch(`/api/tasks?featureId=${resolvedParams.featureId}&pageSize=100`);
-      if (tasksRes.ok) {
-        const data = await tasksRes.json();
-        setTasks(data.data?.items || []);
+  // Deep Linking Effect
+  useEffect(() => {
+    const taskIdFromUrl = searchParams.get('task');
+    if (taskIdFromUrl && tasks.length > 0) {
+      const task = tasks.find(t => t.id === taskIdFromUrl);
+      if (task) {
+        setSelectedTask(task);
+        setIsDetailModalOpen(true);
       }
-    } catch (error) {
-      console.error("Erro ao buscar tasks:", error);
+    } else if (!taskIdFromUrl && isDetailModalOpen) {
+      // If URL param removed (e.g. browser back), close modal
+      setIsDetailModalOpen(false);
+      setSelectedTask(null);
     }
-  };
-
-  const loadData = async () => {
-    setLoading(true);
-    await Promise.all([fetchFeatureData(), fetchTasks()]);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [resolvedParams.featureId]);
-
-  // Fetch modules separately if needed, or extract from feature/project
-  useEffect(() => {
-    if (feature?.epic?.project?.id) {
-      // Fetch project to get modules
-      fetch(`/api/projects/${feature.epic.project.id}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data?.modules) setModules(data.modules);
-          // Also supports if api returns data.data.modules
-          if (data?.data?.modules) setModules(data.data.modules);
-        })
-        .catch(err => console.error("Error fetching modules", err));
-    }
-  }, [feature]);
+  }, [searchParams, tasks, isDetailModalOpen]);
 
 
   const handleTaskMove = useCallback(async (taskId: string, newStatus: TaskStatus) => {
-    try {
-      // Optimistic update
-      setTasks(prev => prev.map(t =>
-        t.id === taskId ? { ...t, status: newStatus } : t
-      ));
-
-      const res = await fetch(`/api/tasks/${taskId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to update task');
-        // Revert on failure would go here
-      }
-
-      // Background refetch to ensure consistency
-      fetchTasks();
-    } catch (err) {
-      console.error('Failed to move task:', err);
-      toast.error('Falha ao mover task');
-      fetchTasks(); // Revert
-    }
-  }, []);
+    await moveTaskMutation.mutateAsync({ id: taskId, status: newStatus });
+  }, [moveTaskMutation]);
 
   const handleDeleteTaskClick = useCallback((task: TaskWithReadableId) => {
     setTaskToDelete(task);
@@ -141,34 +76,44 @@ export default function FeatureDetailPage({
   const confirmDeleteTask = async () => {
     if (!taskToDelete) return;
     try {
-      const res = await fetch(`/api/tasks/${taskToDelete.id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("Task excluída com sucesso!");
-        setTaskToDelete(null);
-        fetchTasks();
-      } else {
-        toast.error("Erro ao excluir task");
-      }
+      await deleteTaskMutation.mutateAsync(taskToDelete.id);
+      setTaskToDelete(null);
     } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao excluir task");
+      // Error handled by mutation
     }
   };
 
   const handleEditTask = useCallback((task: TaskWithReadableId) => {
     setEditingTask(task);
     setIsTaskDialogOpen(true);
+    // Close detail modal if open
+    setIsDetailModalOpen(false);
   }, []);
+
+  const handleTaskClick = useCallback((task: TaskWithReadableId) => {
+    // Update URL without reload
+    const params = new URLSearchParams(searchParams);
+    params.set('task', task.id);
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    // State update happens via useEffect or we can do optimistic
+    setSelectedTask(task);
+    setIsDetailModalOpen(true);
+  }, [pathname, router, searchParams]);
+
+  const handleDetailModalClose = useCallback((open: boolean) => {
+    if (!open) {
+      const params = new URLSearchParams(searchParams);
+      params.delete('task');
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      setSelectedTask(null);
+    }
+    setIsDetailModalOpen(open);
+  }, [pathname, router, searchParams]);
 
   const handleDialogChange = (open: boolean) => {
     setIsTaskDialogOpen(open);
     if (!open) setEditingTask(null);
   };
-
-  // Prepare data for TaskDialog
-  // Even if tasks API doesn't return feature populated (it usually does for list), we ensure it.
-  // Actually, KanbaBoard expects TaskWithReadableId.
-  // TaskDialog expects feature object for the list.
 
   const dialogFeatures = useMemo(() => {
     return feature ? [{ id: feature.id, title: feature.title }] : [];
@@ -248,8 +193,8 @@ export default function FeatureDetailPage({
             <Button
               variant="outline"
               size="icon"
-              onClick={loadData}
-              disabled={loading}
+              onClick={() => refetchTasks()}
+              disabled={loading || isFetching}
             >
               <RefreshCw className="w-4 h-4" />
             </Button>
@@ -279,10 +224,10 @@ export default function FeatureDetailPage({
           <KanbanBoard
             tasks={tasksForKanban}
             onTaskMove={handleTaskMove}
-            onTaskClick={handleEditTask}
+            onTaskClick={handleTaskClick}
             onEdit={handleEditTask}
             onDelete={handleDeleteTaskClick}
-            isLoading={loading} // loading is false here but required by prop
+            isLoading={loading}
           />
         </div>
       )}
@@ -296,7 +241,16 @@ export default function FeatureDetailPage({
         modules={modules}
         // @ts-ignore
         taskToEdit={taskToEditForDialog}
-        onSuccess={fetchTasks}
+        onSuccess={refetchTasks}
+      />
+
+      {/* Task Detail Modal (Sidebar) */}
+      <TaskDetailModal
+        task={selectedTask}
+        open={isDetailModalOpen}
+        onOpenChange={handleDetailModalClose}
+        onEdit={handleEditTask}
+        onDelete={handleDeleteTaskClick}
       />
 
       {/* Delete Confirmation */}

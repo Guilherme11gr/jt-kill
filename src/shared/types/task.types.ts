@@ -22,6 +22,19 @@ export interface Task {
 // Task with human-readable ID (for display)
 export interface TaskWithReadableId extends Task {
   readableId: string; // e.g., "APP-123"
+  feature: {
+    id: string;
+    title: string;
+    epic: {
+      id: string;
+      title: string;
+      project: {
+        id: string;
+        name: string;
+        key: string;
+      };
+    };
+  };
 }
 
 // Task with relations (for detail view)

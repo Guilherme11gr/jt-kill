@@ -53,6 +53,7 @@ export default function TasksPage() {
   const [view, setView] = useState<ViewMode>('kanban');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskWithReadableId | null>(null);
   const [features, setFeatures] = useState<{ id: string; title: string }[]>([]);
   const [formData, setFormData] = useState({
     title: "",
@@ -128,6 +129,52 @@ export default function TasksPage() {
     }
   }, [refetch]);
 
+  // Handle delete task
+  const handleDeleteTask = useCallback(async (task: TaskWithReadableId) => {
+    if (!confirm(`Tem certeza que deseja excluir "${task.title}"?`)) return;
+
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete task');
+      refetch();
+    } catch (error) {
+      console.error("Failed to delete task", error);
+      alert("Erro ao excluir task");
+    }
+  }, [refetch]);
+
+  // Handle edit task - populate form
+  const handleEditTask = useCallback((task: TaskWithReadableId) => {
+    setEditingTask(task);
+    setFormData({
+      title: task.title,
+      description: task.description || "",
+      priority: task.priority,
+      type: task.type,
+      points: task.points?.toString() || "",
+      featureId: task.feature.id,
+    });
+    setIsDialogOpen(true);
+  }, []);
+
+  // Reset form when dialog closes
+  const handleDialogChange = (open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      setEditingTask(null);
+      setFormData({
+        title: "",
+        description: "",
+        priority: "MEDIUM",
+        type: "TASK",
+        points: "",
+        featureId: "",
+      });
+    }
+  };
+
   // Fetch features for dropdown
   const fetchFeatures = useCallback(async () => {
     try {
@@ -146,7 +193,7 @@ export default function TasksPage() {
     fetchFeatures();
   });
 
-  const handleCreateTask = async (e: React.FormEvent) => {
+  const handleSaveTask = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreating(true);
 
@@ -170,8 +217,11 @@ export default function TasksPage() {
       // BUT for the smoke test "Button functionality", the Modal appearing is the key fix.
       // We will try to fetch features to populate.
 
-      const res = await fetch("/api/tasks", {
-        method: "POST",
+      const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
+      const method = editingTask ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method: method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: formData.title,
@@ -184,12 +234,11 @@ export default function TasksPage() {
       });
 
       if (res.ok) {
-        setFormData({ title: "", description: "", priority: "MEDIUM", type: "TASK", points: "", featureId: "" });
-        setIsDialogOpen(false);
+        handleDialogChange(false);
         refetch();
       } else {
         const errData = await res.json();
-        alert(`Erro ao criar task: ${errData.message || 'Erro desconhecido'}`);
+        alert(`Erro ao salvar task: ${errData.message || 'Erro desconhecido'}`);
       }
     } catch (error) {
       console.error("Erro:", error);
@@ -231,7 +280,7 @@ export default function TasksPage() {
             )}
           </Button>
           <ViewToggle value={view} onChange={setView} />
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
@@ -240,10 +289,10 @@ export default function TasksPage() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Nova Task</DialogTitle>
-                <DialogDescription>Adicione uma tarefa ao backlog</DialogDescription>
+                <DialogTitle>{editingTask ? "Editar Task" : "Nova Task"}</DialogTitle>
+                <DialogDescription>{editingTask ? "Edite os detalhes da tarefa" : "Adicione uma tarefa ao backlog"}</DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleCreateTask} className="space-y-4">
+              <form onSubmit={handleSaveTask} className="space-y-4">
                 <div>
                   <Label htmlFor="title">Título</Label>
                   <Input
@@ -294,9 +343,9 @@ export default function TasksPage() {
                   </Select>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" type="button" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                  <Button variant="outline" type="button" onClick={() => handleDialogChange(false)}>Cancelar</Button>
                   <Button type="submit" disabled={creating}>
-                    {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Criar"}
+                    {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingTask ? "Salvar" : "Criar")}
                   </Button>
                 </div>
               </form>
@@ -329,13 +378,15 @@ export default function TasksPage() {
             <KanbanBoard
               tasks={filteredTasks}
               onTaskMove={handleTaskMove}
-              onTaskClick={handleTaskClick}
+              onTaskClick={handleEditTask}
+              onEdit={handleEditTask}
+              onDelete={handleDeleteTask}
               isLoading={isLoading}
             />
           ) : (
             <TaskTable
               tasks={filteredTasks}
-              onTaskClick={handleTaskClick}
+              onTaskClick={handleEditTask}
               isLoading={isLoading}
             />
           )}

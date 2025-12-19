@@ -13,6 +13,8 @@ interface KanbanBoardProps {
   tasks: TaskWithReadableId[];
   onTaskMove: (taskId: string, newStatus: TaskStatus) => Promise<void>;
   onTaskClick?: (task: TaskWithReadableId) => void;
+  onEdit?: (task: TaskWithReadableId) => void;
+  onDelete?: (task: TaskWithReadableId) => void;
   isLoading?: boolean;
 }
 
@@ -20,6 +22,8 @@ export function KanbanBoard({
   tasks,
   onTaskMove,
   onTaskClick,
+  onEdit,
+  onDelete,
   isLoading = false,
 }: KanbanBoardProps) {
   // Local optimistic state
@@ -96,6 +100,8 @@ export function KanbanBoard({
             status={status}
             tasks={tasksByStatus[status]}
             onTaskClick={onTaskClick}
+            onEdit={onEdit}
+            onDelete={onDelete}
           />
         ))}
       </div>

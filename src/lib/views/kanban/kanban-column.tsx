@@ -11,9 +11,11 @@ interface KanbanColumnProps {
   status: TaskStatus;
   tasks: TaskWithReadableId[];
   onTaskClick?: (task: TaskWithReadableId) => void;
+  onEdit?: (task: TaskWithReadableId) => void;
+  onDelete?: (task: TaskWithReadableId) => void;
 }
 
-export function KanbanColumn({ status, tasks, onTaskClick }: KanbanColumnProps) {
+export function KanbanColumn({ status, tasks, onTaskClick, onEdit, onDelete }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status,
   });
@@ -50,6 +52,8 @@ export function KanbanColumn({ status, tasks, onTaskClick }: KanbanColumnProps) 
             key={task.id}
             task={task}
             onClick={() => onTaskClick?.(task)}
+            onEdit={onEdit}
+            onDelete={onDelete}
           />
         ))}
 

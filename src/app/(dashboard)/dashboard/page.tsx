@@ -1,0 +1,365 @@
+'use client';
+
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Bug,
+  CheckSquare,
+  Layers,
+  RefreshCw,
+  Loader2,
+  ArrowRight,
+  Target,
+  Inbox,
+} from 'lucide-react';
+import Link from 'next/link';
+import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
+
+// Priority order for status (lower = higher priority)
+const statusPriority: Record<TaskStatus, number> = {
+  DOING: 1,
+  REVIEW: 2,
+  TODO: 3,
+  QA_READY: 4,
+  BACKLOG: 5,
+  DONE: 6,
+};
+
+// Priority order for task priority
+const priorityOrder: Record<string, number> = {
+  CRITICAL: 1,
+  HIGH: 2,
+  MEDIUM: 3,
+  LOW: 4,
+};
+
+// Status labels in Portuguese
+const statusLabels: Record<string, string> = {
+  BACKLOG: 'Backlog',
+  TODO: 'A Fazer',
+  DOING: 'Em Andamento',
+  REVIEW: 'Em Revisão',
+  QA_READY: 'Aguardando QA',
+  DONE: 'Concluído',
+};
+
+// Status badge variants
+const statusVariantMap: Record<string, 'outline' | 'outline-success' | 'outline-info' | 'outline-purple' | 'outline-warning'> = {
+  BACKLOG: 'outline',
+  TODO: 'outline',
+  DOING: 'outline-info',
+  REVIEW: 'outline-purple',
+  QA_READY: 'outline-warning',
+  DONE: 'outline-success',
+};
+
+// Task card component for the dashboard
+function DashboardTaskCard({ task, onClick }: { task: TaskWithReadableId; onClick: () => void }) {
+  const isBug = task.type === 'BUG';
+
+  return (
+    <Card
+      className={`cursor-pointer hover:border-primary/50 transition-all ${isBug ? 'border-red-500/50 hover:border-red-500' : ''
+        }`}
+      onClick={onClick}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`p-1.5 rounded ${isBug ? 'bg-red-500/10' : 'bg-blue-500/10'}`}>
+            {isBug ? (
+              <Bug className="h-4 w-4 text-red-500" />
+            ) : (
+              <CheckSquare className="h-4 w-4 text-blue-500" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <Badge variant="outline" className="font-mono text-xs">
+                {task.readableId}
+              </Badge>
+              <Badge variant={statusVariantMap[task.status] || 'outline'} className="text-xs">
+                {statusLabels[task.status] || task.status}
+              </Badge>
+              {task.points && (
+                <Badge variant="secondary" className="text-xs">
+                  {task.points}pts
+                </Badge>
+              )}
+            </div>
+            <h4 className="font-medium text-sm truncate">{task.title}</h4>
+            <p className="text-xs text-muted-foreground mt-1 truncate">
+              {task.feature.epic.title} → {task.feature.title}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Module section component
+function ModuleSection({
+  module,
+  tasks,
+  onTaskClick,
+}: {
+  module: string;
+  tasks: TaskWithReadableId[];
+  onTaskClick: (task: TaskWithReadableId) => void;
+}) {
+  // Count bugs and other stats
+  const bugCount = tasks.filter(t => t.type === 'BUG').length;
+  const doingCount = tasks.filter(t => t.status === 'DOING').length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Layers className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-semibold">{module}</h3>
+          <Badge variant="secondary" className="text-xs">
+            {tasks.length} tasks
+          </Badge>
+        </div>
+        <div className="flex gap-2">
+          {bugCount > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {bugCount} bugs
+            </Badge>
+          )}
+          {doingCount > 0 && (
+            <Badge variant="outline-info" className="text-xs">
+              {doingCount} em andamento
+            </Badge>
+          )}
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {tasks.map(task => (
+          <DashboardTaskCard
+            key={task.id}
+            task={task}
+            onClick={() => onTaskClick(task)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [tasks, setTasks] = useState<TaskWithReadableId[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch my tasks (all tasks for now - in a real app, filter by assignee)
+  const fetchMyTasks = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Fetch tasks that are not DONE (active work)
+      const res = await fetch('/api/tasks?pageSize=100');
+      if (!res.ok) throw new Error('Failed to fetch tasks');
+      const data = await res.json();
+      // Filter out DONE tasks for "My Focus"
+      const activeTasks = (data.data?.items || []).filter(
+        (t: TaskWithReadableId) => t.status !== 'DONE'
+      );
+      setTasks(activeTasks);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchMyTasks();
+  }, [fetchMyTasks]);
+
+  // Sort tasks: Bugs first, then by status priority, then by priority
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      // Bugs first
+      if (a.type === 'BUG' && b.type !== 'BUG') return -1;
+      if (a.type !== 'BUG' && b.type === 'BUG') return 1;
+
+      // Then by status priority
+      const statusDiff = statusPriority[a.status] - statusPriority[b.status];
+      if (statusDiff !== 0) return statusDiff;
+
+      // Then by priority
+      return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+  }, [tasks]);
+
+  // Group tasks by module
+  const tasksByModule = useMemo(() => {
+    const groups: Record<string, TaskWithReadableId[]> = {};
+
+    sortedTasks.forEach(task => {
+      const module = task.module || 'Sem Módulo';
+      if (!groups[module]) {
+        groups[module] = [];
+      }
+      groups[module].push(task);
+    });
+
+    // Sort modules: modules with bugs first, then by task count
+    return Object.entries(groups).sort(([, tasksA], [, tasksB]) => {
+      const bugsA = tasksA.filter(t => t.type === 'BUG').length;
+      const bugsB = tasksB.filter(t => t.type === 'BUG').length;
+      if (bugsA !== bugsB) return bugsB - bugsA;
+      return tasksB.length - tasksA.length;
+    });
+  }, [sortedTasks]);
+
+  // Stats
+  const stats = useMemo(() => {
+    const bugCount = tasks.filter(t => t.type === 'BUG').length;
+    const doingCount = tasks.filter(t => t.status === 'DOING').length;
+    const reviewCount = tasks.filter(t => t.status === 'REVIEW').length;
+    const todoCount = tasks.filter(t => t.status === 'TODO').length;
+    return { bugCount, doingCount, reviewCount, todoCount, total: tasks.length };
+  }, [tasks]);
+
+  // Navigate to task detail
+  const handleTaskClick = useCallback((task: TaskWithReadableId) => {
+    router.push(`/tasks?task=${task.id}`);
+  }, [router]);
+
+  return (
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Target className="h-8 w-8 text-primary" />
+            My Focus
+          </h1>
+          <p className="text-muted-foreground">
+            Suas tarefas ativas, organizadas por prioridade
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={fetchMyTasks}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+          </Button>
+          <Link href="/tasks">
+            <Button variant="outline" className="gap-2">
+              Ver Kanban
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className={stats.bugCount > 0 ? 'border-red-500/50' : ''}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Bugs
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-500">{stats.bugCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Em Andamento
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-blue-500">{stats.doingCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Em Revisão
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-500">{stats.reviewCount}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              A Fazer
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-muted-foreground">{stats.todoCount}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Error state */}
+      {error && (
+        <div className="p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/50">
+          <p>Erro ao carregar tasks: {error}</p>
+          <Button variant="outline" size="sm" onClick={fetchMyTasks} className="mt-2">
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!isLoading && !error && tasks.length === 0 && (
+        <Card className="text-center py-12">
+          <CardContent>
+            <Inbox className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-xl font-semibold mb-2">Nenhuma tarefa ativa</h3>
+            <p className="text-muted-foreground mb-4">
+              Todas as suas tarefas estão concluídas! 🎉
+            </p>
+            <Link href="/tasks">
+              <Button className="gap-2">
+                Ver todas as tasks
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tasks grouped by module */}
+      {!isLoading && !error && tasksByModule.length > 0 && (
+        <div className="space-y-8">
+          {tasksByModule.map(([module, moduleTasks]) => (
+            <ModuleSection
+              key={module}
+              module={module}
+              tasks={moduleTasks}
+              onTaskClick={handleTaskClick}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

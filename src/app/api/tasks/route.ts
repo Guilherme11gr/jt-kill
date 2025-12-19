@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
 
     const task = await createTask({
       orgId: tenantId,
-      ...parsed.data,
+      // points: parsed.data.points,
     }, { taskRepository });
 
     return jsonSuccess(task, { status: 201 });

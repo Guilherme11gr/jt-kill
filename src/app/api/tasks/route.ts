@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';

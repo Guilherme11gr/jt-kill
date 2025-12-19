@@ -62,6 +62,7 @@ export default function TasksPage() {
     type: "TASK",
     points: "",
     featureId: "",
+    module: "",
   });
 
   const [filters, setFilters] = useState<TaskFiltersState>({
@@ -155,6 +156,7 @@ export default function TasksPage() {
       type: task.type,
       points: task.points?.toString() || "",
       featureId: task.feature.id,
+      module: task.module || "",
     });
     setIsDialogOpen(true);
   }, []);
@@ -171,6 +173,7 @@ export default function TasksPage() {
         type: "TASK",
         points: "",
         featureId: "",
+        module: "",
       });
     }
   };
@@ -230,6 +233,7 @@ export default function TasksPage() {
           type: formData.type,
           points: formData.points ? parseInt(formData.points) : null,
           featureId: formData.featureId,
+          module: formData.module || null,
         }),
       });
 
@@ -316,31 +320,74 @@ export default function TasksPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="type">Tipo</Label>
-                  <Select value={formData.type} onValueChange={v => setFormData({ ...formData, type: v as any })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TASK">Task</SelectItem>
-                      <SelectItem value="BUG">Bug</SelectItem>
-                    </SelectContent>
-                  </Select>
+                {/* Grid 2 colunas para campos secundários */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="type">Tipo</Label>
+                    <Select value={formData.type} onValueChange={v => setFormData({ ...formData, type: v as any })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TASK">Task</SelectItem>
+                        <SelectItem value="BUG">Bug</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="priority">Prioridade</Label>
+                    <Select value={formData.priority} onValueChange={v => setFormData({ ...formData, priority: v as any })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="LOW">Baixa</SelectItem>
+                        <SelectItem value="MEDIUM">Média</SelectItem>
+                        <SelectItem value="HIGH">Alta</SelectItem>
+                        <SelectItem value="CRITICAL">Crítica</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="priority">Prioridade</Label>
-                  <Select value={formData.priority} onValueChange={v => setFormData({ ...formData, priority: v as any })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="LOW">Low</SelectItem>
-                      <SelectItem value="MEDIUM">Medium</SelectItem>
-                      <SelectItem value="HIGH">High</SelectItem>
-                      <SelectItem value="CRITICAL">Critical</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="module">Módulo</Label>
+                    <Select
+                      value={formData.module || "__none__"}
+                      onValueChange={v => setFormData({ ...formData, module: v === "__none__" ? "" : v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione módulo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Nenhum</SelectItem>
+                        {modules.map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="points">Story Points</Label>
+                    <Select
+                      value={formData.points || "__none__"}
+                      onValueChange={v => setFormData({ ...formData, points: v === "__none__" ? "" : v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sem estimativa</SelectItem>
+                        <SelectItem value="1">1</SelectItem>
+                        <SelectItem value="2">2</SelectItem>
+                        <SelectItem value="3">3</SelectItem>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="8">8</SelectItem>
+                        <SelectItem value="13">13</SelectItem>
+                        <SelectItem value="21">21</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button variant="outline" type="button" onClick={() => handleDialogChange(false)}>Cancelar</Button>

@@ -60,6 +60,7 @@ export default function ProjectDetailPage({
   const [epicFormData, setEpicFormData] = useState({
     title: "",
     description: "",
+    status: "OPEN" as "OPEN" | "CLOSED",
   });
 
   useEffect(() => {
@@ -103,7 +104,7 @@ export default function ProjectDetailPage({
       });
 
       if (res.ok) {
-        setEpicFormData({ title: "", description: "" });
+        setEpicFormData({ title: "", description: "", status: "OPEN" });
         setIsEpicDialogOpen(false);
         fetchProjectData();
       } else {
@@ -171,22 +172,20 @@ export default function ProjectDetailPage({
       <div className="flex gap-4 mb-6 border-b border-border overflow-x-auto">
         <button
           onClick={() => setActiveTab("epics")}
-          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${
-            activeTab === "epics"
-              ? "text-primary border-b-2 border-primary"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${activeTab === "epics"
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
+            }`}
         >
           <Layers className="w-4 h-4 inline mr-2" />
           Epics ({epics.length})
         </button>
         <button
           onClick={() => setActiveTab("tasks")}
-          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${
-            activeTab === "tasks"
-              ? "text-primary border-b-2 border-primary"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
+          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${activeTab === "tasks"
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
+            }`}
         >
           <CheckSquare className="w-4 h-4 inline mr-2" />
           Tasks ({tasks.length})
@@ -236,6 +235,21 @@ export default function ProjectDetailPage({
                       placeholder="Descrição da epic..."
                     />
                   </div>
+                  <div>
+                    <Label htmlFor="epic-status">Status</Label>
+                    <Select
+                      value={epicFormData.status}
+                      onValueChange={(v) => setEpicFormData({ ...epicFormData, status: v as "OPEN" | "CLOSED" })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OPEN">Aberto</SelectItem>
+                        <SelectItem value="CLOSED">Fechado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="flex justify-end gap-2">
                     <Button
                       type="button"
@@ -283,11 +297,11 @@ export default function ProjectDetailPage({
                           )}
                         </div>
                         <div className="flex gap-2 items-center">
-                          <Badge 
+                          <Badge
                             variant={
-                              epic.status === "DONE" ? "outline-success" : 
-                              epic.status === "IN_PROGRESS" ? "outline-info" : 
-                              "outline"
+                              epic.status === "DONE" ? "outline-success" :
+                                epic.status === "IN_PROGRESS" ? "outline-info" :
+                                  "outline"
                             }
                             className="transition-colors"
                           >
@@ -339,12 +353,12 @@ export default function ProjectDetailPage({
                           >
                             {task.type}
                           </Badge>
-                          <Badge 
+                          <Badge
                             variant={
                               task.status === "DONE" ? "outline-success" :
-                              task.status === "DOING" ? "outline-info" :
-                              task.status === "REVIEW" ? "outline-purple" :
-                              "outline"
+                                task.status === "DOING" ? "outline-info" :
+                                  task.status === "REVIEW" ? "outline-purple" :
+                                    "outline"
                             }
                             className="text-xs"
                           >
@@ -366,8 +380,8 @@ export default function ProjectDetailPage({
                           task.priority === "CRITICAL"
                             ? "destructive"
                             : task.priority === "HIGH"
-                            ? "outline-warning"
-                            : "outline"
+                              ? "outline-warning"
+                              : "outline"
                         }
                         className="text-xs"
                       >

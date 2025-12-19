@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Plus, Box, Loader2, MoreVertical } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -41,6 +42,7 @@ export default function EpicDetailPage({
   const [featureFormData, setFeatureFormData] = useState({
     title: "",
     description: "",
+    status: "BACKLOG" as "BACKLOG" | "TODO" | "DOING" | "DONE",
   });
 
   useEffect(() => {
@@ -79,7 +81,7 @@ export default function EpicDetailPage({
       });
 
       if (res.ok) {
-        setFeatureFormData({ title: "", description: "" });
+        setFeatureFormData({ title: "", description: "", status: "BACKLOG" });
         setIsFeatureDialogOpen(false);
         fetchEpicData();
       } else {
@@ -114,14 +116,14 @@ export default function EpicDetailPage({
     <div>
       {/* Header */}
       <div className="max-w-6xl mx-auto mb-8">
-        <Link 
+        <Link
           href={`/projects/${resolvedParams.id}`}
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
           Voltar para Projeto
         </Link>
-        
+
         <div className="flex justify-between items-start">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -139,7 +141,7 @@ export default function EpicDetailPage({
               {epic.description || "Sem descrição"}
             </p>
           </div>
-          
+
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
             <MoreVertical className="w-5 h-5" />
           </Button>
@@ -195,6 +197,23 @@ export default function EpicDetailPage({
                     placeholder="Detalhes técnicos da feature..."
                   />
                 </div>
+                <div>
+                  <Label htmlFor="feature-status">Status</Label>
+                  <Select
+                    value={featureFormData.status}
+                    onValueChange={(v) => setFeatureFormData({ ...featureFormData, status: v as "BACKLOG" | "TODO" | "DOING" | "DONE" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BACKLOG">Backlog</SelectItem>
+                      <SelectItem value="TODO">A Fazer</SelectItem>
+                      <SelectItem value="DOING">Em Progresso</SelectItem>
+                      <SelectItem value="DONE">Concluída</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"
@@ -203,7 +222,7 @@ export default function EpicDetailPage({
                   >
                     Cancelar
                   </Button>
-                  <Button 
+                  <Button
                     type="submit"
                   >
                     Criar Feature
@@ -223,8 +242,8 @@ export default function EpicDetailPage({
             <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
               Quebre sua Epic em features menores e entregáveis para facilitar o desenvolvimento.
             </p>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setIsFeatureDialogOpen(true)}
             >
               Criar Primeira Feature
@@ -242,8 +261,8 @@ export default function EpicDetailPage({
                     <Badge variant="outline" className="text-[10px]">
                       FEATURE
                     </Badge>
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                     >
                       {feature.status}
                     </Badge>

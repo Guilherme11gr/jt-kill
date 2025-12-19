@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import { toast } from 'sonner';
@@ -63,6 +64,7 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<TaskWithReadableId | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [features, setFeatures] = useState<{ id: string; title: string }[]>([]);
+  const [modules, setModules] = useState<string[]>([]);
 
   // Delete Task State
   const [taskToDelete, setTaskToDelete] = useState<TaskWithReadableId | null>(null);
@@ -85,15 +87,6 @@ export default function TasksPage() {
   });
 
   const { tasks, isLoading, error, refetch } = useTasks();
-
-  // Extract unique modules from tasks
-  const modules = useMemo(() => {
-    const moduleSet = new Set<string>();
-    tasks.forEach((t) => {
-      if (t.module) moduleSet.add(t.module);
-    });
-    return Array.from(moduleSet).sort();
-  }, [tasks]);
 
   // Filter tasks client-side
   const filteredTasks = useMemo(() => {
@@ -220,6 +213,28 @@ export default function TasksPage() {
   // Fetch features on mount
   useState(() => {
     fetchFeatures();
+  });
+
+  // Fetch modules from projects
+  const fetchModules = useCallback(async () => {
+    try {
+      const res = await fetch('/api/projects');
+      if (res.ok) {
+        const data = await res.json();
+        const allModules = new Set<string>();
+        (data.data || []).forEach((project: { modules?: string[] }) => {
+          project.modules?.forEach((m: string) => allModules.add(m));
+        });
+        setModules(Array.from(allModules).sort());
+      }
+    } catch (error) {
+      console.error("Failed to fetch modules", error);
+    }
+  }, []);
+
+  // Fetch modules on mount
+  useState(() => {
+    fetchModules();
   });
 
   const handleSaveTask = async (e: React.FormEvent) => {
@@ -357,6 +372,17 @@ export default function TasksPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                {/* Description with Markdown */}
+                <div>
+                  <Label htmlFor="description">Descrição (Markdown)</Label>
+                  <MarkdownEditor
+                    id="description"
+                    value={formData.description}
+                    onChange={v => setFormData({ ...formData, description: v })}
+                    placeholder="## Objetivo\n\nDescreva a task...\n\n## Critérios de Aceite\n\n- [ ] Critério 1"
+                    minHeight="200px"
+                  />
                 </div>
                 {/* Grid 2 colunas para campos secundários */}
                 <div className="grid grid-cols-2 gap-4">

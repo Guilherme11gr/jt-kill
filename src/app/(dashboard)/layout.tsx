@@ -14,6 +14,7 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { LogoutButton } from "@/components/layout/logout-button";
 
 export default function DashboardLayout({
   children,
@@ -55,13 +56,7 @@ export default function DashboardLayout({
         </nav>
 
         <div className="p-4 border-t border-border">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="text-sm">Sair</span>
-          </Button>
+          <LogoutButton />
         </div>
       </aside>
 

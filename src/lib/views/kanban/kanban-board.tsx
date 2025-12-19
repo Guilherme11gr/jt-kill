@@ -1,6 +1,8 @@
 'use client';
 
+
 import { useState, useCallback, useMemo } from 'react';
+import { toast } from "sonner";
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { TaskCard, KanbanBoardSkeleton } from '@/components/features/tasks';
@@ -45,6 +47,12 @@ export function KanbanBoard({
     async (taskId: string, newStatus: TaskStatus) => {
       const task = tasks.find((t) => t.id === taskId);
       if (!task || task.status === newStatus) return;
+
+      // Validation: Prevent direct move from BACKLOG to DONE
+      if (task.status === 'BACKLOG' && newStatus === 'DONE') {
+        toast.error('Não é permitido mover tasks diretamente do Backlog para Done.');
+        return;
+      }
 
       // Optimistic update
       const optimisticTask = { ...task, status: newStatus };

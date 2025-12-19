@@ -345,38 +345,40 @@ export default function EpicDetailPage({
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {features.map((feature) => (
               <div key={feature.id} className="relative group">
-                <Card
-                  className="group hover:bg-muted/50 transition-colors cursor-pointer h-full"
-                >
-                  <CardHeader>
-                    <div className="flex justify-between items-start mb-2">
-                      <Badge variant="outline" className="text-[10px]">
-                        FEATURE
-                      </Badge>
-                      <Badge
-                        variant="secondary"
-                      >
-                        {feature.status}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-lg pr-8">
-                      {feature.title}
-                    </CardTitle>
-                    {feature.description && (
-                      <CardDescription className="line-clamp-2">
-                        {feature.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 rounded-full bg-primary" />
-                        {feature._count?.tasks || 0} tasks
+                <Link href={`/projects/${resolvedParams.id}/epics/${resolvedParams.epicId}/features/${feature.id}`}>
+                  <Card
+                    className="group hover:bg-muted/50 hover:border-primary/50 transition-colors cursor-pointer h-full"
+                  >
+                    <CardHeader>
+                      <div className="flex justify-between items-start mb-2">
+                        <Badge variant="outline" className="text-[10px]">
+                          FEATURE
+                        </Badge>
+                        <Badge
+                          variant="secondary"
+                        >
+                          {feature.status}
+                        </Badge>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                      <CardTitle className="text-lg pr-8">
+                        {feature.title}
+                      </CardTitle>
+                      {feature.description && (
+                        <CardDescription className="line-clamp-2">
+                          {feature.description}
+                        </CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-primary" />
+                          {feature._count?.tasks || 0} tasks
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
                 {/* Action Menu */}
                 <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                   <DropdownMenu>

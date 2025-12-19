@@ -76,6 +76,33 @@ export class FeatureRepository {
     });
   }
 
+  /**
+   * Find feature with full relations (epic → project)
+   */
+  async findByIdWithRelations(
+    id: string,
+    orgId: string
+  ) {
+    return await this.prisma.feature.findFirst({
+      where: { id, orgId },
+      include: {
+        epic: {
+          select: {
+            id: true,
+            title: true,
+            project: {
+              select: {
+                id: true,
+                name: true,
+                key: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async update(
     id: string,
     orgId: string,

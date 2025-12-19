@@ -14,6 +14,30 @@ const updateFeatureSchema = z.object({
   status: z.enum(['BACKLOG', 'TODO', 'DOING', 'DONE']).optional(),
 });
 
+/**
+ * GET /api/features/[id] - Get feature with relations
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const { tenantId } = await extractAuthenticatedTenant(supabase);
+
+    const feature = await featureRepository.findByIdWithRelations(id, tenantId);
+    if (!feature) {
+      return jsonError('NOT_FOUND', 'Feature não encontrada', 404);
+    }
+    return jsonSuccess(feature);
+
+  } catch (error) {
+    const { status, body } = handleError(error);
+    return jsonError(body.error.code, body.error.message, status);
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

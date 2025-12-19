@@ -42,21 +42,18 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // TODO: Re-enable auth protection after implementing login
-  // For MVP testing, allow all routes
-  
   // Protected routes check
-  // const isAuthRoute = request.nextUrl.pathname.startsWith('/auth');
-  // const isApiRoute = request.nextUrl.pathname.startsWith('/api');
-  // const isPublicRoute = request.nextUrl.pathname === '/' || 
-  //                       request.nextUrl.pathname.startsWith('/public');
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/auth');
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api');
+  const isPublicRoute = request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname.startsWith('/public');
 
-  // if (!user && !isAuthRoute && !isApiRoute && !isPublicRoute) {
-  //   // Redirect to login if accessing protected route without auth
-  //   const url = request.nextUrl.clone();
-  //   url.pathname = '/auth/login';
-  //   return NextResponse.redirect(url);
-  // }
+  if (!user && !isAuthRoute && !isApiRoute && !isPublicRoute) {
+    // Redirect to login if accessing protected route without auth
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
 
   return supabaseResponse;
 }

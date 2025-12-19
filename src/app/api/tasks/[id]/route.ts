@@ -20,6 +20,30 @@ const updateTaskSchema = z.object({
   assigneeId: z.string().uuid().nullable().optional(),
 });
 
+/**
+ * GET /api/tasks/[id] - Get task with relations
+ */
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const { tenantId } = await extractAuthenticatedTenant(supabase);
+
+    const task = await taskRepository.findByIdWithRelations(id, tenantId);
+    if (!task) {
+      return jsonError('NOT_FOUND', 'Task não encontrada', 404);
+    }
+    return jsonSuccess(task);
+
+  } catch (error) {
+    const { status, body } = handleError(error);
+    return jsonError(body.error.code, body.error.message, status);
+  }
+}
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

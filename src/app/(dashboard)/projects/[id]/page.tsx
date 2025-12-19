@@ -118,7 +118,7 @@ export default function ProjectDetailPage({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -136,28 +136,28 @@ export default function ProjectDetailPage({
 
   return (
     <div>
-      <div className="mb-8">
+      <div className="mb-6 md:mb-8">
         <Link href="/projects">
-          <Button variant="ghost" className="gap-2 mb-4">
+          <Button variant="ghost" className="gap-2 mb-4 pl-0 hover:pl-2 transition-all">
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </Button>
         </Link>
-        <div className="flex justify-between items-start">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <Badge variant="outline" className="font-mono text-base">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              <Badge variant="outline" className="font-mono text-sm md:text-base">
                 {project.key}
               </Badge>
-              <h1 className="text-3xl font-bold">{project.name}</h1>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{project.name}</h1>
             </div>
             {project.description && (
-              <p className="text-slate-400">{project.description}</p>
+              <p className="text-muted-foreground text-sm md:text-base">{project.description}</p>
             )}
             {project.modules && project.modules.length > 0 && (
-              <div className="flex gap-2 mt-3">
+              <div className="flex gap-2 mt-3 flex-wrap">
                 {project.modules.map((module: string) => (
-                  <Badge key={module} variant="secondary" className="bg-slate-800">
+                  <Badge key={module} variant="secondary" className="bg-muted">
                     {module}
                   </Badge>
                 ))}
@@ -168,13 +168,13 @@ export default function ProjectDetailPage({
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-slate-800">
+      <div className="flex gap-4 mb-6 border-b border-border overflow-x-auto">
         <button
           onClick={() => setActiveTab("epics")}
-          className={`pb-3 px-2 font-medium transition-colors ${
+          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${
             activeTab === "epics"
-              ? "text-purple-400 border-b-2 border-purple-400"
-              : "text-slate-400 hover:text-slate-300"
+              ? "text-primary border-b-2 border-primary"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <Layers className="w-4 h-4 inline mr-2" />
@@ -182,10 +182,10 @@ export default function ProjectDetailPage({
         </button>
         <button
           onClick={() => setActiveTab("tasks")}
-          className={`pb-3 px-2 font-medium transition-colors ${
+          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${
             activeTab === "tasks"
-              ? "text-purple-400 border-b-2 border-purple-400"
-              : "text-slate-400 hover:text-slate-300"
+              ? "text-primary border-b-2 border-primary"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           <CheckSquare className="w-4 h-4 inline mr-2" />
@@ -196,16 +196,16 @@ export default function ProjectDetailPage({
       {/* Epics Tab */}
       {activeTab === "epics" && (
         <div>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <h2 className="text-xl font-semibold">Epics</h2>
             <Dialog open={isEpicDialogOpen} onOpenChange={setIsEpicDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
+                <Button className="gap-2 w-full sm:w-auto">
                   <Plus className="w-4 h-4" />
                   Nova Epic
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-slate-900 border-slate-800">
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Criar Nova Epic</DialogTitle>
                   <DialogDescription>
@@ -223,7 +223,6 @@ export default function ProjectDetailPage({
                       }
                       placeholder="Nome da Epic"
                       required
-                      className="bg-slate-800 border-slate-700"
                     />
                   </div>
                   <div>
@@ -235,7 +234,6 @@ export default function ProjectDetailPage({
                         setEpicFormData({ ...epicFormData, description: e.target.value })
                       }
                       placeholder="Descrição da epic..."
-                      className="bg-slate-800 border-slate-700"
                     />
                   </div>
                   <div className="flex justify-end gap-2">
@@ -254,10 +252,10 @@ export default function ProjectDetailPage({
           </div>
 
           {epics.length === 0 ? (
-            <Card className="bg-slate-900 border-slate-800 text-center p-12">
-              <Layers className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+            <Card className="text-center p-12">
+              <Layers className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-xl font-semibold mb-2">Nenhuma epic ainda</h3>
-              <p className="text-slate-400 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Crie epics para organizar suas features
               </p>
               <Button onClick={() => setIsEpicDialogOpen(true)} className="gap-2">
@@ -268,29 +266,41 @@ export default function ProjectDetailPage({
           ) : (
             <div className="grid gap-4">
               {epics.map((epic) => (
-                <Card
-                  key={epic.id}
-                  className="bg-slate-900 border-slate-800 hover:border-purple-500 transition-colors"
-                >
-                  <CardHeader>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle>{epic.title}</CardTitle>
-                        {epic.description && (
-                          <CardDescription className="mt-2">
-                            {epic.description}
-                          </CardDescription>
-                        )}
+                <Link key={epic.id} href={`/projects/${resolvedParams.id}/epics/${epic.id}`}>
+                  <Card
+                    className="hover:border-primary/50 hover:shadow-sm transition-all duration-300 cursor-pointer group"
+                  >
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-card-foreground group-hover:text-foreground transition-colors">
+                            {epic.title}
+                          </CardTitle>
+                          {epic.description && (
+                            <CardDescription className="mt-2 text-muted-foreground group-hover:text-muted-foreground/80">
+                              {epic.description}
+                            </CardDescription>
+                          )}
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <Badge 
+                            variant={
+                              epic.status === "DONE" ? "outline-success" : 
+                              epic.status === "IN_PROGRESS" ? "outline-info" : 
+                              "outline"
+                            }
+                            className="transition-colors"
+                          >
+                            {epic.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">
+                            {epic._count?.features || 0} features
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex gap-2 items-center">
-                        <Badge variant="outline">{epic.status}</Badge>
-                        <span className="text-xs text-slate-500">
-                          {epic._count?.features || 0} features
-                        </span>
-                      </div>
-                    </div>
-                  </CardHeader>
-                </Card>
+                    </CardHeader>
+                  </Card>
+                </Link>
               ))}
             </div>
           )}
@@ -302,10 +312,10 @@ export default function ProjectDetailPage({
         <div>
           <h2 className="text-xl font-semibold mb-6">Tasks</h2>
           {tasks.length === 0 ? (
-            <Card className="bg-slate-900 border-slate-800 text-center p-12">
-              <CheckSquare className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+            <Card className="text-center p-12">
+              <CheckSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-xl font-semibold mb-2">Nenhuma task ainda</h3>
-              <p className="text-slate-400">
+              <p className="text-muted-foreground">
                 Tasks aparecerão aqui quando forem criadas
               </p>
             </Card>
@@ -314,9 +324,9 @@ export default function ProjectDetailPage({
               {tasks.map((task) => (
                 <Card
                   key={task.id}
-                  className="bg-slate-900 border-slate-800 hover:border-purple-500 transition-colors"
+                  className="hover:border-primary transition-colors"
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="pt-6">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
@@ -324,12 +334,20 @@ export default function ProjectDetailPage({
                             {task.readableId}
                           </Badge>
                           <Badge
-                            variant={task.type === "BUG" ? "destructive" : "secondary"}
+                            variant={task.type === "BUG" ? "destructive" : "outline-info"}
                             className="text-xs"
                           >
                             {task.type}
                           </Badge>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge 
+                            variant={
+                              task.status === "DONE" ? "outline-success" :
+                              task.status === "DOING" ? "outline-info" :
+                              task.status === "REVIEW" ? "outline-purple" :
+                              "outline"
+                            }
+                            className="text-xs"
+                          >
                             {task.status}
                           </Badge>
                           {task.points && (
@@ -339,7 +357,7 @@ export default function ProjectDetailPage({
                           )}
                         </div>
                         <h4 className="font-medium mb-1">{task.title}</h4>
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                           {task.feature.epic.title} → {task.feature.title}
                         </p>
                       </div>
@@ -348,7 +366,7 @@ export default function ProjectDetailPage({
                           task.priority === "CRITICAL"
                             ? "destructive"
                             : task.priority === "HIGH"
-                            ? "default"
+                            ? "outline-warning"
                             : "outline"
                         }
                         className="text-xs"

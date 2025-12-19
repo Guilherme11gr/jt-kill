@@ -13,6 +13,7 @@ const searchTasksSchema = z.object({
   priority: z.string().optional(),
   assigneeId: z.string().uuid().optional(),
   module: z.string().optional(),
+  projectId: z.string().uuid().optional(),
   featureId: z.string().uuid().optional(),
   epicId: z.string().uuid().optional(),
   search: z.string().optional(),
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const filters = Object.fromEntries(searchParams.entries());
-    
+
     const parsed = searchTasksSchema.safeParse(filters);
     if (!parsed.success) {
       return jsonError('VALIDATION_ERROR', 'Filtros inválidos', 400, {

@@ -90,26 +90,26 @@ export default function ProjectsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Projetos</h1>
-          <p className="text-slate-400">Gerencie seus projetos e tarefas</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">Projetos</h1>
+          <p className="text-muted-foreground">Gerencie seus projetos e tarefas</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2 w-full sm:w-auto">
               <Plus className="w-4 h-4" />
               Novo Projeto
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-slate-900 border-slate-800">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Criar Novo Projeto</DialogTitle>
               <DialogDescription>
@@ -125,7 +125,6 @@ export default function ProjectsPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Meu Projeto Incrível"
                   required
-                  className="bg-slate-800 border-slate-700"
                 />
               </div>
               <div>
@@ -137,9 +136,8 @@ export default function ProjectsPage() {
                   placeholder="APP"
                   maxLength={10}
                   required
-                  className="bg-slate-800 border-slate-700"
                 />
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Usado para IDs legíveis (ex: APP-123)
                 </p>
               </div>
@@ -150,7 +148,6 @@ export default function ProjectsPage() {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Descrição do projeto..."
-                  className="bg-slate-800 border-slate-700"
                 />
               </div>
               <div>
@@ -160,7 +157,6 @@ export default function ProjectsPage() {
                   value={formData.modules}
                   onChange={(e) => setFormData({ ...formData, modules: e.target.value })}
                   placeholder="backend, frontend, mobile"
-                  className="bg-slate-800 border-slate-700"
                 />
               </div>
               <div className="flex justify-end gap-2">
@@ -189,10 +185,10 @@ export default function ProjectsPage() {
       </div>
 
       {projects.length === 0 ? (
-        <Card className="bg-slate-900 border-slate-800 text-center p-12">
-          <FolderKanban className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+        <Card className="text-center p-12">
+          <FolderKanban className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-xl font-semibold mb-2">Nenhum projeto ainda</h3>
-          <p className="text-slate-400 mb-4">
+          <p className="text-muted-foreground mb-4">
             Comece criando seu primeiro projeto
           </p>
           <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
@@ -204,13 +200,13 @@ export default function ProjectsPage() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
             <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="bg-slate-900 border-slate-800 hover:border-purple-500 transition-colors cursor-pointer h-full">
+              <Card className="hover:border-primary transition-colors cursor-pointer h-full">
                 <CardHeader>
                   <div className="flex justify-between items-start mb-2">
-                    <Badge variant="outline" className="font-mono">
+                    <Badge variant="outline-info" className="font-mono">
                       {project.key}
                     </Badge>
-                    <div className="flex gap-2 text-xs text-slate-500">
+                    <div className="flex gap-2 text-xs text-muted-foreground">
                       <span>{project._count?.epics || 0} epics</span>
                       <span>•</span>
                       <span>{project._count?.tasks || 0} tasks</span>
@@ -230,7 +226,7 @@ export default function ProjectsPage() {
                         <Badge
                           key={module}
                           variant="secondary"
-                          className="text-xs bg-slate-800"
+                          className="text-xs"
                         >
                           {module}
                         </Badge>

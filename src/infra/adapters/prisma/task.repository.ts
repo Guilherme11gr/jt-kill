@@ -1,12 +1,12 @@
 import { PrismaClient } from '@prisma/client';
-import type { 
-  Task, 
-  TaskWithReadableId, 
-  TaskStatus, 
-  TaskType, 
+import type {
+  Task,
+  TaskWithReadableId,
+  TaskStatus,
+  TaskType,
   TaskPriority,
   StoryPoints,
-  TaskFilterParams 
+  TaskFilterParams
 } from '@/shared/types';
 import { buildReadableId } from '@/shared/types/task.types';
 import { ValidationError } from '@/shared/errors';
@@ -35,29 +35,44 @@ export interface UpdateTaskInput {
 }
 
 export class TaskRepository {
-  constructor(private prisma: PrismaClient) {}
+  constructor(private prisma: PrismaClient) { }
 
   /**
    * Create task with auto-generated local_id
    * Trigger set_task_local_id() handles local_id generation
    */
   async create(input: CreateTaskInput): Promise<Task> {
-    // Note: local_id and project_id are auto-filled by DB triggers
-    // We need to provide dummy values and let DB override them
-    // Alternatively, we could use Prisma.$executeRaw for INSERT
-    // For MVP, we'll fetch the feature to get projectId AND validate ownership
+    // Fetch feature with project data for validation
     const feature = await this.prisma.feature.findFirst({
       where: {
         id: input.featureId,
         epic: { project: { orgId: input.orgId } },
       },
-      select: { epicId: true, epic: { select: { projectId: true } } },
+      select: {
+        epicId: true,
+        epic: {
+          select: {
+            projectId: true,
+            project: { select: { modules: true } }
+          }
+        }
+      },
     });
 
     if (!feature) {
       throw new ValidationError(
         `Feature ${input.featureId} não encontrada ou não pertence à organização`
       );
+    }
+
+    // Validate module exists in project (if provided)
+    if (input.module) {
+      const projectModules = feature.epic.project.modules;
+      if (!projectModules.includes(input.module)) {
+        throw new ValidationError(
+          `Módulo "${input.module}" não existe no projeto. Módulos válidos: ${projectModules.join(', ') || 'nenhum'}`
+        );
+      }
     }
 
     const result = await this.prisma.task.create({
@@ -214,6 +229,61 @@ export class TaskRepository {
     return result as Task | null;
   }
 
+  /**
+   * Find task by ID with all relations (for detail view)
+   * NO N+1: Single query with all includes
+   */
+  async findByIdWithRelations(
+    id: string,
+    orgId: string
+  ): Promise<TaskWithReadableId | null> {
+    const task = await this.prisma.task.findFirst({
+      where: { id, orgId },
+      include: {
+        feature: {
+          select: {
+            id: true,
+            title: true,
+            epic: {
+              select: {
+                id: true,
+                title: true,
+                project: {
+                  select: {
+                    id: true,
+                    name: true,
+                    key: true,
+                    modules: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        comments: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            content: true,
+            userId: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!task) return null;
+
+    return {
+      ...task,
+      readableId: buildReadableId(
+        task.feature.epic.project.key,
+        task.localId
+      ),
+    } as TaskWithReadableId;
+  }
+
   async update(
     id: string,
     orgId: string,
@@ -224,7 +294,7 @@ export class TaskRepository {
     if (!existing) {
       throw new Error('Task not found');
     }
-    
+
     const result = await this.prisma.task.update({
       where: { id },
       data: input,
@@ -246,7 +316,7 @@ export class TaskRepository {
     if (!existing) {
       throw new Error('Task not found');
     }
-    
+
     const result = await this.prisma.task.update({
       where: { id },
       data: { status },
@@ -284,6 +354,7 @@ export class TaskRepository {
       priority,
       assigneeId,
       module,
+      projectId,
       featureId,
       epicId,
       search,
@@ -298,6 +369,7 @@ export class TaskRepository {
     if (priority) where.priority = priority;
     if (assigneeId) where.assigneeId = assigneeId;
     if (module) where.module = module;
+    if (projectId) where.projectId = projectId;
     if (featureId) where.featureId = featureId;
 
     if (search) {

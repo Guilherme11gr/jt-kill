@@ -80,7 +80,17 @@ export class TaskRepository {
         orgId: input.orgId,
         projectId: feature.epic.projectId, // Will be verified by trigger
         featureId: input.featureId,
-        localId: 0, // Will be overridden by trigger
+        // Bypass missing trigger by calculating localId manually
+        // localId: 0, 
+        localId: (await this.prisma.task.findFirst({
+          where: { projectId: feature.epic.projectId },
+          orderBy: { localId: 'desc' },
+          select: { localId: true }
+        }))?.localId ? (await this.prisma.task.findFirst({
+          where: { projectId: feature.epic.projectId },
+          orderBy: { localId: 'desc' },
+          select: { localId: true }
+        })).localId + 1 : 1,
         title: input.title,
         description: input.description,
         type: input.type ?? 'TASK',

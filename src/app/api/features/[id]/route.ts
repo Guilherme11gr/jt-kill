@@ -1,0 +1,63 @@
+import { NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
+import { jsonSuccess, jsonError } from '@/shared/http/responses';
+import { handleError } from '@/shared/errors';
+import { featureRepository } from '@/infra/adapters/prisma';
+import { updateFeature } from '@/domain/use-cases/features/update-feature';
+import { deleteFeature } from '@/domain/use-cases/features/delete-feature';
+import { z } from 'zod';
+
+const updateFeatureSchema = z.object({
+  title: z.string().min(3).max(200).optional(),
+  description: z.string().max(5000).nullable().optional(),
+  status: z.enum(['BACKLOG', 'TODO', 'DOING', 'DONE']).optional(),
+});
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const { tenantId } = await extractAuthenticatedTenant(supabase);
+
+    const body = await request.json();
+    if (!body || Object.keys(body).length === 0) {
+      return jsonError('VALIDATION_ERROR', 'Nenhum campo fornecido para atualizar', 400);
+    }
+
+    const parsed = updateFeatureSchema.safeParse(body);
+    if (!parsed.success) {
+      return jsonError('VALIDATION_ERROR', 'Dados inválidos', 400, {
+        errors: parsed.error.flatten().fieldErrors,
+      } as Record<string, unknown>);
+    }
+
+    const feature = await updateFeature(id, tenantId, parsed.data, { featureRepository });
+    return jsonSuccess(feature);
+
+  } catch (error) {
+    const { status, body } = handleError(error);
+    return jsonError(body.error.code, body.error.message, status, body.error.details as Record<string, unknown>);
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const { tenantId } = await extractAuthenticatedTenant(supabase);
+
+    await deleteFeature(id, tenantId, { featureRepository });
+    return new Response(null, { status: 204 });
+
+  } catch (error) {
+    const { status, body } = handleError(error);
+    return jsonError(body.error.code, body.error.message, status);
+  }
+}

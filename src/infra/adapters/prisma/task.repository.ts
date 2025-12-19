@@ -1,0 +1,327 @@
+import { PrismaClient } from '@prisma/client';
+import type { 
+  Task, 
+  TaskWithReadableId, 
+  TaskStatus, 
+  TaskType, 
+  TaskPriority,
+  StoryPoints,
+  TaskFilterParams 
+} from '@/shared/types';
+import { buildReadableId } from '@/shared/types/task.types';
+import { ValidationError } from '@/shared/errors';
+
+export interface CreateTaskInput {
+  orgId: string;
+  featureId: string;
+  title: string;
+  description?: string | null;
+  type?: TaskType;
+  priority?: TaskPriority;
+  points?: StoryPoints;
+  module?: string | null;
+  assigneeId?: string | null;
+}
+
+export interface UpdateTaskInput {
+  title?: string;
+  description?: string | null;
+  status?: TaskStatus;
+  type?: TaskType;
+  priority?: TaskPriority;
+  points?: StoryPoints;
+  module?: string | null;
+  assigneeId?: string | null;
+}
+
+export class TaskRepository {
+  constructor(private prisma: PrismaClient) {}
+
+  /**
+   * Create task with auto-generated local_id
+   * Trigger set_task_local_id() handles local_id generation
+   */
+  async create(input: CreateTaskInput): Promise<Task> {
+    // Note: local_id and project_id are auto-filled by DB triggers
+    // We need to provide dummy values and let DB override them
+    // Alternatively, we could use Prisma.$executeRaw for INSERT
+    // For MVP, we'll fetch the feature to get projectId AND validate ownership
+    const feature = await this.prisma.feature.findFirst({
+      where: {
+        id: input.featureId,
+        epic: { project: { orgId: input.orgId } },
+      },
+      select: { epicId: true, epic: { select: { projectId: true } } },
+    });
+
+    if (!feature) {
+      throw new ValidationError(
+        `Feature ${input.featureId} não encontrada ou não pertence à organização`
+      );
+    }
+
+    const result = await this.prisma.task.create({
+      data: {
+        orgId: input.orgId,
+        projectId: feature.epic.projectId, // Will be verified by trigger
+        featureId: input.featureId,
+        localId: 0, // Will be overridden by trigger
+        title: input.title,
+        description: input.description,
+        type: input.type ?? 'TASK',
+        priority: input.priority ?? 'MEDIUM',
+        points: input.points ?? null,
+        module: input.module,
+        assigneeId: input.assigneeId,
+      },
+    });
+
+    // Cast points to StoryPoints type (Prisma returns number | null)
+    return result as Task;
+  }
+
+  /**
+   * Find tasks with filters (search, pagination, sort)
+   * NO N+1: Include feature, assignee in single query
+   */
+  async findMany(
+    orgId: string,
+    filters: TaskFilterParams = {}
+  ): Promise<TaskWithReadableId[]> {
+    const {
+      page = 1,
+      pageSize = 20,
+      sortBy = 'createdAt',
+      sortOrder = 'desc',
+    } = filters;
+
+    const where = this.buildWhereClause(orgId, filters);
+
+    const tasks = await this.prisma.task.findMany({
+      where,
+      include: {
+        feature: {
+          select: {
+            id: true,
+            title: true,
+            epic: {
+              select: {
+                id: true,
+                title: true,
+                project: {
+                  select: {
+                    id: true,
+                    name: true,
+                    key: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        // Assignee info (from auth.users via Supabase)
+        // Note: Prisma doesn't have access to auth schema
+        // This would need to be fetched separately or via Supabase client
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      orderBy: { [sortBy]: sortOrder },
+    });
+
+    // Build readable IDs (APP-1, APP-2, etc)
+    // Cast points to StoryPoints type (Prisma returns number | null)
+    return tasks.map((task) => ({
+      ...task,
+      readableId: buildReadableId(
+        task.feature.epic.project.key,
+        task.localId
+      ),
+    })) as TaskWithReadableId[];
+  }
+
+  /**
+   * Find task by readable ID (e.g., "APP-123")
+   * @throws ValidationError if format is invalid
+   */
+  async findByReadableId(
+    readableId: string,
+    orgId: string
+  ): Promise<TaskWithReadableId | null> {
+    // Validar formato: KEY-123 (key: 2-10 chars, localId: 1+)
+    const match = readableId.toUpperCase().match(/^([A-Z0-9]{2,10})-(\d+)$/);
+    if (!match) {
+      throw new ValidationError(
+        `ID inválido: "${readableId}". Formato esperado: PROJECT-123`
+      );
+    }
+
+    const [_full, projectKey, localIdStr] = match;
+    const localId = parseInt(localIdStr, 10);
+
+    // localId deve ser >= 1 (trigger gera a partir de 1)
+    if (localId < 1) {
+      throw new ValidationError(`ID inválido: localId deve ser >= 1`);
+    }
+
+    const task = await this.prisma.task.findFirst({
+      where: {
+        orgId,
+        localId,
+        project: {
+          key: projectKey.toUpperCase(),
+        },
+      },
+      include: {
+        feature: {
+          select: {
+            id: true,
+            title: true,
+            epic: {
+              select: {
+                id: true,
+                title: true,
+                project: {
+                  select: {
+                    id: true,
+                    name: true,
+                    key: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!task) return null;
+
+    // Cast points to StoryPoints type (Prisma returns number | null)
+    return {
+      ...task,
+      readableId: buildReadableId(
+        task.feature.epic.project.key,
+        task.localId
+      ),
+    } as TaskWithReadableId;
+  }
+
+  async findById(id: string, orgId: string): Promise<Task | null> {
+    const result = await this.prisma.task.findFirst({
+      where: { id, orgId },
+    });
+    // Cast points to StoryPoints type (Prisma returns number | null)
+    return result as Task | null;
+  }
+
+  async update(
+    id: string,
+    orgId: string,
+    input: UpdateTaskInput
+  ): Promise<Task> {
+    // Validate task belongs to org before update
+    const existing = await this.findById(id, orgId);
+    if (!existing) {
+      throw new Error('Task not found');
+    }
+    
+    const result = await this.prisma.task.update({
+      where: { id },
+      data: input,
+    });
+    // Cast points to StoryPoints type (Prisma returns number | null)
+    return result as Task;
+  }
+
+  /**
+   * Update only status (common operation)
+   */
+  async updateStatus(
+    id: string,
+    orgId: string,
+    status: TaskStatus
+  ): Promise<Task> {
+    // Validate task belongs to org before update
+    const existing = await this.findById(id, orgId);
+    if (!existing) {
+      throw new Error('Task not found');
+    }
+    
+    const result = await this.prisma.task.update({
+      where: { id },
+      data: { status },
+    });
+    // Cast points to StoryPoints type (Prisma returns number | null)
+    return result as Task;
+  }
+
+  async delete(id: string, orgId: string): Promise<boolean> {
+    const result = await this.prisma.task.deleteMany({
+      where: { id, orgId },
+    });
+    return result.count > 0;
+  }
+
+  /**
+   * Count tasks by filters
+   */
+  async count(orgId: string, filters: TaskFilterParams = {}): Promise<number> {
+    const where = this.buildWhereClause(orgId, filters);
+    return await this.prisma.task.count({ where });
+  }
+
+  /**
+   * Build WHERE clause for task queries (DRY helper)
+   * @private
+   */
+  private buildWhereClause(
+    orgId: string,
+    filters: TaskFilterParams
+  ): Record<string, unknown> {
+    const {
+      status,
+      type,
+      priority,
+      assigneeId,
+      module,
+      featureId,
+      epicId,
+      search,
+    } = filters;
+
+    const where: Record<string, unknown> = { orgId };
+
+    if (status) {
+      where.status = Array.isArray(status) ? { in: status } : status;
+    }
+    if (type) where.type = type;
+    if (priority) where.priority = priority;
+    if (assigneeId) where.assigneeId = assigneeId;
+    if (module) where.module = module;
+    if (featureId) where.featureId = featureId;
+
+    if (search) {
+      // Escape caracteres especiais do LIKE (%, _) para evitar wildcard injection
+      const escapedSearch = this.escapeLike(search);
+      where.OR = [
+        { title: { contains: escapedSearch, mode: 'insensitive' } },
+        { description: { contains: escapedSearch, mode: 'insensitive' } },
+      ];
+    }
+
+    // Filter by epic (requires JOIN)
+    if (epicId) {
+      where.feature = { epicId };
+    }
+
+    return where;
+  }
+
+  /**
+   * Escape LIKE special characters to prevent wildcard injection
+   * @private
+   */
+  private escapeLike(value: string): string {
+    return value.replace(/[%_]/g, (match: string) => `\\${match}`);
+  }
+}

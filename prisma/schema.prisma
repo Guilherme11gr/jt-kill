@@ -1,6 +1,3 @@
-// Prisma Schema para Jira Killer
-// Modelo de domínio com hierarquia rígida
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,132 +8,28 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// =============================================================================
-// Organizations (Tenants)
-// =============================================================================
-model Organization {
-  id        String    @id @default(uuid())
-  name      String
-  createdAt DateTime  @default(now()) @map("created_at")
-  
-  projects  Project[]
-  
-  @@map("organizations")
-}
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
 
-// =============================================================================
-// Projects (Produtos)
-// =============================================================================
-model Project {
-  id        String   @id @default(uuid())
-  orgId     String   @map("org_id")
-  name      String
-  key       String   // Prefixo para IDs (ex: "APP")
-  modules   String[] @default([]) // Ex: ['SDK', 'API', 'WEB']
-  createdAt DateTime @default(now()) @map("created_at")
-  
-  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  epics        Epic[]
-  docs         ProjectDoc[]
-  
-  @@unique([orgId, key])
-  @@index([orgId])
-  @@map("projects")
-}
-
-// =============================================================================
-// Project Docs (Memória da IA)
-// =============================================================================
-model ProjectDoc {
-  id        String   @id @default(uuid())
-  projectId String   @map("project_id")
-  title     String
-  content   String   // Markdown puro
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  @@index([projectId])
-  @@map("project_docs")
-}
-
-// =============================================================================
-// Epics (Objetivos Macro)
-// =============================================================================
-model Epic {
-  id          String     @id @default(uuid())
-  projectId   String     @map("project_id")
-  title       String
-  description String?
-  status      EpicStatus @default(TODO)
-  createdAt   DateTime   @default(now()) @map("created_at")
-  
-  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  features Feature[]
-  
-  @@index([projectId])
-  @@map("epics")
+  @@map("user_role")
 }
 
 enum EpicStatus {
-  TODO
-  IN_PROGRESS
-  DONE
-}
+  OPEN
+  CLOSED
 
-// =============================================================================
-// Features (Entregáveis)
-// =============================================================================
-model Feature {
-  id          String        @id @default(uuid())
-  epicId      String        @map("epic_id")
-  title       String
-  description String?
-  status      FeatureStatus @default(TODO)
-  createdAt   DateTime      @default(now()) @map("created_at")
-  
-  epic  Epic   @relation(fields: [epicId], references: [id], onDelete: Cascade)
-  tasks Task[]
-  
-  @@index([epicId])
-  @@map("features")
+  @@map("epic_status")
 }
 
 enum FeatureStatus {
+  BACKLOG
   TODO
-  IN_PROGRESS
-  BLOCKED
+  DOING
   DONE
-}
 
-// =============================================================================
-// Tasks & Bugs
-// =============================================================================
-model Task {
-  id          String     @id @default(uuid())
-  featureId   String     @map("feature_id")
-  key         String     @unique // Ex: "APP-001"
-  title       String
-  description String?    // Markdown suportado
-  status      TaskStatus @default(BACKLOG)
-  type        TaskType   @default(TASK)
-  points      Int?
-  priority    Priority   @default(MEDIUM)
-  module      String?    // Deve existir em project.modules
-  assigneeId  String?    @map("assignee_id")
-  createdBy   String     @map("created_by")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-  
-  feature    Feature     @relation(fields: [featureId], references: [id], onDelete: Cascade)
-  pokerVotes PokerVote[]
-  
-  @@index([featureId])
-  @@index([assigneeId, status])
-  @@index([module])
-  @@index([type])
-  @@map("tasks")
+  @@map("feature_status")
 }
 
 enum TaskStatus {
@@ -146,33 +39,220 @@ enum TaskStatus {
   REVIEW
   QA_READY
   DONE
+
+  @@map("task_status")
 }
 
 enum TaskType {
   TASK
   BUG
+
+  @@map("task_type")
 }
 
-enum Priority {
+enum TaskPriority {
   LOW
   MEDIUM
   HIGH
   CRITICAL
+
+  @@map("task_priority")
 }
 
-// =============================================================================
-// Poker Votes (Scrum Poker)
-// =============================================================================
-model PokerVote {
-  id        String   @id @default(uuid())
-  taskId    String   @map("task_id")
-  userId    String   @map("user_id")
-  vote      Int      // -1 = "?", outros = story points
-  createdAt DateTime @default(now()) @map("created_at")
-  
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  
-  @@unique([taskId, userId])
+enum PokerStatus {
+  VOTING
+  REVEALED
+  CLOSED
+
+  @@map("poker_status")
+}
+
+model Organization {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  userProfiles  UserProfile[]
+  projects      Project[]
+  projectDocs   ProjectDoc[]
+  epics         Epic[]
+  features      Feature[]
+  tasks         Task[]
+  pokerSessions PokerSession[]
+  comments      Comment[]
+
+  @@map("organizations")
+}
+
+model UserProfile {
+  id          String   @id @db.Uuid
+  orgId       String   @map("org_id") @db.Uuid
+  displayName String?  @map("display_name")
+  avatarUrl   String?  @map("avatar_url")
+  role        UserRole @default(MEMBER)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("user_profiles")
+}
+
+model Project {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId       String   @map("org_id") @db.Uuid
+  name        String
+  key         String
+  description String?
+  modules     String[] @default([])
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  projectDocs  ProjectDoc[]
+  epics        Epic[]
+  tasks        Task[]
+
+  @@unique([orgId, key])
+  @@index([orgId])
+  @@map("projects")
+}
+
+model ProjectDoc {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  title     String
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([orgId])
+  @@map("project_docs")
+}
+
+model Epic {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId       String     @map("org_id") @db.Uuid
+  projectId   String     @map("project_id") @db.Uuid
+  title       String
+  description String?
+  status      EpicStatus @default(OPEN)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  features     Feature[]
+
+  @@index([projectId])
+  @@index([orgId])
+  @@map("epics")
+}
+
+model Feature {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId       String        @map("org_id") @db.Uuid
+  epicId      String        @map("epic_id") @db.Uuid
+  title       String
+  description String?
+  status      FeatureStatus @default(BACKLOG)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  epic         Epic         @relation(fields: [epicId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+
+  @@index([epicId])
+  @@index([orgId])
+  @@map("features")
+}
+
+model Task {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId       String       @map("org_id") @db.Uuid
+  projectId   String       @map("project_id") @db.Uuid
+  featureId   String       @map("feature_id") @db.Uuid
+  localId     Int          @map("local_id")
+  title       String
+  description String?
+  status      TaskStatus   @default(BACKLOG)
+  type        TaskType     @default(TASK)
+  priority    TaskPriority @default(MEDIUM)
+  points      Int?         @db.SmallInt
+  module      String?
+  assigneeId  String?      @map("assignee_id") @db.Uuid
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization  Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  feature       Feature        @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  pokerSession  PokerSession?
+  comments      Comment[]
+
+  @@unique([projectId, localId])
+  @@index([featureId])
+  @@index([orgId])
+  @@index([projectId])
+  @@index([assigneeId, status])
+  @@map("tasks")
+}
+
+model Comment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId     String   @map("org_id") @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
   @@index([taskId])
+  @@index([orgId])
+  @@index([userId])
+  @@map("comments")
+}
+
+model PokerSession {
+  id        String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId     String      @map("org_id") @db.Uuid
+  taskId    String      @unique @map("task_id") @db.Uuid
+  status    PokerStatus @default(VOTING)
+  createdBy String      @map("created_by") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  task         Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  votes        PokerVote[]
+
+  @@index([taskId])
+  @@index([orgId])
+  @@map("poker_sessions")
+}
+
+model PokerVote {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  vote      Int      @db.SmallInt
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  session PokerSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
   @@map("poker_votes")
 }

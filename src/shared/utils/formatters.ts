@@ -2,6 +2,9 @@
  * @fileoverview Funções de formatação para UI
  */
 
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
 /**
  * Formata valor em centavos para exibição em Reais
  * @param cents - Valor em centavos
@@ -40,6 +43,32 @@ export function formatPhone(phone: string): string {
 }
 
 /**
+ * Format date to Brazilian locale
+ * @param date - Date to format
+ * @param options - Intl.DateTimeFormat options
+ */
+export function formatDate(
+  date: Date | string,
+  options: Intl.DateTimeFormatOptions = {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }
+): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return new Intl.DateTimeFormat('pt-BR', options).format(d);
+}
+
+/**
+ * Format relative time (e.g., "há 2 horas")
+ * Uses date-fns for proper i18n support
+ */
+export function formatRelativeTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return formatDistanceToNow(d, { addSuffix: true, locale: ptBR });
+}
+
+/**
  * Trunca texto com ellipsis
  * @param text - Texto original
  * @param maxLength - Tamanho máximo
@@ -48,6 +77,18 @@ export function formatPhone(phone: string): string {
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
   return `${text.slice(0, maxLength - 3)}...`;
+}
+
+/**
+ * Slugify string for URLs
+ */
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
 }
 
 /**
@@ -72,3 +113,4 @@ export function formatPercent(value: number, decimals = 0): string {
     maximumFractionDigits: decimals,
   }).format(value);
 }
+

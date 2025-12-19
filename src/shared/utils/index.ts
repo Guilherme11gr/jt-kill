@@ -1,2 +1,33 @@
+// Date utils
 export * from './date-utils';
+
+// Formatters
 export * from './formatters';
+
+// Validators
+export {
+  uuidSchema,
+  slugSchema,
+  projectKeySchema,
+  paginationSchema,
+  taskStatusSchema,
+  taskTypeSchema,
+  taskPrioritySchema,
+  storyPointsSchema,
+  createTaskSchema,
+  updateTaskSchema,
+  createCommentSchema,
+  safeParse,
+} from './validators';
+
+// Errors
+export {
+  DomainError,
+  NotFoundError,
+  UnauthorizedError,
+  ForbiddenError,
+  ValidationError,
+  ConflictError,
+  RateLimitError,
+  handleError,
+} from '../errors';

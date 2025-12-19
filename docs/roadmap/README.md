@@ -16,12 +16,14 @@ Este diretório contém os épicos do projeto, organizados por área funcional. 
 
 | Épico | Status | Features | Prioridade | Sprint |
 |-------|--------|----------|------------|--------|
-| [01. Auth & Multi-tenancy](./01-auth-multi-tenancy.md) | 🔴 TODO | 0/5 | P0 | Sprint 1 |
-| [02. CRUD Core](./02-crud-core.md) | 🔴 TODO | 0/6 | P0 | Sprint 1 |
-| [03. Kanban & Dashboard](./03-kanban-dashboard.md) | 🔴 TODO | 0/7 | P1 | Sprint 2 |
-| [04. AI Scribe](./04-ai-scribe.md) | 🔴 TODO | 0/5 | P1 | Sprint 3 |
-| [05. Scrum Poker](./05-scrum-poker.md) | 🔴 TODO | 0/4 | P2 | Sprint 4 |
-| [06. QA Workflow](./06-qa-workflow.md) | 🔴 TODO | 0/4 | P2 | Sprint 4 |
+| [01. Auth & Multi-tenancy](./01-auth-multi-tenancy.md) | 🔴 TODO | 0/5 | P0 | Sprint 1 | 24 pts |
+| [02. CRUD Core](./02-crud-core.md) | 🔴 TODO | 0/6 | P0 | Sprint 1 | 29 pts |
+| [03. Kanban & Dashboard](./03-kanban-dashboard.md) | 🔴 TODO | 0/7 | P1 | Sprint 2 | 37 pts |
+| [04. AI Scribe](./04-ai-scribe.md) | 🔴 TODO | 0/5 | P1 | Sprint 3 | 22 pts |
+| [05. Scrum Poker](./05-scrum-poker.md) | 🔴 TODO | 0/4 | P2 | Sprint 4 | 21 pts |
+| [06. QA Workflow](./06-qa-workflow.md) | 🔴 TODO | 0/4 | P2 | Sprint 4 | 21 pts |
+
+**Total Estimado:** ~154 Story Points
 
 **Legenda:**
 - 🔴 TODO - Não iniciado
@@ -53,6 +55,7 @@ Sprint 1 (Semana 1)    Sprint 2 (Semana 1)    Sprint 3 (Semana 2)    Sprint 4 (S
 ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
 │ Auth & Setup     │   │ Kanban & UI      │   │ AI Scribe        │   │ Poker + QA       │
 │ CRUD Core        │   │ Dashboard        │   │ Project Docs     │   │ Bug Workflow     │
+│ (53 pts)         │   │ (37 pts)         │   │ (22 pts)         │   │ (42 pts)         │
 └──────────────────┘   └──────────────────┘   └──────────────────┘   └──────────────────┘
 ```
 

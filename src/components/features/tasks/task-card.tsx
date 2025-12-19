@@ -55,7 +55,7 @@ export function TaskCard({
     <Card
       onClick={onClick}
       className={cn(
-        'p-3 cursor-pointer transition-all duration-200',
+        'p-4 cursor-pointer transition-all duration-200',
         'hover:bg-accent/50 hover:border-primary/30',
         isBug && 'border-l-2 border-l-red-500',
         isDragging && 'rotate-2 scale-[1.02] shadow-lg opacity-90',
@@ -63,7 +63,7 @@ export function TaskCard({
       )}
     >
       {/* Header: Module + ID + Priority */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
           {task.module && (
             <Badge
@@ -82,7 +82,7 @@ export function TaskCard({
 
       {/* Body: Title */}
       <h4 className={cn(
-        'text-sm font-medium leading-snug mb-2',
+        'text-sm font-medium leading-relaxed mb-3',
         variant === 'kanban' ? 'line-clamp-2' : 'line-clamp-1'
       )}>
         {task.title}

@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await searchTasks(tenantId, parsed.data, { taskRepository });
-    return jsonSuccess(result, { cache: 'short' });
+    return jsonSuccess(result, { cache: 'none' });
 
   } catch (error) {
     const { status, body } = handleError(error);

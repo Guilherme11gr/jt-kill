@@ -29,9 +29,12 @@
   --radius: 0.5rem;
 
   /* Scrollbar - Light Mode (Zinc Theme) */
-  --scrollbar-track: #e4e4e7; /* zinc-200 */
-  --scrollbar-thumb: #a1a1aa; /* zinc-400 */
-  --scrollbar-thumb-hover: #71717a; /* zinc-500 */
+  --scrollbar-track: #e4e4e7;
+  /* zinc-200 */
+  --scrollbar-thumb: #a1a1aa;
+  /* zinc-400 */
+  --scrollbar-thumb-hover: #71717a;
+  /* zinc-500 */
   --scrollbar-width: 8px;
   --scrollbar-border-radius: 4px;
 }
@@ -59,9 +62,12 @@
   --ring: 240 4.9% 83.9%;
 
   /* Scrollbar - Dark Mode (Zinc Theme) */
-  --scrollbar-track: #27272a; /* zinc-800 */
-  --scrollbar-thumb: #52525b; /* zinc-600 */
-  --scrollbar-thumb-hover: #71717a; /* zinc-500 */
+  --scrollbar-track: #27272a;
+  /* zinc-800 */
+  --scrollbar-thumb: #52525b;
+  /* zinc-600 */
+  --scrollbar-thumb-hover: #71717a;
+  /* zinc-500 */
 }
 
 @theme inline {
@@ -90,6 +96,13 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Z-Index Hierarchy */
+  --z-index-sticky: 40;
+  --z-index-fixed: 50;
+  --z-index-modal: 100;
+  --z-index-popover: 110;
+  --z-index-toast: 120;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -124,6 +137,27 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-sans), system-ui, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Force pointer cursor on interactive elements */
+button,
+[role="button"],
+input[type="submit"],
+input[type="reset"],
+input[type="button"],
+select {
+  cursor: pointer;
+}
+
+/* Disabled elements should not show pointer */
+button:disabled,
+[role="button"][aria-disabled="true"],
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
 }
 
 /* ============================================

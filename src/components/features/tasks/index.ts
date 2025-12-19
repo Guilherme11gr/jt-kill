@@ -5,4 +5,4 @@ export { StatusBadge, StatusColumnHeader } from './status-badge';
 export { PriorityIndicator } from './priority-indicator';
 export { ViewToggle, type ViewMode } from './view-toggle';
 export { TaskFilters, type TaskFiltersState } from './task-filters';
-export { CreateTaskDialog } from './create-task-dialog';
+export { TaskDialog } from './create-task-dialog';

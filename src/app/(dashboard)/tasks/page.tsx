@@ -7,20 +7,14 @@ import { Button } from '@/components/ui/button';
 import {
   ViewToggle,
   TaskFilters,
-  KanbanBoardSkeleton,
-  TableSkeleton,
+  TaskDialog,
   type ViewMode,
   type TaskFiltersState,
 } from '@/components/features/tasks';
 import { TaskDetailModal } from '@/components/features/tasks/task-detail-modal';
 import { KanbanBoard } from '@/lib/views/kanban';
 import { TaskTable } from '@/lib/views/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import { toast } from 'sonner';
 
@@ -59,7 +53,6 @@ export default function TasksPage() {
   const searchParams = useSearchParams();
   const [view, setView] = useState<ViewMode>('kanban');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithReadableId | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskWithReadableId | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -68,16 +61,6 @@ export default function TasksPage() {
 
   // Delete Task State
   const [taskToDelete, setTaskToDelete] = useState<TaskWithReadableId | null>(null);
-
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    priority: "MEDIUM",
-    type: "TASK",
-    points: "",
-    featureId: "",
-    module: "",
-  });
 
   const [filters, setFilters] = useState<TaskFiltersState>({
     search: '',
@@ -120,7 +103,6 @@ export default function TasksPage() {
 
   // Handle task move (Kanban drag-drop)
   const handleTaskMove = useCallback(async (taskId: string, newStatus: TaskStatus) => {
-    // Optimistic update logic could go here
     try {
       const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PATCH',
@@ -128,12 +110,11 @@ export default function TasksPage() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (!res.ok) throw new Error('Failed to update task');
-      // Trigger refetch to sync with server
       await refetch();
     } catch (err) {
       console.error('Failed to move task:', err);
       toast.error('Falha ao mover task');
-      throw err; // Re-throw for optimistic rollback if implemented
+      throw err;
     }
   }, [refetch]);
 
@@ -165,35 +146,17 @@ export default function TasksPage() {
     }
   };
 
-  // Handle edit task - populate form
+  // Handle edit task - open dialog
   const handleEditTask = useCallback((task: TaskWithReadableId) => {
     setEditingTask(task);
-    setFormData({
-      title: task.title,
-      description: task.description || "",
-      priority: task.priority,
-      type: task.type,
-      points: task.points?.toString() || "",
-      featureId: task.feature.id,
-      module: task.module || "",
-    });
     setIsDialogOpen(true);
   }, []);
 
-  // Reset form when dialog closes
+  // Handle dialog open change
   const handleDialogChange = (open: boolean) => {
     setIsDialogOpen(open);
     if (!open) {
       setEditingTask(null);
-      setFormData({
-        title: "",
-        description: "",
-        priority: "MEDIUM",
-        type: "TASK",
-        points: "",
-        featureId: "",
-        module: "",
-      });
     }
   };
 
@@ -237,49 +200,10 @@ export default function TasksPage() {
     fetchModules();
   });
 
-  const handleSaveTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreating(true);
-
-    try {
-      const url = editingTask ? `/api/tasks/${editingTask.id}` : "/api/tasks";
-      const method = editingTask ? "PATCH" : "POST";
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          priority: formData.priority,
-          type: formData.type,
-          points: formData.points ? parseInt(formData.points) : null,
-          featureId: formData.featureId,
-          module: formData.module || null,
-        }),
-      });
-
-      if (res.ok) {
-        handleDialogChange(false);
-        refetch();
-        toast.success(editingTask ? "Task atualizada com sucesso" : "Task criada com sucesso");
-      } else {
-        const errData = await res.json();
-        toast.error(`Erro ao salvar task: ${errData.message || 'Erro desconhecido'}`);
-      }
-    } catch (error) {
-      console.error("Erro:", error);
-      toast.error("Erro ao salvar task");
-    } finally {
-      setCreating(false);
-    }
-  };
-
   // Handle task click - open detail modal and update URL
   const handleTaskClick = useCallback((task: TaskWithReadableId) => {
     setSelectedTask(task);
     setIsDetailModalOpen(true);
-    // Update URL with task id for sharing
     const params = new URLSearchParams(searchParams.toString());
     params.set('task', task.id);
     router.push(`/tasks?${params.toString()}`, { scroll: false });
@@ -290,7 +214,6 @@ export default function TasksPage() {
     setIsDetailModalOpen(open);
     if (!open) {
       setSelectedTask(null);
-      // Remove task param from URL
       const params = new URLSearchParams(searchParams.toString());
       params.delete('task');
       const newUrl = params.toString() ? `/tasks?${params.toString()}` : '/tasks';
@@ -309,6 +232,19 @@ export default function TasksPage() {
       }
     }
   }, [searchParams, tasks, isDetailModalOpen]);
+
+  // Map editingTask to TaskDialog expected format
+  const taskToEditForDialog = editingTask ? {
+    id: editingTask.id,
+    title: editingTask.title,
+    description: editingTask.description,
+    type: editingTask.type,
+    priority: editingTask.priority,
+    status: editingTask.status,
+    points: editingTask.points?.toString(),
+    module: editingTask.module,
+    featureId: editingTask.feature.id
+  } : null;
 
   return (
     <div className="space-y-6">
@@ -337,133 +273,23 @@ export default function TasksPage() {
             )}
           </Button>
           <ViewToggle value={view} onChange={setView} />
-          <Dialog open={isDialogOpen} onOpenChange={handleDialogChange}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Nova Task</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingTask ? "Editar Task" : "Nova Task"}</DialogTitle>
-                <DialogDescription>{editingTask ? "Edite os detalhes da tarefa" : "Adicione uma tarefa ao backlog"}</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSaveTask} className="space-y-4">
-                <div>
-                  <Label htmlFor="title">Título</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={e => setFormData({ ...formData, title: e.target.value })}
-                    required
-                    placeholder="Implementar login..."
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="feature">Feature</Label>
-                  <Select value={formData.featureId} onValueChange={v => setFormData({ ...formData, featureId: v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma feature" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {features.map(f => (
-                        <SelectItem key={f.id} value={f.id}>{f.title}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {/* Description with Markdown */}
-                <div>
-                  <Label htmlFor="description">Descrição (Markdown)</Label>
-                  <MarkdownEditor
-                    id="description"
-                    value={formData.description}
-                    onChange={v => setFormData({ ...formData, description: v })}
-                    placeholder="## Objetivo\n\nDescreva a task...\n\n## Critérios de Aceite\n\n- [ ] Critério 1"
-                    minHeight="200px"
-                  />
-                </div>
-                {/* Grid 2 colunas para campos secundários */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="type">Tipo</Label>
-                    <Select value={formData.type} onValueChange={v => setFormData({ ...formData, type: v as any })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="TASK">Task</SelectItem>
-                        <SelectItem value="BUG">Bug</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="priority">Prioridade</Label>
-                    <Select value={formData.priority} onValueChange={v => setFormData({ ...formData, priority: v as any })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="LOW">Baixa</SelectItem>
-                        <SelectItem value="MEDIUM">Média</SelectItem>
-                        <SelectItem value="HIGH">Alta</SelectItem>
-                        <SelectItem value="CRITICAL">Crítica</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="module">Módulo</Label>
-                    <Select
-                      value={formData.module || "__none__"}
-                      onValueChange={v => setFormData({ ...formData, module: v === "__none__" ? "" : v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione módulo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Nenhum</SelectItem>
-                        {modules.map(m => (
-                          <SelectItem key={m} value={m}>{m}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="points">Story Points</Label>
-                    <Select
-                      value={formData.points || "__none__"}
-                      onValueChange={v => setFormData({ ...formData, points: v === "__none__" ? "" : v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Sem estimativa</SelectItem>
-                        <SelectItem value="1">1</SelectItem>
-                        <SelectItem value="2">2</SelectItem>
-                        <SelectItem value="3">3</SelectItem>
-                        <SelectItem value="5">5</SelectItem>
-                        <SelectItem value="8">8</SelectItem>
-                        <SelectItem value="13">13</SelectItem>
-                        <SelectItem value="21">21</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" type="button" onClick={() => handleDialogChange(false)}>Cancelar</Button>
-                  <Button type="submit" disabled={creating}>
-                    {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : (editingTask ? "Salvar" : "Criar")}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+
+          <Button className="gap-2" onClick={() => setIsDialogOpen(true)}>
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nova Task</span>
+          </Button>
         </div>
       </div>
+
+      <TaskDialog
+        open={isDialogOpen}
+        onOpenChange={handleDialogChange}
+        features={features}
+        modules={modules}
+        // @ts-ignore - TS might complain about optional properties matching but it's fine for now
+        taskToEdit={taskToEditForDialog}
+        onSuccess={refetch}
+      />
 
       {/* Filters */}
       <TaskFilters
@@ -515,7 +341,7 @@ export default function TasksPage() {
 
       {/* Delete Task Confirmation Dialog */}
       <Dialog open={!!taskToDelete} onOpenChange={(open) => !open && setTaskToDelete(null)}>
-        <DialogContent>
+        <DialogContent className="z-modal">
           <DialogHeader>
             <DialogTitle>Você tem certeza?</DialogTitle>
             <DialogDescription>

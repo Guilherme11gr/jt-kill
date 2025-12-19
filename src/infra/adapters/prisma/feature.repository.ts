@@ -15,7 +15,7 @@ export interface UpdateFeatureInput {
 }
 
 export class FeatureRepository {
-  constructor(private prisma: PrismaClient) {}
+  constructor(private prisma: PrismaClient) { }
 
   async create(input: CreateFeatureInput): Promise<Feature> {
     return await this.prisma.feature.create({
@@ -39,6 +39,13 @@ export class FeatureRepository {
         },
       },
       orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findAll(orgId: string): Promise<Feature[]> {
+    return await this.prisma.feature.findMany({
+      where: { orgId },
+      orderBy: { title: 'asc' },
     });
   }
 
@@ -78,11 +85,11 @@ export class FeatureRepository {
     const existing = await this.prisma.feature.findFirst({
       where: { id, epic: { project: { orgId } } },
     });
-    
+
     if (!existing) {
       throw new Error('Feature not found');
     }
-    
+
     return await this.prisma.feature.update({
       where: { id },
       data: input,

@@ -53,12 +53,14 @@ export default function TasksPage() {
   const [view, setView] = useState<ViewMode>('kanban');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [features, setFeatures] = useState<{ id: string; title: string }[]>([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     priority: "MEDIUM",
     type: "TASK",
     points: "",
+    featureId: "",
   });
 
   const [filters, setFilters] = useState<TaskFiltersState>({
@@ -126,6 +128,24 @@ export default function TasksPage() {
     }
   }, [refetch]);
 
+  // Fetch features for dropdown
+  const fetchFeatures = useCallback(async () => {
+    try {
+      const res = await fetch('/api/features');
+      if (res.ok) {
+        const data = await res.json();
+        setFeatures(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch features", error);
+    }
+  }, []);
+
+  // Fetch features on mount
+  useState(() => {
+    fetchFeatures();
+  });
+
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreating(true);
@@ -159,16 +179,17 @@ export default function TasksPage() {
           priority: formData.priority,
           type: formData.type,
           points: formData.points ? parseInt(formData.points) : null,
-          // featureId: ??? -> Missing in current context
+          featureId: formData.featureId,
         }),
       });
 
       if (res.ok) {
-        setFormData({ title: "", description: "", priority: "MEDIUM", type: "TASK", points: "" });
+        setFormData({ title: "", description: "", priority: "MEDIUM", type: "TASK", points: "", featureId: "" });
         setIsDialogOpen(false);
         refetch();
       } else {
-        alert("Erro ao criar task (Backend validation might be missing Feature ID)");
+        const errData = await res.json();
+        alert(`Erro ao criar task: ${errData.message || 'Erro desconhecido'}`);
       }
     } catch (error) {
       console.error("Erro:", error);
@@ -232,6 +253,19 @@ export default function TasksPage() {
                     required
                     placeholder="Implementar login..."
                   />
+                </div>
+                <div>
+                  <Label htmlFor="feature">Feature</Label>
+                  <Select value={formData.featureId} onValueChange={v => setFormData({ ...formData, featureId: v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma feature" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {features.map(f => (
+                        <SelectItem key={f.id} value={f.id}>{f.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="type">Tipo</Label>

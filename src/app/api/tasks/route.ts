@@ -5,6 +5,7 @@ import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
 import { taskRepository } from '@/infra/adapters/prisma';
 import { searchTasks } from '@/domain/use-cases/tasks/search-tasks';
+import { createTask } from '@/domain/use-cases/tasks/create-task';
 import { z } from 'zod';
 
 const searchTasksSchema = z.object({
@@ -40,6 +41,44 @@ export async function GET(request: NextRequest) {
 
     const result = await searchTasks(tenantId, parsed.data, { taskRepository });
     return jsonSuccess(result, { cache: 'short' });
+
+  } catch (error) {
+    const { status, body } = handleError(error);
+    return jsonError(body.error.code, body.error.message, status);
+  }
+}
+
+const createTaskSchema = z.object({
+  featureId: z.string().uuid(),
+  title: z.string().min(1).max(500),
+  description: z.string().max(10000).optional(),
+  type: z.enum(['TASK', 'BUG']).default('TASK'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
+  points: z.number().int().optional().nullable(),
+  module: z.string().max(50).optional().nullable(),
+  assigneeId: z.string().uuid().optional().nullable(),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createClient();
+    const { tenantId } = await extractAuthenticatedTenant(supabase); // tenantId = orgId
+
+    const body = await request.json();
+    const parsed = createTaskSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return jsonError('VALIDATION_ERROR', 'Dados inválidos', 400, {
+        errors: parsed.error.flatten().fieldErrors,
+      } as Record<string, unknown>);
+    }
+
+    const task = await createTask({
+      orgId: tenantId,
+      ...parsed.data,
+    }, { taskRepository });
+
+    return jsonSuccess(task, { status: 201 });
 
   } catch (error) {
     const { status, body } = handleError(error);

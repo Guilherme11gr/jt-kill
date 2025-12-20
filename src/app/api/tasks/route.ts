@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { taskRepository } from '@/infra/adapters/prisma';
+import { taskRepository, featureRepository } from '@/infra/adapters/prisma';
 import { searchTasks } from '@/domain/use-cases/tasks/search-tasks';
 import { createTask } from '@/domain/use-cases/tasks/create-task';
 import { z } from 'zod';
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     const task = await createTask({
       orgId: tenantId,
       ...parsed.data,
-    }, { taskRepository });
+    }, { taskRepository, featureRepository });
 
     return jsonSuccess(task, { status: 201 });
 

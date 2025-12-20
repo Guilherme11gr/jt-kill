@@ -6,6 +6,7 @@ export interface CreateEpicInput {
   projectId: string;
   title: string;
   description?: string | null;
+  isSystem?: boolean;
 }
 
 export interface UpdateEpicInput {
@@ -15,7 +16,7 @@ export interface UpdateEpicInput {
 }
 
 export class EpicRepository {
-  constructor(private prisma: PrismaClient) {}
+  constructor(private prisma: PrismaClient) { }
 
   async create(input: CreateEpicInput): Promise<Epic> {
     return await this.prisma.epic.create({
@@ -70,11 +71,11 @@ export class EpicRepository {
     const existing = await this.prisma.epic.findFirst({
       where: { id, project: { orgId } },
     });
-    
+
     if (!existing) {
       throw new Error('Epic not found');
     }
-    
+
     return await this.prisma.epic.update({
       where: { id },
       data: input,
@@ -82,6 +83,15 @@ export class EpicRepository {
   }
 
   async delete(id: string, orgId: string): Promise<boolean> {
+    // Protect system epics from deletion
+    const epic = await this.prisma.epic.findFirst({
+      where: { id, project: { orgId } },
+    });
+
+    if (epic?.isSystem) {
+      throw new Error('Épico de sistema não pode ser excluído');
+    }
+
     const result = await this.prisma.epic.deleteMany({
       where: {
         id,

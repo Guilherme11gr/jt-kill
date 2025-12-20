@@ -1,5 +1,5 @@
 import type { Project } from '@/shared/types';
-import type { ProjectRepository } from '@/infra/adapters/prisma';
+import type { ProjectRepository, EpicRepository, FeatureRepository } from '@/infra/adapters/prisma';
 import { ConflictError, ValidationError } from '@/shared/errors';
 
 export interface CreateProjectInput {
@@ -12,6 +12,8 @@ export interface CreateProjectInput {
 
 export interface CreateProjectDeps {
   projectRepository: ProjectRepository;
+  epicRepository: EpicRepository;
+  featureRepository: FeatureRepository;
 }
 
 /**
@@ -21,12 +23,13 @@ export interface CreateProjectDeps {
  * - Project key must be unique per organization
  * - Key is always uppercase (2-10 chars)
  * - Modules must be unique strings
+ * - Automatically creates Sustentation Epic and Feature (Smart Orphan)
  */
 export async function createProject(
   input: CreateProjectInput,
   deps: CreateProjectDeps
 ): Promise<Project> {
-  const { projectRepository } = deps;
+  const { projectRepository, epicRepository, featureRepository } = deps;
 
   // 1. Validate key format
   const keyRegex = /^[A-Z0-9]{2,10}$/;
@@ -45,8 +48,9 @@ export async function createProject(
   }
 
   // 3. Create project (DB constraint will prevent duplicates)
+  let project: Project;
   try {
-    return await projectRepository.create({
+    project = await projectRepository.create({
       orgId: input.orgId,
       name: input.name,
       key: input.key.toUpperCase(),
@@ -60,4 +64,24 @@ export async function createProject(
     }
     throw error;
   }
+
+  // 4. Create Sustentation structure (Smart Orphan Handling)
+  const sustentationEpic = await epicRepository.create({
+    orgId: input.orgId,
+    projectId: project.id,
+    title: 'Sustentação & Backlog Geral',
+    description: 'Container para bugs de produção, débitos técnicos e melhorias que não pertencem a features ativas.',
+    isSystem: true,
+  });
+
+  await featureRepository.create({
+    orgId: input.orgId,
+    epicId: sustentationEpic.id,
+    title: 'Bugs de Produção & Melhorias',
+    description: 'Tasks órfãs são vinculadas aqui automaticamente.',
+    isSystem: true,
+  });
+
+  return project;
 }
+

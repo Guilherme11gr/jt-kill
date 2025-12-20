@@ -6,6 +6,7 @@ export interface CreateFeatureInput {
   epicId: string;
   title: string;
   description?: string | null;
+  isSystem?: boolean;
 }
 
 export interface UpdateFeatureInput {
@@ -52,6 +53,19 @@ export class FeatureRepository {
   async findById(id: string, orgId: string): Promise<Feature | null> {
     return await this.prisma.feature.findFirst({
       where: { id, orgId },
+    });
+  }
+
+  /**
+   * Find system feature (Sustentação) for a project
+   * Used for orphan task assignment
+   */
+  async findSystemFeature(projectId: string): Promise<Feature | null> {
+    return await this.prisma.feature.findFirst({
+      where: {
+        epic: { projectId },
+        isSystem: true,
+      },
     });
   }
 
@@ -124,6 +138,15 @@ export class FeatureRepository {
   }
 
   async delete(id: string, orgId: string): Promise<boolean> {
+    // Protect system features from deletion
+    const feature = await this.prisma.feature.findFirst({
+      where: { id, epic: { project: { orgId } } },
+    });
+
+    if (feature?.isSystem) {
+      throw new Error('Feature de sistema não pode ser excluída');
+    }
+
     const result = await this.prisma.feature.deleteMany({
       where: {
         id,

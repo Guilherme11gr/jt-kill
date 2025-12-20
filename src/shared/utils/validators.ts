@@ -62,8 +62,10 @@ export const storyPointsSchema = z.preprocess(
 );
 
 // Create task input validator
+// projectId is required, featureId is optional (auto-assigned to Sustentation if empty)
 export const createTaskSchema = z.object({
-  featureId: uuidSchema,
+  projectId: uuidSchema,
+  featureId: uuidSchema.nullable().optional(),
   title: z.string().min(3, 'Mínimo 3 caracteres').max(200, 'Máximo 200 caracteres'),
   description: z.string().max(10000).nullable().optional(),
   type: taskTypeSchema.default('TASK'),

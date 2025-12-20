@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { projectRepository } from '@/infra/adapters/prisma';
+import { projectRepository, epicRepository, featureRepository } from '@/infra/adapters/prisma';
 import { createProject } from '@/domain/use-cases/projects/create-project';
 import { getProjects } from '@/domain/use-cases/projects/get-projects';
 import { z } from 'zod';
@@ -33,20 +33,20 @@ export async function POST(request: NextRequest) {
     // 2. Parse & validate body
     const body = await request.json();
     const parsed = createProjectSchema.safeParse(body);
-    
+
     if (!parsed.success) {
       return jsonError('VALIDATION_ERROR', 'Dados inválidos', 400, {
         errors: parsed.error.flatten().fieldErrors,
       });
     }
 
-    // 3. Call use case
+    // 3. Call use case (now also creates Sustentation structure)
     const project = await createProject(
       {
         orgId: tenantId,
         ...parsed.data,
       },
-      { projectRepository }
+      { projectRepository, epicRepository, featureRepository }
     );
 
     // 4. Return created project

@@ -145,6 +145,7 @@ model Epic {
   title       String
   description String?
   status      EpicStatus @default(OPEN)
+  isSystem    Boolean    @default(false) @map("is_system")
   createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -164,6 +165,7 @@ model Feature {
   title       String
   description String?
   status      FeatureStatus @default(BACKLOG)
+  isSystem    Boolean       @default(false) @map("is_system")
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 

@@ -27,7 +27,7 @@ last-updated: 2025-12
 
 | Camada | Tecnologia |
 |--------|------------|
-| **Frontend** | Next.js 14+ (App Router), TypeScript strict |
+| **Frontend** | Next.js 16+ (App Router), TypeScript strict |
 | **Styling** | Tailwind CSS + Shadcn/UI |
 | **Backend/DB** | Supabase (PostgreSQL) |
 | **Realtime** | Supabase Realtime |

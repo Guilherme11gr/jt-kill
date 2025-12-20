@@ -40,15 +40,102 @@ export default function TasksPage() {
   // Delete Task State
   const [taskToDelete, setTaskToDelete] = useState<TaskWithReadableId | null>(null);
 
-  const [filters, setFilters] = useState<TaskFiltersState>({
-    search: '',
-    status: 'all',
-    priority: 'all',
-    module: 'all',
-    projectId: 'all',
-    epicId: 'all',
-    featureId: 'all',
+  /* 
+    Updated to sync with URL query params. 
+    We use a lazy initializer to set the initial state from the URL.
+  */
+  const [filters, setFilters] = useState<TaskFiltersState>(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    return {
+      search: params.get('search') || '',
+      status: (params.get('status') as any) || 'all',
+      priority: (params.get('priority') as any) || 'all',
+      module: params.get('module') || 'all',
+      projectId: params.get('projectId') || 'all',
+      epicId: params.get('epicId') || 'all',
+      featureId: params.get('featureId') || 'all',
+    };
   });
+
+  // Handler to update both state and URL explicitly
+  const handleFiltersChange = useCallback((newFilters: TaskFiltersState) => {
+    setFilters(newFilters);
+
+    const params = new URLSearchParams(searchParams.toString());
+    let hasChanges = false;
+
+    // Helper to sync specific key
+    const syncParam = (key: string, value: string) => {
+      const currentValue = params.get(key);
+      if (value && value !== 'all') {
+        if (currentValue !== value) {
+          params.set(key, value);
+          hasChanges = true;
+        }
+      } else {
+        if (currentValue) {
+          /**
+           * Special handling for projectId:
+           * If we clear projectId (set to 'all'), we must also ensure epicId and featureId are cleared/all
+           * in the URL if they aren't already handled by the newsFilters.
+           * However, TaskFilters component usually resets them in the object it passes.
+           * So relying on newFiltersToCheck is sufficient.
+           */
+          params.delete(key);
+          hasChanges = true;
+        }
+      }
+    };
+
+    syncParam('search', newFilters.search);
+    syncParam('status', newFilters.status);
+    syncParam('priority', newFilters.priority);
+    syncParam('module', newFilters.module);
+    syncParam('projectId', newFilters.projectId);
+    syncParam('epicId', newFilters.epicId);
+    syncParam('featureId', newFilters.featureId);
+
+    if (hasChanges) {
+      const newQuery = params.toString();
+      const currentSearch = searchParams.get('search') || '';
+      // If search string changed, use replace to avoid history spam. Otherwise use push.
+      if (currentSearch !== newFilters.search) {
+        router.replace(newQuery ? `/tasks?${newQuery}` : '/tasks', { scroll: false });
+      } else {
+        router.push(newQuery ? `/tasks?${newQuery}` : '/tasks', { scroll: false });
+      }
+    }
+  }, [router, searchParams]);
+
+  // Sync from URL (Browser Back/Forward)
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    // Construct what the state SHOULD be based on URL
+    const urlFilters: TaskFiltersState = {
+      search: params.get('search') || '',
+      status: (params.get('status') as any) || 'all',
+      priority: (params.get('priority') as any) || 'all',
+      module: params.get('module') || 'all',
+      projectId: params.get('projectId') || 'all',
+      epicId: params.get('epicId') || 'all',
+      featureId: params.get('featureId') || 'all',
+    };
+
+    // Only update state if it differs from current state
+    setFilters(prev => {
+      const isDifferent =
+        urlFilters.search !== prev.search ||
+        urlFilters.status !== prev.status ||
+        urlFilters.priority !== prev.priority ||
+        urlFilters.module !== prev.module ||
+        urlFilters.projectId !== prev.projectId ||
+        urlFilters.epicId !== prev.epicId ||
+        urlFilters.featureId !== prev.featureId;
+
+      return isDifferent ? urlFilters : prev;
+    });
+  }, [searchParams]);
 
   // React Query hooks for shared cache
   const { data: tasksData, isLoading, error, refetch, isFetching } = useTasks();
@@ -154,31 +241,44 @@ export default function TasksPage() {
     }
   };
 
-  // Handle task click - open detail modal and update URL
+  // Handle task click - open detail modal and update URL without full router transition for fluidity
   const handleTaskClick = useCallback((task: TaskWithReadableId) => {
     setSelectedTask(task);
     setIsDetailModalOpen(true);
+
+    // Manually update URL to avoid Next.js router processing lag during animation
     const params = new URLSearchParams(searchParams.toString());
     params.set('task', task.id);
-    router.push(`/tasks?${params.toString()}`, { scroll: false });
-  }, [router, searchParams]);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.pushState(null, '', newUrl);
+  }, [searchParams]); // removed router dep as we use history API for this specific interaction
 
   // Handle closing detail modal
   const handleDetailModalClose = useCallback((open: boolean) => {
     setIsDetailModalOpen(open);
     if (!open) {
-      setSelectedTask(null);
+      // Do not clear selectedTask here to allow the modal to animate out with content
+      // setSelectedTask(null); 
       const params = new URLSearchParams(searchParams.toString());
       params.delete('task');
       const newUrl = params.toString() ? `/tasks?${params.toString()}` : '/tasks';
-      router.push(newUrl, { scroll: false });
+      // Use history API to clean URL without triggering Next.js navigation/re-render
+      window.history.pushState(null, '', newUrl);
     }
-  }, [router, searchParams]);
+  }, [searchParams]); // removed router dep
 
   // Open task from URL query param
   useEffect(() => {
+    // Verify against real URL because searchParams might be stale due to manual history manipulation
+    // This prevents the "Zombie Re-open" bug where closing via pushState causes this effect to re-open
+    // because Next.js searchParams hasn't updated yet.
+    if (typeof window === 'undefined') return;
+
+    const currentParams = new URLSearchParams(window.location.search);
+    const urlHasTask = currentParams.has('task');
     const taskId = searchParams.get('task');
-    if (taskId && tasks.length > 0 && !isDetailModalOpen) {
+
+    if (taskId && urlHasTask && tasks.length > 0 && !isDetailModalOpen) {
       const task = tasks.find(t => t.id === taskId);
       if (task) {
         setSelectedTask(task);
@@ -191,7 +291,7 @@ export default function TasksPage() {
   const taskToEditForDialog = editingTask ? {
     id: editingTask.id,
     title: editingTask.title,
-    description: editingTask.description,
+    description: editingTask.description || "",
     type: editingTask.type,
     priority: editingTask.priority,
     status: editingTask.status,
@@ -255,8 +355,13 @@ export default function TasksPage() {
         open={isDialogOpen}
         onOpenChange={handleDialogChange}
         features={features}
-        modules={modules}
-        // @ts-ignore - TS might complain about optional properties matching but it's fine for now
+        modules={modules} // This is fallback fallbackModules, kept for comp
+        defaultValues={{
+          status: filters.status !== 'all' ? filters.status : undefined,
+          priority: filters.priority !== 'all' ? filters.priority : undefined,
+          modules: filters.module !== 'all' ? [filters.module] : undefined,
+          featureId: filters.featureId !== 'all' ? filters.featureId : undefined,
+        }}
         taskToEdit={taskToEditForDialog}
         onSuccess={refetch}
       />
@@ -264,7 +369,7 @@ export default function TasksPage() {
       {/* Filters */}
       <TaskFilters
         filters={filters}
-        onChange={setFilters}
+        onChange={handleFiltersChange}
         modules={modules}
         projects={projects}
         epics={epics}

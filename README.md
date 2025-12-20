@@ -3,7 +3,7 @@
 <div align="center">
 
 ![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)
-![Next.js](https://img.shields.io/badge/Next.js-14+-black.svg)
+![Next.js](https://img.shields.io/badge/Next.js-16+-black.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue.svg)
 ![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green.svg)
 
@@ -117,12 +117,12 @@ Estimativa sem sair do contexto da task:
 
 | Camada | Tecnologia |
 |--------|------------|
-| **Frontend** | Next.js 14+ (App Router) |
+| **Frontend** | Next.js 16+ (App Router) / React 19 |
 | **Linguagem** | TypeScript (strict mode) |
-| **Styling** | Tailwind CSS + Shadcn/UI |
+| **Styling** | Tailwind CSS v4 + Shadcn/UI |
 | **Backend/DB** | Supabase (PostgreSQL) |
 | **Realtime** | Supabase Realtime |
-| **AI** | OpenAI / Anthropic |
+| **AI** | OpenAI / Anthropic (Planned) |
 | **ORM** | Prisma |
 
 ---
@@ -143,9 +143,10 @@ cp .env.example .env.local
 
 # Rode o projeto
 npm run dev
+# App rodará em http://localhost:3005 (ver scripts)
 ```
 
-Acesse [http://localhost:3000](http://localhost:3000)
+Acesse [http://localhost:3005](http://localhost:3005)
 
 ---
 

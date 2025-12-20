@@ -1,4 +1,7 @@
+'use client';
+
 import Link from "next/link";
+import * as React from "react";
 import {
   LayoutDashboard,
   FolderKanban,
@@ -28,6 +31,8 @@ export default function DashboardLayout({
     { icon: Zap, label: "AI Scribe", href: "/scribe" },
     { icon: Settings, label: "Configurações", href: "/settings" },
   ];
+
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
@@ -70,12 +75,10 @@ export default function DashboardLayout({
             Jira Killer
           </span>
         </div>
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <Menu className="w-6 h-6" />
-            </Button>
-          </SheetTrigger>
+        <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+          <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)}>
+            <Menu className="w-6 h-6" />
+          </Button>
           <SheetContent side="left" className="w-64 bg-card border-r border-border p-0">
             <div className="p-6 border-b border-border flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
@@ -90,6 +93,7 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setIsSidebarOpen(false)}
                   className="flex items-center gap-3 px-4 py-2.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 >
                   <item.icon className="w-4 h-4" />

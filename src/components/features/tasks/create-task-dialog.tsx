@@ -56,6 +56,12 @@ interface TaskDialogProps {
   features: Feature[];
   modules?: string[]; // Optional fallback modules (deprecated, prefer deriving from feature)
   defaultFeatureId?: string;
+  defaultValues?: {
+    status?: string;
+    priority?: string;
+    modules?: string[];
+    featureId?: string;
+  };
   taskToEdit?: Task | null;
   onSuccess?: () => void;
 }
@@ -79,6 +85,7 @@ export function TaskDialog({
   features,
   modules: fallbackModules = [],
   defaultFeatureId,
+  defaultValues,
   taskToEdit,
   onSuccess,
 }: TaskDialogProps) {
@@ -119,13 +126,17 @@ export function TaskDialog({
           assigneeId: taskToEdit.assigneeId || null,
         });
       } else {
+        // Merge defaults
         setFormData({
           ...INITIAL_FORM_DATA,
-          featureId: defaultFeatureId || features[0]?.id || "",
+          status: (defaultValues?.status as any) || INITIAL_FORM_DATA.status,
+          priority: (defaultValues?.priority as any) || INITIAL_FORM_DATA.priority,
+          modules: defaultValues?.modules || INITIAL_FORM_DATA.modules,
+          featureId: defaultValues?.featureId || defaultFeatureId || features[0]?.id || "",
         });
       }
     }
-  }, [open, taskToEdit, defaultFeatureId, features]);
+  }, [open, taskToEdit, defaultFeatureId, features, defaultValues]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

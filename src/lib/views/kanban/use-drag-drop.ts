@@ -6,7 +6,8 @@ import {
   DragOverlay,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
@@ -34,11 +35,18 @@ interface UseDragDropReturn {
 export function useDragDrop({ tasks, onDragEnd }: UseDragDropOptions): UseDragDropReturn {
   const [activeTask, setActiveTask] = useState<TaskWithReadableId | null>(null);
 
-  // Sensors for pointer and keyboard
+  // Sensors for mouse, touch and keyboard
+  // Using Mouse/Touch instead of Pointer fixes issues with click propagation
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 8, // Minimum drag distance to activate
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor)

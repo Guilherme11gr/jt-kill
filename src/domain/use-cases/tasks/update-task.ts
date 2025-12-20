@@ -9,7 +9,7 @@ export interface UpdateTaskInput {
   type?: TaskType;
   priority?: TaskPriority;
   points?: StoryPoints | null;
-  module?: string | null;
+  modules?: string[];
   assigneeId?: string | null;
 }
 

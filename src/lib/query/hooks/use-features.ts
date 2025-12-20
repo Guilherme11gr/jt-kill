@@ -10,6 +10,7 @@ interface Feature {
   title: string;
   description?: string | null;
   epicId: string;
+  status: string;
   epic?: {
     id: string;
     title: string;
@@ -17,6 +18,7 @@ interface Feature {
     project?: {
       id: string;
       name: string;
+      key: string;
     };
   };
 }

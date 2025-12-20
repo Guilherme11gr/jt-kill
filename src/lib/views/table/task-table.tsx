@@ -100,7 +100,7 @@ function getSortValue(task: TaskWithReadableId, column: string): string | number
     case 'priority':
       return priorityOrder[task.priority];
     case 'module':
-      return task.module || 'zzz'; // Put empty at end
+      return (task.modules && task.modules.length > 0) ? task.modules[0] : 'zzz'; // Sort by first module
     case 'points':
       return task.points || 999; // Put empty at end
     default:

@@ -14,13 +14,14 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from "@/lib/query";
+import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 
 interface Project {
   id: string;
   name: string;
   key: string;
-  description: string | null;
-  modules: string[];
+  description?: string | null;
+  modules?: string[];
   _count?: {
     epics: number;
     tasks: number;
@@ -79,7 +80,7 @@ export default function ProjectsPage() {
       name: project.name,
       key: project.key,
       description: project.description || "",
-      modules: project.modules.join(", "),
+      modules: project?.modules?.join(", ") ?? "",
     });
     setIsEditDialogOpen(true);
   }, []);
@@ -137,8 +138,9 @@ export default function ProjectsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <PageHeaderSkeleton />
+        <CardsSkeleton count={6} />
       </div>
     );
   }

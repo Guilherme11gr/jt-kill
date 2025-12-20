@@ -62,16 +62,24 @@ export function TaskCard({
         className
       )}
     >
-      {/* Header: Module + ID + Priority */}
+      {/* Header: Module(s) + ID + Priority */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          {task.module && (
-            <Badge
-              variant="outline"
-              className={cn('text-[10px] px-1.5 py-0 shrink-0', getModuleColor(task.module))}
-            >
-              {task.module}
-            </Badge>
+          {task.modules && task.modules.length > 0 && (
+            <>
+              {task.modules.slice(0, 2).map((mod) => (
+                <Badge
+                  key={mod}
+                  variant="outline"
+                  className={cn('text-[10px] px-1.5 py-0 shrink-0', getModuleColor(mod))}
+                >
+                  {mod}
+                </Badge>
+              ))}
+              {task.modules.length > 2 && (
+                <span className="text-[10px] text-muted-foreground">+{task.modules.length - 2}</span>
+              )}
+            </>
           )}
           <span className="text-xs text-muted-foreground font-mono truncate">
             {task.readableId}

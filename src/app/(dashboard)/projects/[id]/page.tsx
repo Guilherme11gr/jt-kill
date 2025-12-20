@@ -17,6 +17,7 @@ import { useProject, useEpics, useTasks } from "@/lib/query";
 import { useCreateEpic, useUpdateEpic, useDeleteEpic } from "@/lib/query/hooks/use-epics";
 import { ProjectDocsList } from "@/components/features/projects";
 import { FileText } from "lucide-react";
+import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 
 interface Epic {
   id: string;
@@ -146,8 +147,11 @@ export default function ProjectDetailPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="mb-6 md:mb-8">
+          <PageHeaderSkeleton />
+        </div>
+        <CardsSkeleton count={3} />
       </div>
     );
   }

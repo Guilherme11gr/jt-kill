@@ -140,6 +140,20 @@ export function useModules() {
   return { data: modules, ...rest };
 }
 
+/**
+ * Get modules for a specific project
+ * @param projectId - The project ID to get modules for
+ */
+export function useModulesByProject(projectId: string | undefined) {
+  const { data: projects, ...rest } = useProjects();
+
+  const modules = projects && projectId
+    ? projects.find((p) => p.id === projectId)?.modules || []
+    : [];
+
+  return { data: modules, ...rest };
+}
+
 // ============ Mutations ============
 
 /**

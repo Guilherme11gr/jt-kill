@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,10 +10,18 @@ import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { AssigneeSelect } from "@/components/features/shared";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { ModuleTagInput } from "@/components/ui/module-tag-input";
+import { useProjects } from "@/lib/query";
 
 interface Feature {
   id: string;
   title: string;
+  epic?: {
+    project?: {
+      id: string;
+      modules?: string[];
+    };
+  };
 }
 
 interface Task {
@@ -25,7 +33,7 @@ interface Task {
   status: "BACKLOG" | "TODO" | "DOING" | "REVIEW" | "QA_READY" | "DONE";
   featureId: string;
   points?: string | null;
-  module?: string | null;
+  modules?: string[];
   assigneeId?: string | null;
 }
 
@@ -37,15 +45,16 @@ interface TaskFormData {
   status: "BACKLOG" | "TODO" | "DOING" | "REVIEW" | "QA_READY" | "DONE";
   featureId: string;
   points: string;
-  module: string;
+  modules: string[];
   assigneeId: string | null;
 }
 
 interface TaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId?: string;
   features: Feature[];
-  modules?: string[];
+  modules?: string[]; // Optional fallback modules (deprecated, prefer deriving from feature)
   defaultFeatureId?: string;
   taskToEdit?: Task | null;
   onSuccess?: () => void;
@@ -59,23 +68,40 @@ const INITIAL_FORM_DATA: TaskFormData = {
   status: "BACKLOG",
   featureId: "",
   points: "Sem estimativa",
-  module: "Nenhum",
+  modules: [],
   assigneeId: null,
 };
 
 export function TaskDialog({
   open,
   onOpenChange,
+  projectId,
   features,
-  modules = [],
+  modules: fallbackModules = [],
   defaultFeatureId,
   taskToEdit,
   onSuccess,
 }: TaskDialogProps) {
   const [formData, setFormData] = useState<TaskFormData>(INITIAL_FORM_DATA);
   const [saving, setSaving] = useState(false);
+  const { data: projects } = useProjects();
 
   const isEditing = !!taskToEdit;
+
+  // Derive the project ID from the selected feature
+  const selectedFeature = useMemo(() =>
+    features.find(f => f.id === formData.featureId),
+    [features, formData.featureId]
+  );
+
+  const resolvedProjectId = projectId || selectedFeature?.epic?.project?.id;
+
+  // Get modules for the current project (filter by project)
+  const availableModules = useMemo(() => {
+    if (!resolvedProjectId || !projects) return fallbackModules;
+    const project = projects.find(p => p.id === resolvedProjectId);
+    return project?.modules || fallbackModules;
+  }, [resolvedProjectId, projects, fallbackModules]);
 
   // Reset or Fill form when dialog opens
   useEffect(() => {
@@ -89,7 +115,7 @@ export function TaskDialog({
           status: taskToEdit.status,
           featureId: taskToEdit.featureId,
           points: taskToEdit.points || "Sem estimativa",
-          module: taskToEdit.module || "Nenhum",
+          modules: taskToEdit.modules || [],
           assigneeId: taskToEdit.assigneeId || null,
         });
       } else {
@@ -114,11 +140,20 @@ export function TaskDialog({
       const url = isEditing ? `/api/tasks/${taskToEdit.id}` : "/api/tasks";
       const method = isEditing ? "PATCH" : "POST";
 
+      // Validate project can be determined for new tasks
+      if (!isEditing && !resolvedProjectId) {
+        toast.error("Não foi possível determinar o projeto. Selecione uma feature válida.");
+        setSaving(false);
+        return;
+      }
+
       const payload = {
         ...formData,
-        // Converter valores "vazios" de volta para null/undefined se necessário pelo backend
+        // Include projectId for new tasks (not needed for updates as it can't change)
+        ...(isEditing ? {} : { projectId: resolvedProjectId }),
+        // Convert values for backend
         points: formData.points === "Sem estimativa" ? null : formData.points,
-        module: formData.module === "Nenhum" ? null : formData.module,
+        modules: formData.modules,
       };
 
       const res = await fetch(url, {
@@ -257,24 +292,16 @@ export function TaskDialog({
             </div>
           </div>
 
-          {/* Module and Points (Grid 2) */}
-          <div className="grid grid-cols-2 gap-6">
+          {/* Module and Points */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Módulo</Label>
-              <Select
-                value={formData.module}
-                onValueChange={(v) => setFormData({ ...formData, module: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um módulo" />
-                </SelectTrigger>
-                <SelectContent className="z-popover">
-                  <SelectItem value="Nenhum">Nenhum</SelectItem>
-                  {modules.map((m) => (
-                    <SelectItem key={m} value={m}>{m}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm font-medium">Módulos</Label>
+              <ModuleTagInput
+                value={formData.modules}
+                onChange={(mods) => setFormData({ ...formData, modules: mods })}
+                availableModules={availableModules}
+                placeholder="Adicionar módulo..."
+              />
             </div>
 
             <div className="space-y-2">

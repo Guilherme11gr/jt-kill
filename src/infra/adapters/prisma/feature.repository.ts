@@ -43,9 +43,24 @@ export class FeatureRepository {
     });
   }
 
-  async findAll(orgId: string): Promise<Feature[]> {
+  async findAll(orgId: string) {
     return await this.prisma.feature.findMany({
       where: { orgId },
+      include: {
+        epic: {
+          select: {
+            id: true,
+            title: true,
+            project: {
+              select: {
+                id: true,
+                name: true,
+                key: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { title: 'asc' },
     });
   }

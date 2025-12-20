@@ -73,15 +73,23 @@ export function TableRow({ task, onClick, className }: TableRowProps) {
       {/* Priority */}
       <PriorityIndicator priority={task.priority} showLabel />
 
-      {/* Module */}
-      <div className="truncate">
-        {task.module ? (
-          <Badge
-            variant="outline"
-            className={cn('text-[10px] px-1.5 py-0', getModuleColor(task.module))}
-          >
-            {task.module}
-          </Badge>
+      {/* Module(s) */}
+      <div className="flex items-center gap-1 truncate">
+        {task.modules && task.modules.length > 0 ? (
+          <>
+            {task.modules.slice(0, 1).map((mod) => (
+              <Badge
+                key={mod}
+                variant="outline"
+                className={cn('text-[10px] px-1.5 py-0', getModuleColor(mod))}
+              >
+                {mod}
+              </Badge>
+            ))}
+            {task.modules.length > 1 && (
+              <span className="text-[10px] text-muted-foreground">+{task.modules.length - 1}</span>
+            )}
+          </>
         ) : (
           <span className="text-xs text-muted-foreground">-</span>
         )}

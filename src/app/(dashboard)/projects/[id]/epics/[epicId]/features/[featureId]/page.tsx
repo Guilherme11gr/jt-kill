@@ -11,6 +11,8 @@ import { CheckSquare } from "lucide-react";
 
 import { TaskDialog, TaskDetailModal } from "@/components/features/tasks";
 import { KanbanBoard } from "@/lib/views/kanban";
+import { KanbanBoardSkeleton } from "@/components/features/tasks/task-skeleton";
+import { PageHeaderSkeleton } from '@/components/layout/page-skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 import type { TaskWithReadableId, TaskStatus } from "@/shared/types";
@@ -127,14 +129,17 @@ export default function FeatureDetailPage({
     priority: editingTask.priority,
     status: editingTask.status,
     points: editingTask.points?.toString(),
-    module: editingTask.module,
+    modules: editingTask.modules,
     featureId: editingTask.feature?.id || feature?.id || ""
   } : null;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="mb-6 md:mb-8">
+          <PageHeaderSkeleton withAction={false} />
+        </div>
+        <KanbanBoardSkeleton />
       </div>
     );
   }
@@ -165,15 +170,15 @@ export default function FeatureDetailPage({
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-1" />
-          Voltar para {feature.epic.title}
+          Voltar para {feature.epic?.title}
         </Link>
 
         <div className="flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-              <span>{feature.epic.project.key}</span>
+              <span>{feature.epic?.project?.key}</span>
               <span>→</span>
-              <span>{feature.epic.title}</span>
+              <span>{feature.epic?.title}</span>
             </div>
             <div className="flex items-center gap-3 mb-2">
               <Badge variant="outline">FEATURE</Badge>
@@ -236,6 +241,7 @@ export default function FeatureDetailPage({
       <TaskDialog
         open={isTaskDialogOpen}
         onOpenChange={handleDialogChange}
+        projectId={resolvedParams.id}
         features={dialogFeatures}
         defaultFeatureId={feature.id}
         modules={modules}

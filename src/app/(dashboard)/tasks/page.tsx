@@ -14,6 +14,8 @@ import {
 import { TaskDetailModal } from '@/components/features/tasks/task-detail-modal';
 import { KanbanBoard } from '@/lib/views/kanban';
 import { TaskTable } from '@/lib/views/table';
+import { PageHeaderSkeleton } from '@/components/layout/page-skeleton';
+import { KanbanBoardSkeleton } from '@/components/features/tasks';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import {
@@ -87,9 +89,11 @@ export default function TasksPage() {
         return false;
       }
 
-      // Module
-      if (filters.module !== 'all' && task.module !== filters.module) {
-        return false;
+      // Module (check if task has this module in its array)
+      if (filters.module !== 'all') {
+        if (!task.modules || !task.modules.includes(filters.module)) {
+          return false;
+        }
       }
 
       // Project (via feature.epic.project)
@@ -192,9 +196,25 @@ export default function TasksPage() {
     priority: editingTask.priority,
     status: editingTask.status,
     points: editingTask.points?.toString(),
-    module: editingTask.module,
+    modules: editingTask.modules,
     featureId: editingTask.feature.id
   } : null;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <PageHeaderSkeleton />
+        <div className="space-y-4">
+          {/* Filters Skeleton */}
+          <div className="flex gap-4 mb-4">
+            <div className="h-10 w-64 bg-muted rounded animate-pulse" />
+            <div className="h-10 w-32 bg-muted rounded animate-pulse" />
+          </div>
+          <KanbanBoardSkeleton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -213,7 +233,7 @@ export default function TasksPage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={refetch}
+            onClick={() => refetch()}
             disabled={isLoading}
           >
             {isLoading ? (
@@ -254,8 +274,8 @@ export default function TasksPage() {
       {/* Error state */}
       {error && (
         <div className="p-4 rounded-lg bg-destructive/10 text-destructive border border-destructive/50">
-          <p>Erro ao carregar tasks: {error}</p>
-          <Button variant="outline" size="sm" onClick={refetch} className="mt-2">
+          <p>Erro ao carregar tasks: {error instanceof Error ? error.message : 'Erro desconhecido'}</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
             Tentar novamente
           </Button>
         </div>

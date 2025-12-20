@@ -13,7 +13,7 @@ export interface Task {
   type: TaskType;
   priority: TaskPriority;
   points: StoryPoints;
-  module: string | null;
+  modules: string[];
   assigneeId: string | null;
   createdAt: Date;
   updatedAt: Date;

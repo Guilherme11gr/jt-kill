@@ -19,7 +19,7 @@ export interface CreateTaskInput {
   type?: TaskType;
   priority?: TaskPriority;
   points?: StoryPoints;
-  module?: string | null;
+  modules?: string[];
   assigneeId?: string | null;
 }
 
@@ -30,7 +30,7 @@ export interface UpdateTaskInput {
   type?: TaskType;
   priority?: TaskPriority;
   points?: StoryPoints;
-  module?: string | null;
+  modules?: string[];
   assigneeId?: string | null;
 }
 
@@ -65,12 +65,13 @@ export class TaskRepository {
       );
     }
 
-    // Validate module exists in project (if provided)
-    if (input.module) {
+    // Validate modules exist in project (if provided)
+    if (input.modules && input.modules.length > 0) {
       const projectModules = feature.epic.project.modules;
-      if (!projectModules.includes(input.module)) {
+      const invalidModules = input.modules.filter(m => !projectModules.includes(m));
+      if (invalidModules.length > 0) {
         throw new ValidationError(
-          `Módulo "${input.module}" não existe no projeto. Módulos válidos: ${projectModules.join(', ') || 'nenhum'}`
+          `Módulos inválidos: ${invalidModules.join(', ')}. Módulos válidos: ${projectModules.join(', ') || 'nenhum'}`
         );
       }
     }
@@ -87,7 +88,7 @@ export class TaskRepository {
         type: input.type ?? 'TASK',
         priority: input.priority ?? 'MEDIUM',
         points: input.points ?? null,
-        module: input.module,
+        modules: input.modules ?? [],
         assigneeId: input.assigneeId,
       },
     });
@@ -125,7 +126,7 @@ export class TaskRepository {
         type: true,
         priority: true,
         points: true,
-        module: true,
+        modules: true,
         localId: true,
         assigneeId: true,
         featureId: true,
@@ -386,7 +387,7 @@ export class TaskRepository {
     if (type) where.type = type;
     if (priority) where.priority = priority;
     if (assigneeId) where.assigneeId = assigneeId;
-    if (module) where.module = module;
+    if (module) where.modules = { has: module };
     if (projectId) where.projectId = projectId;
     if (featureId) where.featureId = featureId;
 

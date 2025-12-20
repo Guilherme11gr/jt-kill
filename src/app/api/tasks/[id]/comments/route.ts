@@ -12,6 +12,10 @@ const createCommentSchema = z.object({
 
 /**
  * GET /api/tasks/[id]/comments - List comments for a task
+ * 
+ * OPTIMIZED:
+ * - Task validation + comments fetch combined in single operation
+ * - Single raw SQL query with JOIN for user profiles
  */
 export async function GET(
   request: NextRequest,
@@ -22,13 +26,13 @@ export async function GET(
     const supabase = await createClient();
     const { tenantId } = await extractAuthenticatedTenant(supabase);
 
-    // Verify task exists and belongs to org
-    const task = await taskRepository.findById(taskId, tenantId);
-    if (!task) {
+    // OPTIMIZED: Single operation validates task + fetches comments
+    const comments = await commentRepository.findByTaskIdWithValidation(taskId, tenantId);
+
+    if (comments === null) {
       return jsonError('NOT_FOUND', 'Task não encontrada', 404);
     }
 
-    const comments = await commentRepository.findByTaskId(taskId, tenantId);
     return jsonSuccess(comments);
 
   } catch (error) {

@@ -49,7 +49,7 @@ export default function ProjectDocPage({
   }
 
   return (
-    <div className="max-w-4xl mx-auto pb-20 animate-in fade-in duration-500">
+    <div className="mx-auto pb-20 animate-in fade-in duration-500">
       {/* Navigation */}
       <div className="mb-6 flex items-center justify-between">
         <Link href={`/projects/${projectId}`}>
@@ -175,7 +175,7 @@ export default function ProjectDocPage({
 
 function DocDetailSkeleton() {
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-pulse">
+    <div className="mx-auto space-y-8 animate-pulse">
       <div className="flex items-center justify-between">
         <Skeleton className="h-9 w-32" />
       </div>

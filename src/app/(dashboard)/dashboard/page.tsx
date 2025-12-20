@@ -18,6 +18,7 @@ import {
 import Link from 'next/link';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import { useTasks } from '@/lib/query';
+import { PageHeaderSkeleton, CardsSkeleton, SingleColumnSkeleton } from '@/components/layout/page-skeleton';
 
 // Priority order for status (lower = higher priority)
 const statusPriority: Record<TaskStatus, number> = {
@@ -180,16 +181,18 @@ export default function DashboardPage() {
     });
   }, [tasks]);
 
-  // Group tasks by module
+  // Group tasks by module (tasks with multiple modules appear in each group)
   const tasksByModule = useMemo(() => {
     const groups: Record<string, TaskWithReadableId[]> = {};
 
     sortedTasks.forEach(task => {
-      const module = task.module || 'Sem Módulo';
-      if (!groups[module]) {
-        groups[module] = [];
-      }
-      groups[module].push(task);
+      const taskModules = task.modules && task.modules.length > 0 ? task.modules : ['Sem Módulo'];
+      taskModules.forEach(module => {
+        if (!groups[module]) {
+          groups[module] = [];
+        }
+        groups[module].push(task);
+      });
     });
 
     // Sort modules: modules with bugs first, then by task count
@@ -306,9 +309,14 @@ export default function DashboardPage() {
 
       {/* Loading state */}
       {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <>
+          <PageHeaderSkeleton />
+          <CardsSkeleton count={4} />
+          <div className="mt-8 space-y-8">
+            <SingleColumnSkeleton />
+            <SingleColumnSkeleton />
+          </div>
+        </>
       )}
 
       {/* Empty state */}

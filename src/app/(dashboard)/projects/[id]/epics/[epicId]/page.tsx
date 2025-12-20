@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature } from "@/lib/query";
+import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 
 interface Feature {
   id: string;
@@ -125,8 +126,11 @@ export default function EpicDetailPage({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-6">
+        <div className="mb-6 md:mb-8">
+          <PageHeaderSkeleton />
+        </div>
+        <CardsSkeleton count={3} />
       </div>
     );
   }
@@ -146,7 +150,7 @@ export default function EpicDetailPage({
   return (
     <div>
       {/* Header */}
-      <div className="max-w-6xl mx-auto mb-8">
+      <div className="mx-auto mb-8">
         <Link
           href={`/projects/${resolvedParams.id}`}
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
@@ -180,7 +184,7 @@ export default function EpicDetailPage({
       </div>
 
       {/* Features Section */}
-      <div className="max-w-6xl mx-auto">
+      <div className="mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold flex items-center gap-2">
             <Box className="w-5 h-5 text-primary" />

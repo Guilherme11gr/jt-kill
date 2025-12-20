@@ -13,7 +13,7 @@ export function MarkdownViewer({ value, className }: MarkdownViewerProps) {
   if (!value) return null;
 
   return (
-    <div className={cn("text-sm text-foreground", className)}>
+    <div className={cn("text-sm text-foreground overflow-auto max-h-[60vh]", className)}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -47,7 +47,7 @@ export function MarkdownViewer({ value, className }: MarkdownViewerProps) {
           },
           a: ({ node, ...props }) => <a className="font-medium text-primary underline underline-offset-4 hover:no-underline" {...props} />,
           hr: ({ node, ...props }) => <hr className="my-4 border-border" {...props} />,
-          table: ({ node, ...props }) => <div className="my-4 w-full overflow-y-auto"><table className="w-full text-sm" {...props} /></div>,
+          table: ({ node, ...props }) => <div className="my-4 w-full overflow-x-auto"><table className="w-full text-sm" {...props} /></div>,
           th: ({ node, ...props }) => <th className="border px-3 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right bg-muted/50" {...props} />,
           td: ({ node, ...props }) => <td className="border px-3 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right" {...props} />,
         }}

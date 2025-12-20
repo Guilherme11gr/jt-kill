@@ -93,7 +93,7 @@ export function MarkdownEditor({
       ) : (
         <div
           onClick={handleFocus}
-          className="rounded-md border border-transparent hover:border-border/50 bg-transparent hover:bg-muted/10 p-4 cursor-text transition-all overflow-y-auto"
+          className="rounded-md border border-transparent hover:border-border/50 bg-transparent hover:bg-muted/10 p-4 cursor-text transition-all overflow-auto max-h-[60vh]"
           style={{ minHeight }}
         >
           <ReactMarkdown
@@ -117,17 +117,17 @@ export function MarkdownEditor({
                     {children}
                   </code>
                 ) : (
-                  <pre className="mt-4 mb-4 overflow-x-auto rounded-lg bg-muted p-4 py-3" {...rest}>
+                  <div className="mt-4 mb-4 overflow-x-auto rounded-lg bg-muted p-4 py-3">
                     <code className={cn("relative font-mono text-sm leading-relaxed", className)}>
                       {children}
                     </code>
-                  </pre>
+                  </div>
                 )
               },
               pre: ({ node, ref, ...props }: any) => <div {...props} />, // Wrapper handled by code component
               a: ({ node, ...props }) => <a className="font-medium text-primary underline underline-offset-4 hover:no-underline" {...props} />,
               hr: ({ node, ...props }) => <hr className="my-6 border-border" {...props} />,
-              table: ({ node, ...props }) => <div className="my-6 w-full overflow-y-auto"><table className="w-full" {...props} /></div>,
+              table: ({ node, ...props }) => <div className="my-6 w-full overflow-x-auto"><table className="w-full" {...props} /></div>,
               th: ({ node, ...props }) => <th className="border px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right" {...props} />,
               td: ({ node, ...props }) => <td className="border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right" {...props} />,
             }}

@@ -100,7 +100,7 @@ export function useEpic(id: string) {
  */
 export function useAllEpics() {
   return useQuery({
-    queryKey: ['epics', 'all'] as const,
+    queryKey: queryKeys.epics.allList(),
     queryFn: fetchAllEpics,
     ...CACHE_TIMES.STANDARD,
   });
@@ -118,7 +118,7 @@ export function useCreateEpic() {
     mutationFn: createEpic,
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.epics.list(variables.projectId) });
-      queryClient.invalidateQueries({ queryKey: ['epics', 'all'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics.allList() });
       toast.success('Epic criado');
     },
     onError: () => {

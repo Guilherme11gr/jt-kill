@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { AssigneeSelect } from "@/components/features/shared";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,6 +26,7 @@ interface Task {
   featureId: string;
   points?: string | null;
   module?: string | null;
+  assigneeId?: string | null;
 }
 
 interface TaskFormData {
@@ -36,6 +38,7 @@ interface TaskFormData {
   featureId: string;
   points: string;
   module: string;
+  assigneeId: string | null;
 }
 
 interface TaskDialogProps {
@@ -57,6 +60,7 @@ const INITIAL_FORM_DATA: TaskFormData = {
   featureId: "",
   points: "Sem estimativa",
   module: "Nenhum",
+  assigneeId: null,
 };
 
 export function TaskDialog({
@@ -86,6 +90,7 @@ export function TaskDialog({
           featureId: taskToEdit.featureId,
           points: taskToEdit.points || "Sem estimativa",
           module: taskToEdit.module || "Nenhum",
+          assigneeId: taskToEdit.assigneeId || null,
         });
       } else {
         setFormData({
@@ -293,6 +298,15 @@ export function TaskDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Assignee */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Responsável</Label>
+            <AssigneeSelect
+              value={formData.assigneeId}
+              onChange={(v) => setFormData({ ...formData, assigneeId: v })}
+            />
           </div>
 
           {/* Actions */}

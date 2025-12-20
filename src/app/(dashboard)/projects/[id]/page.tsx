@@ -15,6 +15,8 @@ import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useProject, useEpics, useTasks } from "@/lib/query";
 import { useCreateEpic, useUpdateEpic, useDeleteEpic } from "@/lib/query/hooks/use-epics";
+import { ProjectDocsList } from "@/components/features/projects";
+import { FileText } from "lucide-react";
 
 interface Epic {
   id: string;
@@ -61,7 +63,7 @@ export default function ProjectDetailPage({
   const loading = projectLoading || epicsLoading;
   const saving = createEpicMutation.isPending || updateEpicMutation.isPending;
 
-  const [activeTab, setActiveTab] = useState<"epics" | "tasks">("epics");
+  const [activeTab, setActiveTab] = useState<"epics" | "tasks" | "docs">("epics");
 
   // Create Epic State
   const [isEpicDialogOpen, setIsEpicDialogOpen] = useState(false);
@@ -215,6 +217,16 @@ export default function ProjectDetailPage({
         >
           <CheckSquare className="w-4 h-4 inline mr-2" />
           Tasks ({tasks.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("docs")}
+          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${activeTab === "docs"
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
+            }`}
+        >
+          <FileText className="w-4 h-4 inline mr-2" />
+          Docs
         </button>
       </div>
 
@@ -558,6 +570,11 @@ export default function ProjectDetailPage({
             </div>
           )}
         </div>
+      )}
+
+      {/* Docs Tab */}
+      {activeTab === "docs" && (
+        <ProjectDocsList projectId={resolvedParams.id} />
       )}
     </div>
   );

@@ -7,3 +7,5 @@ export { ViewToggle, type ViewMode } from './view-toggle';
 export { TaskFilters, type TaskFiltersState } from './task-filters';
 export { TaskDialog } from './create-task-dialog';
 export { TaskDetailModal } from './task-detail-modal';
+export { TaskComments } from './task-comments';
+

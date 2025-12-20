@@ -3,6 +3,9 @@ import { ProjectRepository } from './project.repository';
 import { EpicRepository } from './epic.repository';
 import { FeatureRepository } from './feature.repository';
 import { TaskRepository } from './task.repository';
+import { CommentRepository } from './comment.repository';
+import { ProjectDocRepository } from './project-doc.repository';
+import { UserProfileRepository } from './user-profile.repository';
 
 // Singleton Prisma Client
 // https://www.prisma.io/docs/guides/performance-and-optimization/connection-management#prismaclient-in-long-running-applications
@@ -23,6 +26,21 @@ export const projectRepository = new ProjectRepository(prisma);
 export const epicRepository = new EpicRepository(prisma);
 export const featureRepository = new FeatureRepository(prisma);
 export const taskRepository = new TaskRepository(prisma);
+export const commentRepository = new CommentRepository(prisma);
+export const projectDocRepository = new ProjectDocRepository(prisma);
+export const userProfileRepository = new UserProfileRepository(prisma);
 
 // Re-export for convenience
-export { ProjectRepository, EpicRepository, FeatureRepository, TaskRepository };
+export {
+  ProjectRepository,
+  EpicRepository,
+  FeatureRepository,
+  TaskRepository,
+  CommentRepository,
+  ProjectDocRepository,
+  UserProfileRepository,
+};
+
+
+
+

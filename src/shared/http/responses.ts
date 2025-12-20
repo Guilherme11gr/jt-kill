@@ -100,3 +100,27 @@ export function jsonValidationError(
 ): NextResponse<ApiError> {
   return jsonError('VALIDATION_ERROR', 'Dados inválidos', 400, details);
 }
+
+/**
+ * Rate limit exceeded response
+ */
+export function jsonRateLimited(
+  resetAt: Date
+): NextResponse<ApiError> {
+  return NextResponse.json(
+    {
+      error: {
+        code: 'RATE_LIMITED',
+        message: 'Muitas requisições. Tente novamente mais tarde.',
+      },
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': Math.ceil((resetAt.getTime() - Date.now()) / 1000).toString(),
+        'X-RateLimit-Reset': resetAt.toISOString(),
+      },
+    }
+  );
+}
+

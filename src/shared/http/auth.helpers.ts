@@ -77,3 +77,28 @@ export async function requireRole(
     throw new ForbiddenError('Permissão insuficiente para esta ação');
   }
 }
+
+/**
+ * Extract user ID from Supabase session.
+ * Simpler than extractAuthenticatedTenant when you only need the user ID.
+ * 
+ * @throws UnauthorizedError if not authenticated
+ */
+export async function extractUserId(supabase: SupabaseClient): Promise<string> {
+  // DEV: Mock auth bypass para testes locais
+  if (DEV_MOCK_AUTH) {
+    return MOCK_USER_ID;
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new UnauthorizedError('Sessão inválida ou expirada');
+  }
+
+  return user.id;
+}
+

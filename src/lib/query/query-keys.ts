@@ -40,6 +40,7 @@ export const queryKeys = {
     all: ['epics'] as const,
     lists: () => [...queryKeys.epics.all, 'list'] as const,
     list: (projectId: string) => [...queryKeys.epics.lists(), projectId] as const,
+    allList: () => [...queryKeys.epics.all, 'all'] as const,
     details: () => [...queryKeys.epics.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.epics.details(), id] as const,
   },
@@ -49,16 +50,35 @@ export const queryKeys = {
     all: ['features'] as const,
     lists: () => [...queryKeys.features.all, 'list'] as const,
     list: (epicId?: string) => [...queryKeys.features.lists(), epicId] as const,
+    allList: () => [...queryKeys.features.all, 'all'] as const,
     details: () => [...queryKeys.features.all, 'detail'] as const,
     detail: (id: string) => [...queryKeys.features.details(), id] as const,
   },
 
-  // ============ USER ============
-  user: {
-    all: ['user'] as const,
-    profile: () => [...queryKeys.user.all, 'profile'] as const,
+  // ============ COMMENTS ============
+  comments: {
+    all: ['comments'] as const,
+    lists: () => [...queryKeys.comments.all, 'list'] as const,
+    list: (taskId: string) => [...queryKeys.comments.lists(), taskId] as const,
+  },
+
+  // ============ PROJECT DOCS ============
+  projectDocs: {
+    all: ['projectDocs'] as const,
+    lists: () => [...queryKeys.projectDocs.all, 'list'] as const,
+    list: (projectId: string) => [...queryKeys.projectDocs.lists(), projectId] as const,
+    details: () => [...queryKeys.projectDocs.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.projectDocs.details(), id] as const,
+  },
+
+  // ============ USERS ============
+  users: {
+    all: ['users'] as const,
+    list: () => [...queryKeys.users.all, 'list'] as const,
+    current: () => [...queryKeys.users.all, 'current'] as const,
   },
 } as const;
 
 // Type helper for extracting query key types
 export type QueryKeys = typeof queryKeys;
+

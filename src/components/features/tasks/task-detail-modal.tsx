@@ -29,6 +29,8 @@ import {
 import type { TaskWithReadableId } from '@/shared/types';
 import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
+import { TaskComments } from './task-comments';
+import { UserAvatar } from '@/components/features/shared';
 import { toast } from 'sonner';
 
 interface TaskDetailModalProps {
@@ -151,13 +153,8 @@ export function TaskDetailModal({
               </div>
             </div>
 
-            {/* Comments Placeholder */}
-            {/* 
-               <div className="space-y-3 pt-4 border-t">
-                  <h3 className="text-sm font-medium">Comentários</h3>
-                  <p className="text-xs text-muted-foreground">Em breve...</p>
-               </div>
-               */}
+            {/* Comments Section */}
+            <TaskComments taskId={task.id} className="pt-4 border-t" />
           </div>
 
           {/* Sidebar Column */}

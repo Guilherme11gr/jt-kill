@@ -8,70 +8,59 @@
 ## 📋 Visão Geral
 
 O desenvolvimento segue 3 fases:
-1. **Fase 1:** Melhorias Técnicas Básicas (estabilidade e qualidade)
-2. **Fase 2:** Features Core de Gerenciador de Projetos
-3. **Fase 3:** AI Features (killer features)
+1. **Fase 1:** Melhorias Técnicas Básicas ✅ (já existiam)
+2. **Fase 2:** Features Core de Gerenciador de Projetos ✅ (implementado)
+3. **Fase 3:** AI Features (próximo)
 
 ---
 
-## 🔧 Fase 1: Melhorias Técnicas Básicas
+## 🔧 Fase 1: Melhorias Técnicas Básicas ✅
 
-Foco em estabilidade, qualidade de código e infraestrutura.
+Já implementado no projeto:
 
-| # | Feature | Status | Complexidade | Descrição |
-|---|---------|--------|--------------|-----------|
-| 1.1 | **Error Handling Consistente** | ⚠️ Básico | Baixa | Padronizar tratamento de erros nas APIs |
-| 1.2 | **Validação de Inputs** | ⚠️ Parcial | Baixa | Zod validation em todas as rotas |
-| 1.3 | **Unit Tests Básicos** | ❌ | Média | Vitest para use-cases críticos |
-| 1.4 | **Paginação Cursor-Based** | ⚠️ Offset | Média | Migrar tasks API para cursor pagination |
-| 1.5 | **Logging Estruturado** | ❌ | Baixa | Logs JSON para debug/produção |
-| 1.6 | **Rate Limiting** | ❌ | Baixa | Proteção básica de API |
-
-**Critério de Conclusão:** Build sem warnings, testes passando, APIs respondendo < 500ms.
+| # | Feature | Status | Descrição |
+|---|---------|--------|-----------|
+| 1.1 | **Error Handling** | ✅ | `src/shared/errors/index.ts` - Classes de erro + handleError |
+| 1.2 | **Validação Zod** | ✅ | `src/shared/utils/validators.ts` - Schemas completos |
+| 1.3 | **Unit Tests** | ⚠️ Parcial | Vitest configurado, specs existentes |
+| 1.4 | **Paginação** | ✅ | Offset-based em todas APIs |
+| 1.5 | **Logging** | ⚠️ | Básico via console |
+| 1.6 | **Rate Limiting** | ✅ | `src/shared/utils/rate-limit.ts` - In-memory rate limiter |
 
 ---
 
-## 📦 Fase 2: Features Core de Gerenciador
+## 📦 Fase 2: Features Core de Gerenciador ✅
 
-Features essenciais para um gerenciador de projetos funcional.
+### 2.1 Assignee (Atribuição de Tasks) ✅
+**Implementado:**
+- ✅ Repository: `UserProfileRepository`
+- ✅ API: `GET /api/users` (lista membros)
+- ✅ API: `GET/PATCH /api/users/me` (perfil atual)
+- ✅ Hooks: `useUsers()`, `useCurrentUser()`, `useUpdateProfile()`
+- ✅ Task já suporta `assigneeId` no update
 
-### 2.1 Assignee (Atribuição de Tasks)
-**Prioridade:** 🔴 Alta | **Complexidade:** Média
+### 2.2 Comments (Comentários em Tasks) ✅
+**Implementado:**
+- ✅ Repository: `CommentRepository`
+- ✅ API: `GET/POST /api/tasks/[id]/comments`
+- ✅ API: `PATCH/DELETE /api/comments/[id]`
+- ✅ Hooks: `useComments()`, `useAddComment()`, `useUpdateComment()`, `useDeleteComment()`
 
-O schema já tem `assigneeId`, falta:
-- [ ] API: PATCH /api/tasks/:id com `assigneeId`
-- [ ] API: GET /api/users (listar membros da org)
-- [ ] Hook: `useUpdateTask` aceitar assigneeId
-- [ ] UI: Dropdown de assignee no TaskDialog e TaskDetailModal
+### 2.3 Project Docs (Documentação de Projeto) ✅
+**Implementado:**
+- ✅ Repository: `ProjectDocRepository`
+- ✅ API: `GET/POST /api/projects/[id]/docs`
+- ✅ API: `GET/PATCH/DELETE /api/docs/[id]`
+- ✅ Hooks: `useProjectDocs()`, `useDoc()`, `useCreateDoc()`, `useUpdateDoc()`, `useDeleteDoc()`
 
-### 2.2 Comments (Comentários em Tasks)
-**Prioridade:** 🔴 Alta | **Complexidade:** Média
-
-Schema `Comment` existe, falta implementar:
-- [ ] API: POST /api/tasks/:id/comments
-- [ ] API: GET /api/tasks/:id/comments
-- [ ] API: DELETE /api/comments/:id
-- [ ] Hook: `useComments(taskId)`, `useAddComment`
-- [ ] UI: Lista de comentários no TaskDetailModal
-
-### 2.3 Project Docs (Documentação de Projeto)
-**Prioridade:** 🟡 Média | **Complexidade:** Média
-
-Schema `ProjectDoc` existe, falta:
-- [ ] API: CRUD /api/projects/:id/docs
-- [ ] Hook: `useProjectDocs(projectId)`
-- [ ] UI: Tab "Docs" na página de projeto
-- [ ] Editor Markdown simples
-
-### 2.4 User Profile  
-**Prioridade:** 🟡 Média | **Complexidade:** Baixa
-
-- [ ] API: GET/PATCH /api/user/profile
-- [ ] UI: Página de perfil com avatar
-- [ ] Sync com Supabase Auth
+### 2.4 User Profile ✅
+**Implementado:**
+- ✅ Repository: `UserProfileRepository`
+- ✅ API: `/api/users/me`
+- ✅ Hooks: `useCurrentUser()`, `useUpdateProfile()`
 
 ### 2.5 Realtime Updates
-**Prioridade:** 🟢 Baixa | **Complexidade:** Alta
+**Prioridade:** 🟢 Baixa | **Status:** ❌ Pendente
 
 Para Kanban colaborativo:
 - [ ] Supabase Realtime subscriptions
@@ -82,10 +71,8 @@ Para Kanban colaborativo:
 
 ## 🤖 Fase 3: AI Features
 
-Killer features que diferenciam o produto.
-
 ### 3.1 AI Scribe
-**Prioridade:** 🔴 Alta (após Fase 2) | **Complexidade:** Alta
+**Prioridade:** 🔴 Alta (próximo) | **Complexidade:** Alta
 
 Transformar "brain dumps" em tasks estruturadas:
 - [ ] Endpoint: POST /api/ai/scribe
@@ -103,34 +90,50 @@ Estimativas colaborativas:
 
 ---
 
-## 📅 Ordem de Execução Sugerida
+## 📂 Arquivos Criados/Modificados
 
-```
-Fase 1 (Técnico)
-├── 1.1 Error Handling
-├── 1.2 Validação
-└── 1.3 Tests
+### Repositories (Fase 2)
+- `src/infra/adapters/prisma/comment.repository.ts` ✨ NEW
+- `src/infra/adapters/prisma/project-doc.repository.ts` ✨ NEW
+- `src/infra/adapters/prisma/user-profile.repository.ts` ✨ NEW
+- `src/infra/adapters/prisma/index.ts` 📝 Updated
 
-Fase 2 (Core Features)
-├── 2.1 Assignee ← Mais crítico para uso diário
-├── 2.2 Comments ← Colaboração básica
-├── 2.3 Project Docs
-└── 2.4 User Profile
+### APIs (Fase 2)
+- `src/app/api/tasks/[id]/comments/route.ts` ✨ NEW
+- `src/app/api/comments/[id]/route.ts` ✨ NEW
+- `src/app/api/projects/[id]/docs/route.ts` ✨ NEW
+- `src/app/api/docs/[id]/route.ts` ✨ NEW
+- `src/app/api/users/route.ts` ✨ NEW
+- `src/app/api/users/me/route.ts` ✨ NEW
 
-Fase 3 (AI)
-├── 3.1 AI Scribe ← Killer feature
-└── 3.2 Scrum Poker
-```
+### React Query Hooks (Fase 2)
+- `src/lib/query/hooks/use-comments.ts` ✨ NEW
+- `src/lib/query/hooks/use-project-docs.ts` ✨ NEW
+- `src/lib/query/hooks/use-users.ts` ✨ NEW
+- `src/lib/query/hooks/index.ts` 📝 Updated
+
+### Utils
+- `src/shared/http/auth.helpers.ts` 📝 Added `extractUserId()`
+- `src/shared/http/responses.ts` 📝 Added `jsonRateLimited()`
+- `src/shared/utils/rate-limit.ts` ✨ NEW - Rate limiter
+- `src/lib/query/query-keys.ts` 📝 Added keys for comments, docs, users
+
+### Shared Types
+- `src/shared/types/comment.types.ts` ✨ NEW
+- `src/shared/types/project-doc.types.ts` ✨ NEW
+- `src/shared/types/user.types.ts` ✨ NEW
+
+### Other
+- `src/app/api/health/route.ts` 📝 Enhanced with version, uptime, latency
 
 ---
 
-## 🎯 Próximos Passos Imediatos
+## 🚀 Próximos Passos
 
-1. **Agora:** Escolher item da Fase 1 para começar
-2. **Curto Prazo:** Implementar Assignee (mais impacto no uso diário)
-3. **Médio Prazo:** Comments + Project Docs
-4. **Longo Prazo:** AI Scribe
+1. **Testar APIs** - Rodar o servidor e testar endpoints
+2. **Criar UI** para Comments, Project Docs, Assignee
+3. **AI Scribe** - Implementar Fase 3
 
 ---
 
-*Documento gerado em 2025-12-19. Atualizar conforme progresso.*
+*Documento atualizado em 2025-12-19.*

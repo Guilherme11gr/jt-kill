@@ -1,15 +1,23 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { prisma } from '@/infra/adapters/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const startTime = Date.now();
+
   const checks = {
     status: 'ok' as 'ok' | 'degraded',
     timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0',
+    uptime: process.uptime(),
     services: {
       supabase: false,
       database: false,
+    },
+    latency: {
+      database: 0,
     },
   };
 
@@ -19,12 +27,11 @@ export async function GET() {
     const { error: authError } = await supabase.auth.getSession();
     checks.services.supabase = !authError;
 
-    // Check database connection
-    const { error: dbError } = await supabase
-      .from('organizations')
-      .select('id')
-      .limit(1);
-    checks.services.database = !dbError;
+    // Check Prisma/Database connection with latency
+    const dbStart = Date.now();
+    await prisma.$queryRaw`SELECT 1`;
+    checks.latency.database = Date.now() - dbStart;
+    checks.services.database = true;
 
   } catch (error) {
     console.error('Health check failed:', error);
@@ -35,5 +42,9 @@ export async function GET() {
 
   return NextResponse.json(checks, {
     status: allHealthy ? 200 : 503,
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+    },
   });
 }
+

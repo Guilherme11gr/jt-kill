@@ -4,6 +4,9 @@ export * from './date-utils';
 // Formatters
 export * from './formatters';
 
+// Rate limiting
+export * from './rate-limit';
+
 // Validators
 export {
   uuidSchema,
@@ -31,3 +34,4 @@ export {
   RateLimitError,
   handleError,
 } from '../errors';
+

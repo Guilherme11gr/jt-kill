@@ -11,7 +11,8 @@ import { AssigneeSelect } from "@/components/features/shared";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleTagInput } from "@/components/ui/module-tag-input";
-import { useProjects, useCreateTask, useUpdateTask } from "@/lib/query";
+import { AIImproveButton } from "@/components/ui/ai-improve-button";
+import { useProjects, useCreateTask, useUpdateTask, useGenerateDescription, useImproveDescription } from "@/lib/query";
 import { TaskStatus } from "@/shared/types";
 
 interface Feature {
@@ -96,8 +97,11 @@ export function TaskDialog({
 
   const createTaskMutation = useCreateTask();
   const updateTaskMutation = useUpdateTask();
+  const generateDescription = useGenerateDescription();
+  const improveDescription = useImproveDescription();
 
   const isSaving = createTaskMutation.isPending || updateTaskMutation.isPending;
+  const isGeneratingAI = generateDescription.isPending || improveDescription.isPending;
 
   const isEditing = !!taskToEdit;
 
@@ -245,9 +249,43 @@ export function TaskDialog({
             </Select>
           </div>
 
-          {/* Description with Markdown */}
+          {/* Description with Markdown + AI Button */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Descrição (Markdown)</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Descrição (Markdown)</Label>
+              <AIImproveButton
+                onClick={async () => {
+                  if (!formData.featureId || !formData.title.trim()) {
+                    toast.error('Preencha o título e selecione uma feature primeiro');
+                    return;
+                  }
+                  try {
+                    // Para edição de task existente, usar improve (tem mais contexto)
+                    if (isEditing && taskToEdit?.id) {
+                      const result = await improveDescription.mutateAsync({ taskId: taskToEdit.id });
+                      setFormData(prev => ({ ...prev, description: result.description }));
+                    } else {
+                      // Para nova task, usar generate com contexto inline
+                      const result = await generateDescription.mutateAsync({
+                        title: formData.title,
+                        featureId: formData.featureId,
+                        currentDescription: formData.description || undefined,
+                        type: formData.type,
+                        priority: formData.priority,
+                      });
+                      setFormData(prev => ({ ...prev, description: result.description }));
+                    }
+                    toast.success('Descrição gerada com sucesso!');
+                  } catch {
+                    // Error toast handled by hook
+                  }
+                }}
+                isLoading={isGeneratingAI}
+                disabled={!formData.title.trim() || !formData.featureId}
+                label={formData.description?.trim() ? 'Melhorar' : 'Gerar'}
+                title={formData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
+              />
+            </div>
             <MarkdownEditor
               id="task-description"
               value={formData.description}

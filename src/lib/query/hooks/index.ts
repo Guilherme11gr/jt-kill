@@ -9,6 +9,7 @@ export * from './use-features';
 export * from './use-comments';
 export * from './use-project-docs';
 export * from './use-users';
+export * from './use-ai';
 
 
 

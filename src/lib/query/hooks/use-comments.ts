@@ -82,13 +82,24 @@ export function useComments(taskId: string) {
 /**
  * Add a comment to a task
  */
+/**
+ * Add a comment to a task
+ */
 export function useAddComment() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: createComment,
-    onSuccess: (_, variables) => {
+    onSuccess: (newComment, variables) => {
+      // 1. Update the list
+      queryClient.setQueryData<Comment[]>(queryKeys.comments.list(variables.taskId), (old) => {
+        if (!old) return [newComment];
+        return [...old, newComment];
+      });
+
+      // 2. Invalidate
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(variables.taskId) });
+
       toast.success('Comentário adicionado');
     },
     onError: () => {

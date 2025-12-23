@@ -22,7 +22,7 @@ import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skel
 interface Epic {
   id: string;
   title: string;
-  description: string | null;
+  description?: string | null;
   status: string;
   _count?: { features: number };
 }

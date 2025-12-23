@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Plus, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import {
 } from '@/lib/query';
 import { useAllEpics } from '@/lib/query/hooks/use-epics';
 
-export default function TasksPage() {
+function TasksPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [view, setView] = useState<ViewMode>('kanban');
@@ -445,5 +445,24 @@ export default function TasksPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={
+      <div className="space-y-6">
+        <PageHeaderSkeleton />
+        <div className="space-y-4">
+          <div className="flex gap-4 mb-4">
+            <div className="h-10 w-64 bg-muted rounded animate-pulse" />
+            <div className="h-10 w-32 bg-muted rounded animate-pulse" />
+          </div>
+          <KanbanBoardSkeleton />
+        </div>
+      </div>
+    }>
+      <TasksPageContent />
+    </Suspense>
   );
 }

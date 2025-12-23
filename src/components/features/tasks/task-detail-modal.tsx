@@ -168,7 +168,7 @@ export function TaskDetailModal({
             <Separator orientation="vertical" className="h-4" />
 
             <div className="flex items-center gap-2" title="Responsável">
-              <UserAvatar userId={task.assigneeId} size="xs" />
+              <UserAvatar userId={task.assigneeId || undefined} size="sm" />
               <span className="text-xs text-muted-foreground">{task.assigneeId ? 'Atribuído' : 'Sem responsável'}</span>
             </div>
           </div>

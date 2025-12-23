@@ -25,6 +25,7 @@ interface UpdateEpicInput {
   data: Partial<Omit<CreateEpicInput, 'projectId'>>;
 }
 
+
 // ============ Fetch Functions ============
 
 async function fetchEpic(id: string): Promise<Epic> {
@@ -54,6 +55,13 @@ async function fetchAllEpics(): Promise<Epic[]> {
   return epicsArrays.flat();
 }
 
+async function fetchEpics(projectId: string): Promise<Epic[]> {
+  const res = await fetch(`/api/projects/${projectId}/epics`);
+  if (!res.ok) throw new Error('Failed to fetch epics');
+  const json = await res.json();
+  return (json.data || []).map((e: Epic) => ({ ...e, projectId }));
+}
+
 async function createEpic(data: CreateEpicInput): Promise<Epic> {
   const res = await fetch(`/api/projects/${data.projectId}/epics`, {
     method: 'POST',
@@ -62,7 +70,7 @@ async function createEpic(data: CreateEpicInput): Promise<Epic> {
   });
   if (!res.ok) throw new Error('Failed to create epic');
   const json = await res.json();
-  return json.data;
+  return { ...json.data, projectId: data.projectId, _count: { features: 0 } };
 }
 
 async function updateEpic({ id, data }: UpdateEpicInput): Promise<Epic> {
@@ -96,6 +104,18 @@ export function useEpic(id: string) {
 }
 
 /**
+ * Fetch epics for a specific project
+ */
+export function useEpics(projectId: string) {
+  return useQuery({
+    queryKey: queryKeys.epics.list(projectId),
+    queryFn: () => fetchEpics(projectId),
+    enabled: Boolean(projectId),
+    ...CACHE_TIMES.STANDARD,
+  });
+}
+
+/**
  * Fetch all epics across all projects
  */
 export function useAllEpics() {
@@ -116,9 +136,23 @@ export function useCreateEpic() {
 
   return useMutation({
     mutationFn: createEpic,
-    onSuccess: (_, variables) => {
+    onSuccess: (newEpic, variables) => {
+      // 1. Update the list by project
+      queryClient.setQueryData<Epic[]>(queryKeys.epics.list(variables.projectId), (old) => {
+        if (!old) return [newEpic];
+        return [...old, newEpic];
+      });
+
+      // 2. Update the all-list if it exists
+      queryClient.setQueryData<Epic[]>(queryKeys.epics.allList(), (old) => {
+        if (!old) return old;
+        return [...old, newEpic];
+      });
+
+      // 3. Invalidate to ensure consistency (optional but safe)
       queryClient.invalidateQueries({ queryKey: queryKeys.epics.list(variables.projectId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.epics.allList() });
+
       toast.success('Epic criado');
     },
     onError: () => {

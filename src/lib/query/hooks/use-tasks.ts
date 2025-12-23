@@ -15,6 +15,20 @@ interface TasksResponse {
   totalPages: number;
 }
 
+interface CreateTaskInput {
+  title: string;
+  description: string;
+  type: string;
+  priority: string;
+  status: string;
+  featureId: string;
+  points: number | string | null;
+  module?: string | null;
+  modules?: string[];
+  assigneeId?: string | null;
+  projectId?: string;
+}
+
 interface UpdateTaskInput {
   id: string;
   data: Partial<{
@@ -22,8 +36,11 @@ interface UpdateTaskInput {
     description: string;
     status: TaskStatus;
     priority: string;
+    type: string;
     points: number | null;
     module: string | null;
+    modules: string[];
+    featureId: string;
     assigneeId: string | null;
   }>;
 }
@@ -45,6 +62,17 @@ async function fetchTasks(filters?: Partial<TaskFiltersState>): Promise<TasksRes
 
   const res = await fetch(`/api/tasks?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to fetch tasks');
+  const json = await res.json();
+  return json.data;
+}
+
+async function createTask(data: CreateTaskInput): Promise<TaskWithReadableId> {
+  const res = await fetch('/api/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to create task');
   const json = await res.json();
   return json.data;
 }
@@ -78,6 +106,43 @@ export function useTasks(filters?: Partial<TaskFiltersState>) {
     queryKey: queryKeys.tasks.list(filters),
     queryFn: () => fetchTasks(filters),
     ...CACHE_TIMES.FRESH,
+  });
+}
+
+/**
+ * Create a new task
+ */
+export function useCreateTask() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createTask,
+    onSuccess: (newTask) => {
+      // 1. Update the lists (Optimistic-ish)
+      // We append to any list that might contain this task. 
+      // Since filtering is complex, we'll try to add it to the 'all' list or just invalidate if filtering is strict.
+      // But for the main board, adding it to the list is usually enough.
+
+      queryClient.setQueriesData<TasksResponse>(
+        { queryKey: queryKeys.tasks.lists() },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: [newTask, ...old.items],
+            total: old.total + 1,
+          };
+        }
+      );
+
+      // 2. Invalidate to ensure consistency and correct sorting/filtering
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+
+      toast.success('Task criada com sucesso!');
+    },
+    onError: () => {
+      toast.error('Erro ao criar task');
+    },
   });
 }
 

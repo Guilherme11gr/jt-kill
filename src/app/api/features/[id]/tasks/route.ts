@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { taskRepository } from '@/infra/adapters/prisma';
+import { taskRepository, featureRepository } from '@/infra/adapters/prisma';
 import { getTasksByFeature } from '@/domain/use-cases/tasks/get-tasks-by-feature';
 import { createTask } from '@/domain/use-cases/tasks/create-task';
 import type { StoryPoints } from '@/shared/types';
@@ -47,12 +47,20 @@ export async function POST(
       } as Record<string, unknown>);
     }
 
+    // Task requires projectId. We resolve it from the feature.
+    const feature = await featureRepository.findByIdWithBreadcrumb(featureId, tenantId);
+    if (!feature) {
+      return jsonError('NOT_FOUND', 'Feature não encontrada', 404);
+    }
+    const projectId = feature.epic.projectId;
+
     const task = await createTask({
       orgId: tenantId,
       ...parsed.data,
+      projectId,
       featureId, // Override any featureId from body with URL param
       points: parsed.data.points as StoryPoints | null | undefined,
-    }, { taskRepository });
+    }, { taskRepository, featureRepository });
     return jsonSuccess(task, { status: 201 });
 
   } catch (error) {

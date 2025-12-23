@@ -52,12 +52,6 @@ async function fetchProject(id: string): Promise<Project> {
   return json.data;
 }
 
-async function fetchEpics(projectId: string): Promise<Epic[]> {
-  const res = await fetch(`/api/projects/${projectId}/epics`);
-  if (!res.ok) throw new Error('Failed to fetch epics');
-  const json = await res.json();
-  return json.data || [];
-}
 
 
 async function createProject(data: CreateProjectInput): Promise<Project> {
@@ -112,17 +106,6 @@ export function useProject(id: string) {
   });
 }
 
-/**
- * Fetch epics for a specific project
- */
-export function useEpics(projectId: string) {
-  return useQuery({
-    queryKey: queryKeys.epics.list(projectId),
-    queryFn: () => fetchEpics(projectId),
-    enabled: Boolean(projectId),
-    ...CACHE_TIMES.STANDARD,
-  });
-}
 
 
 /**
@@ -159,13 +142,24 @@ export function useModulesByProject(projectId: string | undefined) {
 /**
  * Create a new project
  */
+/**
+ * Create a new project
+ */
 export function useCreateProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: createProject,
-    onSuccess: () => {
+    onSuccess: (newProject) => {
+      // 1. Update the list
+      queryClient.setQueryData<Project[]>(queryKeys.projects.list(), (old) => {
+        if (!old) return [newProject];
+        return [...old, newProject];
+      });
+
+      // 2. Invalidate to ensure consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+
       toast.success('Projeto criado');
     },
     onError: () => {

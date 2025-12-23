@@ -21,6 +21,9 @@ interface Feature {
       key: string;
     };
   };
+  _count?: {
+    tasks: number;
+  };
 }
 
 interface CreateFeatureInput {
@@ -131,9 +134,23 @@ export function useCreateFeature() {
 
   return useMutation({
     mutationFn: createFeature,
-    onSuccess: (_, variables) => {
+    onSuccess: (newFeature, variables) => {
+      // 1. Update the list by epic
+      queryClient.setQueryData<Feature[]>(queryKeys.features.list(variables.epicId), (old) => {
+        if (!old) return [newFeature];
+        return [...old, newFeature];
+      });
+
+      // 2. Update the all-list if it exists
+      queryClient.setQueryData<Feature[]>(queryKeys.features.list(), (old) => {
+        if (!old) return old; // Don't create if not cached
+        return [...old, newFeature];
+      });
+
+      // 3. Invalidate
       queryClient.invalidateQueries({ queryKey: queryKeys.features.list(variables.epicId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.features.list() });
+
       toast.success('Feature criada');
     },
     onError: () => {

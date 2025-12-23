@@ -20,7 +20,7 @@ import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skel
 interface Feature {
   id: string;
   title: string;
-  description: string | null;
+  description?: string | null;
   status: string;
   _count?: { tasks: number };
 }

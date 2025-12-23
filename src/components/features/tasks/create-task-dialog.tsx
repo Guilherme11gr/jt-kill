@@ -11,7 +11,8 @@ import { AssigneeSelect } from "@/components/features/shared";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleTagInput } from "@/components/ui/module-tag-input";
-import { useProjects } from "@/lib/query";
+import { useProjects, useCreateTask, useUpdateTask } from "@/lib/query";
+import { TaskStatus } from "@/shared/types";
 
 interface Feature {
   id: string;
@@ -90,8 +91,13 @@ export function TaskDialog({
   onSuccess,
 }: TaskDialogProps) {
   const [formData, setFormData] = useState<TaskFormData>(INITIAL_FORM_DATA);
-  const [saving, setSaving] = useState(false);
+  // Remove local saving state, use mutation state instead
   const { data: projects } = useProjects();
+
+  const createTaskMutation = useCreateTask();
+  const updateTaskMutation = useUpdateTask();
+
+  const isSaving = createTaskMutation.isPending || updateTaskMutation.isPending;
 
   const isEditing = !!taskToEdit;
 
@@ -146,46 +152,50 @@ export function TaskDialog({
       return;
     }
 
-    setSaving(true);
+    // Validate project can be determined for new tasks
+    if (!isEditing && !resolvedProjectId) {
+      toast.error("Não foi possível determinar o projeto. Selecione uma feature válida.");
+      return;
+    }
+
     try {
-      const url = isEditing ? `/api/tasks/${taskToEdit.id}` : "/api/tasks";
-      const method = isEditing ? "PATCH" : "POST";
-
-      // Validate project can be determined for new tasks
-      if (!isEditing && !resolvedProjectId) {
-        toast.error("Não foi possível determinar o projeto. Selecione uma feature válida.");
-        setSaving(false);
-        return;
-      }
-
-      const payload = {
-        ...formData,
-        // Include projectId for new tasks (not needed for updates as it can't change)
-        ...(isEditing ? {} : { projectId: resolvedProjectId }),
-        // Convert values for backend
-        points: formData.points === "Sem estimativa" ? null : formData.points,
-        modules: formData.modules,
-      };
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        toast.success(isEditing ? "Task atualizada!" : "Task criada com sucesso!");
-        onOpenChange(false);
-        onSuccess?.();
+      if (isEditing && taskToEdit) {
+        await updateTaskMutation.mutateAsync({
+          id: taskToEdit.id,
+          data: {
+            title: formData.title,
+            description: formData.description,
+            type: formData.type as any, // Type cast or fix interface properly
+            priority: formData.priority,
+            status: formData.status as TaskStatus,
+            featureId: formData.featureId,
+            points: formData.points === "Sem estimativa" ? null : Number(formData.points),
+            modules: formData.modules,
+            assigneeId: formData.assigneeId
+          }
+        });
+        // Success toast handled by hook
       } else {
-        const error = await res.json();
-        toast.error(error.error?.message || `Erro ao ${isEditing ? "atualizar" : "criar"} task`);
+        await createTaskMutation.mutateAsync({
+          title: formData.title,
+          description: formData.description,
+          type: formData.type,
+          priority: formData.priority,
+          status: formData.status,
+          featureId: formData.featureId,
+          points: formData.points === "Sem estimativa" ? null : formData.points,
+          modules: formData.modules,
+          assigneeId: formData.assigneeId,
+          projectId: resolvedProjectId
+        });
+        // Success toast handled by hook
       }
+
+      onOpenChange(false);
+      onSuccess?.();
     } catch (error) {
       console.error("Erro:", error);
-      toast.error(`Erro ao ${isEditing ? "atualizar" : "criar"} task`);
-    } finally {
-      setSaving(false);
+      // Toast handled by hook
     }
   };
 
@@ -353,12 +363,12 @@ export function TaskDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={saving}
+              disabled={isSaving}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? (
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {isEditing ? "Salvando..." : "Criando..."}

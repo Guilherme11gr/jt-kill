@@ -25,13 +25,12 @@ async function main() {
     create: {
       id: '00000000-0000-0000-0000-000000000001',
       orgId: org.id,
-      email: 'dev@test.com',
-      fullName: 'Dev User',
+      displayName: 'Dev User',
       role: 'OWNER',
     },
   });
 
-  console.log('✅ User created:', user.email);
+  console.log('✅ User created:', user.displayName);
   console.log('\n🎉 Seed completed!');
   console.log('📋 Use these credentials:');
   console.log('   Org ID:', org.id);

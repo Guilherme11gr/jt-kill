@@ -14,6 +14,7 @@ docs/
 │   └── workflows.md       # Fluxos e máquina de estados
 ├── guides/                # 📖 Guias práticos
 │   ├── date-handling.md   # Manipulação de datas (CRÍTICO)
+│   ├── ai-infrastructure.md # 🤖 Sistema de IA (DeepSeek)
 │   ├── ai-scribe.md       # Sistema de IA para geração de tasks
 │   └── scrum-poker.md     # Sistema de estimativa
 ├── ui-ux/                 # 🎨 Design system
@@ -58,6 +59,7 @@ docs/
 ### 🟢 Referência
 | Documento | Descrição |
 |-----------|-----------|
+| [guides/ai-infrastructure.md](./guides/ai-infrastructure.md) | Infraestrutura de IA (DeepSeek) |
 | [guides/ai-scribe.md](./guides/ai-scribe.md) | Sistema de IA |
 | [guides/scrum-poker.md](./guides/scrum-poker.md) | Estimativas |
 | [ui-ux/components.md](./ui-ux/components.md) | Componentes |

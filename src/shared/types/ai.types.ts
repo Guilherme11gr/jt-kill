@@ -33,3 +33,18 @@ export interface AIChatRequest {
     temperature?: number;
     maxTokens?: number;
 }
+
+/**
+ * Improve description request
+ */
+export interface ImproveDescriptionRequest {
+    taskId: string;
+}
+
+/**
+ * Improve description response
+ */
+export interface ImproveDescriptionResponse {
+    description: string;
+    taskId: string;
+}

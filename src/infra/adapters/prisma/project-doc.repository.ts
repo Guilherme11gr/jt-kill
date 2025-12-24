@@ -66,6 +66,22 @@ export class ProjectDocRepository {
   }
 
   /**
+   * Find doc by ID with tags included
+   */
+  async findByIdWithTags(id: string, orgId: string) {
+    return this.prisma.projectDoc.findFirst({
+      where: { id, orgId },
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
    * Update a project doc
    */
   async update(id: string, orgId: string, data: UpdateProjectDocInput): Promise<ProjectDoc> {

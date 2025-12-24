@@ -6,6 +6,7 @@ import { TaskRepository } from './task.repository';
 import { CommentRepository } from './comment.repository';
 import { ProjectDocRepository } from './project-doc.repository';
 import { UserProfileRepository } from './user-profile.repository';
+import { DocTagRepository } from './doc-tag.repository';
 
 // Singleton Prisma Client
 // https://www.prisma.io/docs/guides/performance-and-optimization/connection-management#prismaclient-in-long-running-applications
@@ -29,6 +30,7 @@ export const taskRepository = new TaskRepository(prisma);
 export const commentRepository = new CommentRepository(prisma);
 export const projectDocRepository = new ProjectDocRepository(prisma);
 export const userProfileRepository = new UserProfileRepository(prisma);
+export const docTagRepository = new DocTagRepository(prisma);
 
 // Re-export for convenience
 export {
@@ -39,8 +41,5 @@ export {
   CommentRepository,
   ProjectDocRepository,
   UserProfileRepository,
+  DocTagRepository,
 };
-
-
-
-

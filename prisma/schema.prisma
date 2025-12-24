@@ -16,6 +16,7 @@ model Organization {
   createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   comments      Comment[]
+  docTags       DocTag[]
   epics         Epic[]
   features      Feature[]
   pokerSessions PokerSession[]
@@ -54,6 +55,7 @@ model Project {
   modules      String[]     @default([])
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  docTags      DocTag[]
   epics        Epic[]
   projectDocs  ProjectDoc[]
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -66,19 +68,52 @@ model Project {
 }
 
 model ProjectDoc {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String       @map("org_id") @db.Uuid
-  projectId    String       @map("project_id") @db.Uuid
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId        String             @map("org_id") @db.Uuid
+  projectId    String             @map("project_id") @db.Uuid
   title        String
   content      String
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tags         DocTagAssignment[]
 
   @@index([orgId], map: "idx_project_docs_org")
   @@index([projectId], map: "idx_project_docs_project")
   @@map("project_docs")
+  @@schema("public")
+}
+
+model DocTag {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId        String             @map("org_id") @db.Uuid
+  projectId    String             @map("project_id") @db.Uuid
+  name         String
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assignments  DocTagAssignment[]
+
+  @@unique([projectId, name], map: "uq_doc_tags_project_name")
+  @@index([orgId], map: "idx_doc_tags_org")
+  @@index([projectId], map: "idx_doc_tags_project")
+  @@map("doc_tags")
+  @@schema("public")
+}
+
+model DocTagAssignment {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  docId     String     @map("doc_id") @db.Uuid
+  tagId     String     @map("tag_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  doc       ProjectDoc @relation(fields: [docId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tag       DocTag     @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([docId, tagId], map: "uq_doc_tag_assignments_doc_tag")
+  @@index([docId], map: "idx_doc_tag_assignments_doc")
+  @@index([tagId], map: "idx_doc_tag_assignments_tag")
+  @@map("doc_tag_assignments")
   @@schema("public")
 }
 

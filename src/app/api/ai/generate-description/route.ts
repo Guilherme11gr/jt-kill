@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { featureRepository } from '@/infra/adapters/prisma';
+import { featureRepository, projectDocRepository } from '@/infra/adapters/prisma';
 import { aiAdapter } from '@/infra/adapters/ai';
 import { generateTaskDescription } from '@/domain/use-cases/ai';
 import { z } from 'zod';
@@ -17,6 +17,8 @@ const generateDescriptionSchema = z.object({
     currentDescription: z.string().optional(),
     type: z.enum(['TASK', 'BUG']).optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
+    includeProjectDocs: z.boolean().optional().default(false),
+    projectId: z.string().uuid('ID do projeto inválido').optional(),
 });
 
 /**
@@ -39,12 +41,31 @@ export async function POST(request: NextRequest) {
             } as Record<string, unknown>);
         }
 
-        const { title, featureId, currentDescription, type, priority } = parsed.data;
+        const { title, featureId, currentDescription, type, priority, includeProjectDocs, projectId: providedProjectId } = parsed.data;
 
-        // Fetch feature for context
-        const feature = await featureRepository.findById(featureId, tenantId);
+        // Fetch feature for context (with breadcrumb to get projectId if needed)
+        const feature = includeProjectDocs && !providedProjectId
+            ? await featureRepository.findByIdWithBreadcrumb(featureId, tenantId)
+            : await featureRepository.findById(featureId, tenantId);
+
         if (!feature) {
             return jsonError('NOT_FOUND', 'Feature não encontrada', 404);
+        }
+
+        // Resolve project ID for docs
+        let projectDocs: Array<{ title: string; content: string }> | undefined;
+        if (includeProjectDocs) {
+            let resolvedProjectId = providedProjectId;
+            if (!resolvedProjectId && 'epic' in feature) {
+                const featureWithEpic = feature as { epic: { projectId: string } };
+                resolvedProjectId = featureWithEpic.epic.projectId;
+            }
+            if (resolvedProjectId) {
+                projectDocs = await projectDocRepository.findForAIContext(
+                    resolvedProjectId,
+                    tenantId
+                );
+            }
         }
 
         // Generate description using AI
@@ -58,6 +79,7 @@ export async function POST(request: NextRequest) {
                     title: feature.title,
                     description: feature.description,
                 },
+                projectDocs,
             },
             { aiAdapter }
         );

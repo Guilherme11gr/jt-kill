@@ -34,11 +34,22 @@ export function buildImproveDescriptionPrompt(
     const currentDescription = context.task.description || '(sem descrição ainda)';
     const featureDescription = context.feature.description || '(sem descrição da feature)';
 
+    // Build project docs section if available
+    const projectDocsSection = context.projectDocs?.length
+        ? `
+---
+
+## Documentação do Projeto
+
+${context.projectDocs.map(doc => `### ${doc.title}\n${doc.content}`).join('\n\n')}
+`
+        : '';
+
     const userPrompt = `## Contexto da Feature
 
 **Feature:** ${context.feature.title}
 ${featureDescription}
-
+${projectDocsSection}
 ---
 
 ## Task a ser melhorada
@@ -52,7 +63,7 @@ ${currentDescription}
 
 ---
 
-Por favor, melhore a descrição desta task considerando o contexto da feature.
+Por favor, melhore a descrição desta task considerando o contexto da feature${context.projectDocs?.length ? ' e a documentação do projeto' : ''}.
 Torne-a mais clara, objetiva e acionável para os desenvolvedores.
 
 **Retorne APENAS a nova descrição, sem explicações adicionais ou prefixos como "Aqui está" ou "Nova descrição:".**`;

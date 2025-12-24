@@ -92,6 +92,7 @@ export function TaskDialog({
   onSuccess,
 }: TaskDialogProps) {
   const [formData, setFormData] = useState<TaskFormData>(INITIAL_FORM_DATA);
+  const [includeProjectDocs, setIncludeProjectDocs] = useState(false);
   // Remove local saving state, use mutation state instead
   const { data: projects } = useProjects();
 
@@ -253,38 +254,54 @@ export function TaskDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Descrição (Markdown)</Label>
-              <AIImproveButton
-                onClick={async () => {
-                  if (!formData.featureId || !formData.title.trim()) {
-                    toast.error('Preencha o título e selecione uma feature primeiro');
-                    return;
-                  }
-                  try {
-                    // Para edição de task existente, usar improve (tem mais contexto)
-                    if (isEditing && taskToEdit?.id) {
-                      const result = await improveDescription.mutateAsync({ taskId: taskToEdit.id });
-                      setFormData(prev => ({ ...prev, description: result.description }));
-                    } else {
-                      // Para nova task, usar generate com contexto inline
-                      const result = await generateDescription.mutateAsync({
-                        title: formData.title,
-                        featureId: formData.featureId,
-                        currentDescription: formData.description || undefined,
-                        type: formData.type,
-                        priority: formData.priority,
-                      });
-                      setFormData(prev => ({ ...prev, description: result.description }));
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={includeProjectDocs}
+                    onChange={(e) => setIncludeProjectDocs(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  Incluir docs
+                </label>
+                <AIImproveButton
+                  onClick={async () => {
+                    if (!formData.featureId || !formData.title.trim()) {
+                      toast.error('Preencha o título e selecione uma feature primeiro');
+                      return;
                     }
-                    toast.success('Descrição gerada com sucesso!');
-                  } catch {
-                    // Error toast handled by hook
-                  }
-                }}
-                isLoading={isGeneratingAI}
-                disabled={!formData.title.trim() || !formData.featureId}
-                label={formData.description?.trim() ? 'Melhorar' : 'Gerar'}
-                title={formData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
-              />
+                    try {
+                      // Para edição de task existente, usar improve (tem mais contexto)
+                      if (isEditing && taskToEdit?.id) {
+                        const result = await improveDescription.mutateAsync({
+                          taskId: taskToEdit.id,
+                          includeProjectDocs,
+                        });
+                        setFormData(prev => ({ ...prev, description: result.description }));
+                      } else {
+                        // Para nova task, usar generate com contexto inline
+                        const result = await generateDescription.mutateAsync({
+                          title: formData.title,
+                          featureId: formData.featureId,
+                          currentDescription: formData.description || undefined,
+                          type: formData.type,
+                          priority: formData.priority,
+                          includeProjectDocs,
+                          projectId: resolvedProjectId || undefined,
+                        });
+                        setFormData(prev => ({ ...prev, description: result.description }));
+                      }
+                      toast.success('Descrição gerada com sucesso!');
+                    } catch {
+                      // Error toast handled by hook
+                    }
+                  }}
+                  isLoading={isGeneratingAI}
+                  disabled={!formData.title.trim() || !formData.featureId}
+                  label={formData.description?.trim() ? 'Melhorar' : 'Gerar'}
+                  title={formData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
+                />
+              </div>
             </div>
             <MarkdownEditor
               id="task-description"

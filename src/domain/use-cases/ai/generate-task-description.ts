@@ -11,6 +11,7 @@ export interface GenerateTaskDescriptionInput {
         title: string;
         description: string | null;
     };
+    projectDocs?: Array<{ title: string; content: string }>;
 }
 
 export interface GenerateTaskDescriptionDeps {
@@ -46,11 +47,22 @@ function buildPrompt(input: GenerateTaskDescriptionInput): string {
     const priority = PRIORITY_LABELS[input.priority || 'MEDIUM'] || 'Média';
     const currentDesc = input.currentDescription?.trim();
 
+    // Build project docs section if available
+    const projectDocsSection = input.projectDocs?.length
+        ? `
+---
+
+## Documentação do Projeto
+
+${input.projectDocs.map(doc => `### ${doc.title}\n${doc.content}`).join('\n\n')}
+`
+        : '';
+
     let prompt = `## Contexto da Feature
 
 **Feature:** ${input.feature.title}
 ${input.feature.description || '(sem descrição)'}
-
+${projectDocsSection}
 ---
 
 ## Task a ser descrita

@@ -104,4 +104,45 @@ export class ProjectDocRepository {
       where: { projectId, orgId },
     });
   }
+
+  /**
+   * Find docs for AI context (limited by character count)
+   * Returns docs ordered by most recent, with content limited to maxTotalChars
+   */
+  async findForAIContext(
+    projectId: string,
+    orgId: string,
+    maxTotalChars: number = 4000
+  ): Promise<Array<{ title: string; content: string }>> {
+    const docs = await this.prisma.projectDoc.findMany({
+      where: { projectId, orgId },
+      select: { title: true, content: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // Limit total characters across all docs
+    const result: Array<{ title: string; content: string }> = [];
+    let totalChars = 0;
+
+    for (const doc of docs) {
+      const docChars = doc.title.length + doc.content.length + 10; // +10 for separators
+
+      if (totalChars + docChars > maxTotalChars) {
+        // Check if we can add a truncated version
+        const remainingChars = maxTotalChars - totalChars - doc.title.length - 20;
+        if (remainingChars > 100) {
+          result.push({
+            title: doc.title,
+            content: doc.content.substring(0, remainingChars) + '...',
+          });
+        }
+        break;
+      }
+
+      result.push({ title: doc.title, content: doc.content });
+      totalChars += docChars;
+    }
+
+    return result;
+  }
 }

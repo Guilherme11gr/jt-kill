@@ -6,13 +6,14 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { taskRepository, featureRepository } from '@/infra/adapters/prisma';
+import { taskRepository, featureRepository, projectDocRepository } from '@/infra/adapters/prisma';
 import { aiAdapter } from '@/infra/adapters/ai';
 import { improveTaskDescription } from '@/domain/use-cases/ai';
 import { z } from 'zod';
 
 const improveDescriptionSchema = z.object({
     taskId: z.string().uuid('ID da task inválido'),
+    includeProjectDocs: z.boolean().optional().default(false),
 });
 
 /**
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
             } as Record<string, unknown>);
         }
 
-        const { taskId } = parsed.data;
+        const { taskId, includeProjectDocs } = parsed.data;
 
         // 1. Fetch task with relations (includes feature.title)
         const task = await taskRepository.findByIdWithRelations(taskId, tenantId);
@@ -46,11 +47,21 @@ export async function POST(request: NextRequest) {
         // 2. Fetch feature description (not included in task relations by default)
         const feature = await featureRepository.findById(task.featureId, tenantId);
 
-        // 3. Generate improved description using AI
+        // 3. Fetch project docs if requested
+        let projectDocs: Array<{ title: string; content: string }> | undefined;
+        if (includeProjectDocs) {
+            projectDocs = await projectDocRepository.findForAIContext(
+                task.projectId,
+                tenantId
+            );
+        }
+
+        // 4. Generate improved description using AI
         const improvedDescription = await improveTaskDescription(
             {
                 task,
                 featureDescription: feature?.description ?? null,
+                projectDocs,
             },
             { aiAdapter }
         );

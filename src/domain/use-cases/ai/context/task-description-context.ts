@@ -14,6 +14,7 @@ export interface TaskDescriptionContext {
         title: string;
         description: string | null;
     };
+    projectDocs?: Array<{ title: string; content: string }>;
 }
 
 /**
@@ -28,7 +29,8 @@ export function buildTaskDescriptionContext(
         priority: TaskPriority;
         feature: { title: string };
     },
-    featureDescription?: string | null
+    featureDescription?: string | null,
+    projectDocs?: Array<{ title: string; content: string }>
 ): TaskDescriptionContext {
     return {
         task: {
@@ -41,5 +43,6 @@ export function buildTaskDescriptionContext(
             title: task.feature.title,
             description: featureDescription ?? null,
         },
+        projectDocs,
     };
 }

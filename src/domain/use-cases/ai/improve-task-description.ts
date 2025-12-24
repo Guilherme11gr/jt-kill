@@ -6,6 +6,7 @@ import { buildImproveDescriptionPrompt } from './prompts';
 export interface ImproveTaskDescriptionInput {
     task: TaskWithReadableId;
     featureDescription?: string | null;
+    projectDocs?: Array<{ title: string; content: string }>;
 }
 
 export interface ImproveTaskDescriptionDeps {
@@ -35,7 +36,8 @@ export async function improveTaskDescription(
     // 1. Build context from task data
     const context = buildTaskDescriptionContext(
         input.task,
-        input.featureDescription
+        input.featureDescription,
+        input.projectDocs
     );
 
     // 2. Generate prompt from context

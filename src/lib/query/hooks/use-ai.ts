@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 
 interface ImproveDescriptionInput {
     taskId: string;
+    includeProjectDocs?: boolean;
 }
 
 interface GenerateDescriptionInput {
@@ -15,6 +16,8 @@ interface GenerateDescriptionInput {
     currentDescription?: string;
     type?: 'TASK' | 'BUG';
     priority?: string;
+    includeProjectDocs?: boolean;
+    projectId?: string;
 }
 
 interface AIDescriptionResponse {

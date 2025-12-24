@@ -1,21 +1,23 @@
 "use client";
 
-import { useState, useCallback, use } from "react";
+import { useState, useCallback, use, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { ArrowLeft, Plus, Box, Loader2, MoreVertical, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature } from "@/lib/query";
+import { AIImproveButton } from "@/components/ui/ai-improve-button";
+import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature, useImproveFeatureDescription } from "@/lib/query";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
+import { toast } from "sonner";
 
 interface Feature {
   id: string;
@@ -41,9 +43,11 @@ export default function EpicDetailPage({
   const createFeatureMutation = useCreateFeature();
   const updateFeatureMutation = useUpdateFeature();
   const deleteFeatureMutation = useDeleteFeature();
+  const improveDescriptionMutation = useImproveFeatureDescription();
 
   const loading = epicLoading || featuresLoading;
   const saving = createFeatureMutation.isPending || updateFeatureMutation.isPending;
+  const isGeneratingAI = improveDescriptionMutation.isPending;
 
   // Create Feature State
   const [isFeatureDialogOpen, setIsFeatureDialogOpen] = useState(false);
@@ -59,6 +63,29 @@ export default function EpicDetailPage({
 
   // Delete Feature State
   const [featureToDelete, setFeatureToDelete] = useState<Feature | null>(null);
+
+  // AI handler for improving description
+  const handleImproveDescription = useCallback(async () => {
+    if (isGeneratingAI) return;
+
+    if (!featureFormData.title.trim()) {
+      toast.error('Preencha o título primeiro');
+      return;
+    }
+
+    try {
+      const result = await improveDescriptionMutation.mutateAsync({
+        title: featureFormData.title,
+        description: featureFormData.description || undefined,
+        epicId: resolvedParams.epicId,
+        featureId: editingFeature?.id,
+      });
+      setFeatureFormData(prev => ({ ...prev, description: result.description }));
+      toast.success('Descrição gerada com sucesso!');
+    } catch {
+      // Error handled by hook
+    }
+  }, [isGeneratingAI, featureFormData.title, featureFormData.description, resolvedParams.epicId, editingFeature?.id, improveDescriptionMutation]);
 
   const handleCreateFeature = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,14 +249,24 @@ export default function EpicDetailPage({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="feature-description">Descrição</Label>
-                  <Textarea
+                  <div className="flex items-center justify-between mb-1">
+                    <Label htmlFor="feature-description">Descrição</Label>
+                    <AIImproveButton
+                      onClick={handleImproveDescription}
+                      isLoading={isGeneratingAI}
+                      disabled={!featureFormData.title.trim()}
+                      label={featureFormData.description?.trim() ? 'Melhorar' : 'Gerar'}
+                      title={featureFormData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
+                    />
+                  </div>
+                  <MarkdownEditor
                     id="feature-description"
                     value={featureFormData.description}
-                    onChange={(e) =>
-                      setFeatureFormData({ ...featureFormData, description: e.target.value })
+                    onChange={(v) =>
+                      setFeatureFormData({ ...featureFormData, description: v })
                     }
-                    placeholder="Detalhes técnicos da feature..."
+                    placeholder="Detalhes técnicos da feature...&#10;&#10;## Critérios de Aceite&#10;- [ ] Critério 1"
+                    minHeight="250px"
                   />
                 </div>
                 <div>
@@ -378,14 +415,24 @@ export default function EpicDetailPage({
               />
             </div>
             <div>
-              <Label htmlFor="edit-feature-description">Descrição</Label>
-              <Textarea
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="edit-feature-description">Descrição</Label>
+                <AIImproveButton
+                  onClick={handleImproveDescription}
+                  isLoading={isGeneratingAI}
+                  disabled={!featureFormData.title.trim()}
+                  label={featureFormData.description?.trim() ? 'Melhorar' : 'Gerar'}
+                  title={featureFormData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
+                />
+              </div>
+              <MarkdownEditor
                 id="edit-feature-description"
                 value={featureFormData.description}
-                onChange={(e) =>
-                  setFeatureFormData({ ...featureFormData, description: e.target.value })
+                onChange={(v) =>
+                  setFeatureFormData({ ...featureFormData, description: v })
                 }
-                placeholder="Detalhes técnicos da feature..."
+                placeholder="Detalhes técnicos da feature...&#10;&#10;## Critérios de Aceite&#10;- [ ] Critério 1"
+                minHeight="250px"
               />
             </div>
             <div>

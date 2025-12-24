@@ -82,3 +82,97 @@ export function useGenerateDescription() {
         },
     });
 }
+
+// ============================================
+// Suggest Tasks Hook
+// ============================================
+
+interface SuggestTasksInput {
+    featureId: string;
+    includeProjectDocs?: boolean;
+}
+
+interface SuggestedTask {
+    title: string;
+    description: string;
+    complexity: 'LOW' | 'MEDIUM' | 'HIGH';
+}
+
+interface SuggestTasksResponse {
+    suggestions: SuggestedTask[];
+    featureId: string;
+}
+
+/**
+ * Hook para sugerir tasks baseado em uma feature
+ * Usa IA para analisar a feature e gerar sugestões
+ */
+export function useSuggestTasks() {
+    return useMutation({
+        mutationFn: async (input: SuggestTasksInput): Promise<SuggestTasksResponse> => {
+            const response = await fetch('/api/ai/suggest-tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(input),
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error?.error?.message || 'Erro ao gerar sugestões de tasks');
+            }
+
+            const json = await response.json();
+            return json.data as SuggestTasksResponse;
+        },
+        onError: (error: Error) => {
+            toast.error(error.message);
+        },
+    });
+}
+
+// Re-export types for convenience
+export type { SuggestedTask, SuggestTasksResponse };
+
+// ============================================
+// Improve Feature Description Hook
+// ============================================
+
+interface ImproveFeatureDescriptionInput {
+    featureId?: string;
+    title: string;
+    description?: string;
+    epicId?: string;
+    includeProjectDocs?: boolean;
+}
+
+interface ImproveFeatureDescriptionResponse {
+    description: string;
+    featureId: string | null;
+}
+
+/**
+ * Hook para melhorar/gerar descrição de feature
+ * Usa IA para criar descrição estruturada em markdown
+ */
+export function useImproveFeatureDescription() {
+    return useMutation({
+        mutationFn: async (input: ImproveFeatureDescriptionInput): Promise<ImproveFeatureDescriptionResponse> => {
+            const response = await fetch('/api/ai/improve-feature-description', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(input),
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error?.error?.message || 'Erro ao melhorar descrição da feature');
+            }
+
+            const json = await response.json();
+            return json.data as ImproveFeatureDescriptionResponse;
+        },
+        onError: (error: Error) => {
+            toast.error(error.message);
+        },
+    });
+}

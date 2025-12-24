@@ -8,4 +8,5 @@ export { TaskFilters, type TaskFiltersState } from './task-filters';
 export { TaskDialog } from './create-task-dialog';
 export { TaskDetailModal } from './task-detail-modal';
 export { TaskComments } from './task-comments';
+export { SuggestTasksModal } from './suggest-tasks-modal';
 

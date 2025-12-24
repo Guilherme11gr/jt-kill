@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,6 +149,57 @@ export function TaskDialog({
     }
   }, [open, taskToEdit, defaultFeatureId, features, defaultValues]);
 
+  // Memoized AI handler to prevent recreation on each render
+  const handleAIGenerate = useCallback(async () => {
+    // Guard against double-clicks
+    if (isGeneratingAI) return;
+
+    if (!formData.featureId || !formData.title.trim()) {
+      toast.error('Preencha o título e selecione uma feature primeiro');
+      return;
+    }
+
+    try {
+      // Para edição de task existente, usar improve (tem mais contexto)
+      if (isEditing && taskToEdit?.id) {
+        const result = await improveDescription.mutateAsync({
+          taskId: taskToEdit.id,
+          includeProjectDocs,
+        });
+        setFormData(prev => ({ ...prev, description: result.description }));
+        toast.success('Descrição melhorada com sucesso!');
+      } else {
+        // Para nova task, usar generate com contexto inline
+        const result = await generateDescription.mutateAsync({
+          title: formData.title,
+          featureId: formData.featureId,
+          currentDescription: formData.description || undefined,
+          type: formData.type,
+          priority: formData.priority,
+          includeProjectDocs,
+          projectId: resolvedProjectId || undefined,
+        });
+        setFormData(prev => ({ ...prev, description: result.description }));
+        toast.success('Descrição gerada com sucesso!');
+      }
+    } catch {
+      // Error toast is handled by hook
+    }
+  }, [
+    isGeneratingAI,
+    formData.featureId,
+    formData.title,
+    formData.description,
+    formData.type,
+    formData.priority,
+    isEditing,
+    taskToEdit?.id,
+    includeProjectDocs,
+    resolvedProjectId,
+    improveDescription,
+    generateDescription,
+  ]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -260,42 +311,13 @@ export function TaskDialog({
                     type="checkbox"
                     checked={includeProjectDocs}
                     onChange={(e) => setIncludeProjectDocs(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                    disabled={isGeneratingAI}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500 disabled:opacity-50"
                   />
                   Incluir docs
                 </label>
                 <AIImproveButton
-                  onClick={async () => {
-                    if (!formData.featureId || !formData.title.trim()) {
-                      toast.error('Preencha o título e selecione uma feature primeiro');
-                      return;
-                    }
-                    try {
-                      // Para edição de task existente, usar improve (tem mais contexto)
-                      if (isEditing && taskToEdit?.id) {
-                        const result = await improveDescription.mutateAsync({
-                          taskId: taskToEdit.id,
-                          includeProjectDocs,
-                        });
-                        setFormData(prev => ({ ...prev, description: result.description }));
-                      } else {
-                        // Para nova task, usar generate com contexto inline
-                        const result = await generateDescription.mutateAsync({
-                          title: formData.title,
-                          featureId: formData.featureId,
-                          currentDescription: formData.description || undefined,
-                          type: formData.type,
-                          priority: formData.priority,
-                          includeProjectDocs,
-                          projectId: resolvedProjectId || undefined,
-                        });
-                        setFormData(prev => ({ ...prev, description: result.description }));
-                      }
-                      toast.success('Descrição gerada com sucesso!');
-                    } catch {
-                      // Error toast handled by hook
-                    }
-                  }}
+                  onClick={handleAIGenerate}
                   isLoading={isGeneratingAI}
                   disabled={!formData.title.trim() || !formData.featureId}
                   label={formData.description?.trim() ? 'Melhorar' : 'Gerar'}

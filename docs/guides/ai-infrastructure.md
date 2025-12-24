@@ -27,8 +27,10 @@ O sistema de IA do Jira Killer é projetado para **augmentar** a produtividade d
 | Feature | Status | Descrição |
 |---------|--------|-----------|
 | Melhorar Descrição de Task | ✅ Implementado | Refina descrições usando contexto da Feature |
-| Melhorar Descrição de Feature | 🔜 Planejado | Refina descrições usando contexto do Epic |
-| Gerar Tasks de Feature | 🔜 Planejado | Sugere tasks com base na descrição da Feature |
+| Gerar Descrição de Task | ✅ Implementado | Cria descrição com base no título e contexto |
+| Sugerir Tasks de Feature | ✅ Implementado | Sugere 3-8 tasks com base na descrição da Feature |
+| Melhorar Descrição de Feature | ✅ Implementado | Gera/melhora descrição estruturada de Features |
+| Contexto de Docs do Projeto | ✅ Implementado | Inclui documentação do projeto como contexto para IA |
 | Resumir Epic | 🔜 Planejado | Cria resumo executivo de um Epic |
 
 ### Princípios de Design
@@ -46,25 +48,26 @@ O sistema de IA do Jira Killer é projetado para **augmentar** a produtividade d
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Frontend (React)                         │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Task Modal  →  fetch('/api/ai/improve-description')   │   │
+│  │  Task Dialog → useGenerateDescription / useImproveDesc  │   │
+│  │  Feature Page → useSuggestTasks                          │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                     API Route (Next.js)                         │
-│  src/app/api/ai/improve-description/route.ts                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  1. Auth  →  2. Fetch Task  →  3. Call Use Case        │   │
-│  └─────────────────────────────────────────────────────────┘   │
+│                     API Routes (Next.js)                        │
+│  /api/ai/improve-description                                    │
+│  /api/ai/generate-description                                   │
+│  /api/ai/suggest-tasks                                          │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Use Case Layer                             │
-│  src/domain/use-cases/ai/improve-task-description.ts           │
+│  improveTaskDescription / generateTaskDescription               │
+│  suggestTasksForFeature                                         │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  1. Build Context  →  2. Build Prompt  →  3. Call AI   │   │
+│  │  1. Fetch Data → 2. Build Context → 3. Prompt → 4. AI  │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └───────────────────────────────┬─────────────────────────────────┘
                                 │
@@ -73,7 +76,7 @@ O sistema de IA do Jira Killer é projetado para **augmentar** a produtividade d
 ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
 │ Context Builder │  │ Prompt Template │  │   AI Adapter    │
 │  Extrai dados   │  │ Formata prompt  │  │  Chama DeepSeek │
-│  relevantes     │  │  estruturado    │  │  via OpenAI SDK │
+│  + ProjectDocs  │  │  estruturado    │  │  via OpenAI SDK │
 └─────────────────┘  └─────────────────┘  └────────┬────────┘
                                                    │
                                                    ▼
@@ -116,11 +119,8 @@ DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 O adapter encapsula a comunicação com a API do DeepSeek usando o SDK oficial da OpenAI.
 
 ```typescript
-// src/infra/adapters/ai/index.ts
-
 import { aiAdapter } from '@/infra/adapters/ai';
 
-// Chat completion simples
 const result = await aiAdapter.chatCompletion({
   messages: [
     { role: 'system', content: 'Você é um assistente.' },
@@ -129,8 +129,6 @@ const result = await aiAdapter.chatCompletion({
   temperature: 0.7,
   maxTokens: 500,
 });
-
-console.log(result.content);
 ```
 
 #### Métodos Disponíveis
@@ -141,28 +139,6 @@ console.log(result.content);
 | `chatCompletionStream(input)` | Streaming, retorna async generator |
 | `generateText(prompt, options)` | Helper simples para prompt único |
 
-#### Tipos
-
-```typescript
-interface ChatCompletionInput {
-  messages: AIMessage[];
-  model?: string;        // default: 'deepseek-chat'
-  temperature?: number;  // default: 0.7
-  maxTokens?: number;
-}
-
-interface ChatCompletionResult {
-  content: string;
-  role: 'assistant';
-  finishReason: string | null;
-  usage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
-}
-```
-
 ---
 
 ### Context Builders
@@ -172,32 +148,16 @@ interface ChatCompletionResult {
 Context builders extraem e estruturam os dados necessários para a geração de prompts.
 
 ```typescript
-// Exemplo: Task Description Context
-
 import { buildTaskDescriptionContext } from '@/domain/use-cases/ai/context';
 
-const context = buildTaskDescriptionContext(task, feature.description);
-
-// Resultado:
-{
-  task: {
-    title: "Implementar login social",
-    description: "Adicionar login com Google...",
-    type: "TASK",
-    priority: "HIGH"
-  },
-  feature: {
-    title: "Autenticação",
-    description: "Sistema de autenticação..."
-  }
-}
+const context = buildTaskDescriptionContext(task, feature.description, projectDocs);
 ```
 
 #### Contextos Implementados
 
-| Context Builder | Input | Output |
-|----------------|-------|--------|
-| `buildTaskDescriptionContext` | Task + Feature description | `TaskDescriptionContext` |
+| Context Builder | Input | Suporta ProjectDocs |
+|----------------|-------|---------------------|
+| `buildTaskDescriptionContext` | Task + Feature description | ✅ Sim |
 
 ---
 
@@ -207,37 +167,13 @@ const context = buildTaskDescriptionContext(task, feature.description);
 
 Templates que transformam contexto estruturado em prompts otimizados para o LLM.
 
-```typescript
-import { buildImproveDescriptionPrompt } from '@/domain/use-cases/ai/prompts';
-
-const { systemPrompt, userPrompt } = buildImproveDescriptionPrompt(context);
-```
-
-#### Estrutura de um Prompt Template
-
-```typescript
-// System prompt define o comportamento do assistente
-const SYSTEM_PROMPT = `Você é um assistente especializado em...
-
-Diretrizes:
-- Seja conciso
-- Use linguagem técnica
-- Escreva em português brasileiro`;
-
-// User prompt contém o contexto e a instrução
-const userPrompt = `## Contexto
-Feature: ${context.feature.title}
-...
-
-## Instrução
-Por favor, melhore a descrição...`;
-```
-
 #### Templates Implementados
 
 | Template | Propósito |
 |----------|-----------|
-| `buildImproveDescriptionPrompt` | Melhora descrição de Task |
+| `buildImproveDescriptionPrompt` | Melhora descrição de Task existente |
+
+> **Nota**: O `generateTaskDescription` e `suggestTasksForFeature` definem prompts inline.
 
 ---
 
@@ -247,22 +183,14 @@ Por favor, melhore a descrição...`;
 
 Use cases orquestram o fluxo completo: contexto → prompt → AI → resultado.
 
-```typescript
-import { improveTaskDescription } from '@/domain/use-cases/ai';
-import { aiAdapter } from '@/infra/adapters/ai';
-
-const improvedDescription = await improveTaskDescription(
-  { task, featureDescription: feature.description },
-  { aiAdapter }
-);
-```
-
 #### Use Cases Implementados
 
-| Use Case | Input | Output |
-|----------|-------|--------|
-| `chatCompletion` | Messages + options | `ChatCompletionResult` |
-| `improveTaskDescription` | Task + Feature description | `string` (nova descrição) |
+| Use Case | Input | Output | Descrição |
+|----------|-------|--------|-----------|
+| `chatCompletion` | Messages + options | `ChatCompletionResult` | Base de completions |
+| `improveTaskDescription` | Task + Feature desc + ProjectDocs? | `string` | Melhora descrição existente |
+| `generateTaskDescription` | Title + Feature + ProjectDocs? | `string` | Gera nova descrição |
+| `suggestTasksForFeature` | Feature + Epic? + ProjectDocs? | `SuggestedTask[]` | Sugere tasks filhas |
 
 ---
 
@@ -270,214 +198,122 @@ const improvedDescription = await improveTaskDescription(
 
 ### `POST /api/ai/improve-description`
 
-Melhora a descrição de uma task usando IA.
-
-#### Request
+Melhora a descrição de uma task existente.
 
 ```json
-{
-  "taskId": "uuid-da-task"
-}
+// Request
+{ "taskId": "uuid", "includeProjectDocs": true }
+
+// Response
+{ "data": { "description": "...", "taskId": "uuid" } }
 ```
 
-#### Response (Success)
+---
+
+### `POST /api/ai/generate-description`
+
+Gera descrição para nova task (sem taskId).
 
 ```json
+// Request
+{
+  "title": "Implementar login",
+  "featureId": "uuid",
+  "type": "TASK",
+  "priority": "HIGH",
+  "includeProjectDocs": true
+}
+
+// Response
+{ "data": { "description": "...", "featureId": "uuid" } }
+```
+
+---
+
+### `POST /api/ai/suggest-tasks`
+
+Analisa uma Feature e sugere tasks filhas.
+
+```json
+// Request
+{ "featureId": "uuid", "includeProjectDocs": true }
+
+// Response
 {
   "data": {
-    "description": "Nova descrição melhorada com critérios de aceitação...",
-    "taskId": "uuid-da-task"
+    "suggestions": [
+      {
+        "title": "Criar endpoint de autenticação",
+        "description": "## Objetivo\n...",
+        "complexity": "MEDIUM"
+      }
+    ],
+    "featureId": "uuid"
   }
 }
 ```
-
-#### Response (Error)
-
-```json
-{
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Task não encontrada"
-  }
-}
-```
-
-#### Códigos de Status
-
-| Status | Significado |
-|--------|-------------|
-| `200` | Sucesso |
-| `400` | Dados inválidos (taskId não é UUID) |
-| `401` | Não autenticado |
-| `404` | Task não encontrada |
-| `500` | Erro interno (falha na IA) |
 
 ---
 
 ## 💻 Uso no Frontend
 
-### Hook Customizado (Sugestão)
+### Hooks Disponíveis
+
+**Localização:** `src/lib/query/hooks/use-ai.ts`
 
 ```typescript
-// hooks/use-improve-description.ts
-
-import { useMutation } from '@tanstack/react-query';
-import type { ImproveDescriptionRequest, ImproveDescriptionResponse } from '@/shared/types';
-
-export function useImproveDescription() {
-  return useMutation({
-    mutationFn: async (taskId: string) => {
-      const response = await fetch('/api/ai/improve-description', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId } satisfies ImproveDescriptionRequest),
-      });
-
-      if (!response.ok) {
-        throw new Error('Falha ao melhorar descrição');
-      }
-
-      const json = await response.json();
-      return json.data as ImproveDescriptionResponse;
-    },
-  });
-}
+import { 
+  useImproveDescription, 
+  useGenerateDescription,
+  useSuggestTasks 
+} from '@/lib/query';
 ```
 
-### Uso no Componente
+#### `useImproveDescription`
 
-```tsx
-function TaskDescriptionEditor({ task }: { task: Task }) {
-  const [description, setDescription] = useState(task.description);
-  const improve = useImproveDescription();
+```typescript
+const improve = useImproveDescription();
 
-  const handleImprove = async () => {
-    const result = await improve.mutateAsync(task.id);
-    setDescription(result.description); // Preview
-  };
+await improve.mutateAsync({ 
+  taskId: "uuid", 
+  includeProjectDocs: true 
+});
+```
 
-  return (
-    <div>
-      <textarea value={description} onChange={e => setDescription(e.target.value)} />
-      
-      <button 
-        onClick={handleImprove}
-        disabled={improve.isPending}
-      >
-        {improve.isPending ? '✨ Melhorando...' : '✨ Melhorar com IA'}
-      </button>
-    </div>
-  );
-}
+#### `useGenerateDescription`
+
+```typescript
+const generate = useGenerateDescription();
+
+await generate.mutateAsync({
+  title: "Implementar login",
+  featureId: "uuid",
+  type: "TASK",
+  priority: "HIGH",
+  includeProjectDocs: true,
+});
+```
+
+#### `useSuggestTasks`
+
+```typescript
+const suggest = useSuggestTasks();
+
+const result = await suggest.mutateAsync({
+  featureId: "uuid",
+  includeProjectDocs: true,
+});
+// result.suggestions: SuggestedTask[]
 ```
 
 ---
 
-## 🔌 Extensibilidade
+### Componentes UI
 
-### Adicionando Novo Caso de Uso
-
-Para adicionar uma nova funcionalidade de IA (ex: "Gerar Tasks de Feature"):
-
-#### 1. Criar Context Builder
-
-```typescript
-// src/domain/use-cases/ai/context/feature-tasks-context.ts
-
-export interface FeatureTasksContext {
-  feature: {
-    title: string;
-    description: string | null;
-  };
-  epic: {
-    title: string;
-  };
-  existingTasks: string[]; // títulos das tasks existentes
-}
-
-export function buildFeatureTasksContext(
-  feature: Feature,
-  existingTasks: Task[]
-): FeatureTasksContext {
-  return {
-    feature: {
-      title: feature.title,
-      description: feature.description,
-    },
-    epic: {
-      title: feature.epic.title,
-    },
-    existingTasks: existingTasks.map(t => t.title),
-  };
-}
-```
-
-#### 2. Criar Prompt Template
-
-```typescript
-// src/domain/use-cases/ai/prompts/generate-feature-tasks.ts
-
-export function buildGenerateTasksPrompt(context: FeatureTasksContext) {
-  const systemPrompt = `Você é um gerente de projetos...`;
-  
-  const userPrompt = `## Feature: ${context.feature.title}
-${context.feature.description}
-
-## Tasks Existentes
-${context.existingTasks.map(t => `- ${t}`).join('\n')}
-
-Sugira mais tasks para completar esta feature.`;
-
-  return { systemPrompt, userPrompt };
-}
-```
-
-#### 3. Criar Use Case
-
-```typescript
-// src/domain/use-cases/ai/generate-feature-tasks.ts
-
-export async function generateFeatureTasks(
-  input: { feature: Feature; existingTasks: Task[] },
-  deps: { aiAdapter: AIAdapter }
-): Promise<string[]> {
-  const context = buildFeatureTasksContext(input.feature, input.existingTasks);
-  const { systemPrompt, userPrompt } = buildGenerateTasksPrompt(context);
-  
-  const result = await deps.aiAdapter.chatCompletion({
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-  });
-  
-  // Parse resultado (assumindo formato de lista)
-  return result.content.split('\n').filter(line => line.startsWith('-'));
-}
-```
-
-#### 4. Criar API Route
-
-```typescript
-// src/app/api/ai/generate-tasks/route.ts
-
-export async function POST(request: NextRequest) {
-  // Auth, fetch feature, call use case...
-}
-```
-
-#### 5. Atualizar Barrel Exports
-
-```typescript
-// src/domain/use-cases/ai/index.ts
-export * from './generate-feature-tasks';
-
-// src/domain/use-cases/ai/context/index.ts
-export * from './feature-tasks-context';
-
-// src/domain/use-cases/ai/prompts/index.ts
-export * from './generate-feature-tasks';
-```
+| Componente | Localização | Uso |
+|------------|-------------|-----|
+| `AIImproveButton` | `src/components/ui/ai-improve-button.tsx` | Botão estilizado para ações de IA |
+| `SuggestTasksModal` | `src/components/features/tasks/suggest-tasks-modal.tsx` | Modal de preview de sugestões |
 
 ---
 
@@ -493,9 +329,9 @@ src/
 ├── domain/use-cases/ai/
 │   ├── index.ts              # Barrel export
 │   ├── chat-completion.ts    # Use case base
-│   ├── chat-completion.md    # Doc
 │   ├── improve-task-description.ts
-│   ├── improve-task-description.md
+│   ├── generate-task-description.ts
+│   ├── suggest-tasks-for-feature.ts  # NEW
 │   ├── context/
 │   │   ├── index.ts
 │   │   └── task-description-context.ts
@@ -504,12 +340,31 @@ src/
 │       └── improve-task-description.ts
 │
 ├── app/api/ai/
-│   └── improve-description/
-│       └── route.ts
+│   ├── improve-description/route.ts
+│   ├── generate-description/route.ts
+│   └── suggest-tasks/route.ts        # NEW
 │
-└── shared/types/
-    └── ai.types.ts           # Tipos compartilhados
+├── lib/query/hooks/
+│   └── use-ai.ts             # Frontend hooks
+│
+└── components/
+    ├── ui/
+    │   └── ai-improve-button.tsx
+    └── features/tasks/
+        └── suggest-tasks-modal.tsx   # NEW
 ```
+
+---
+
+## 🔌 Extensibilidade
+
+Para adicionar nova funcionalidade de IA:
+
+1. **Criar Use Case** em `src/domain/use-cases/ai/`
+2. **Criar API Route** em `src/app/api/ai/`
+3. **Adicionar Hook** em `src/lib/query/hooks/use-ai.ts`
+4. **Criar UI** (botão/modal) conforme necessário
+5. **Atualizar exports** em `index.ts`
 
 ---
 

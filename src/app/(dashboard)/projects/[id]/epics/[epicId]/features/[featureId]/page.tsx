@@ -3,17 +3,18 @@
 import { useState, useCallback, use, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CheckSquare } from "lucide-react";
 
-import { TaskDialog, TaskDetailModal } from "@/components/features/tasks";
+import { TaskDialog, TaskDetailModal, SuggestTasksModal } from "@/components/features/tasks";
 import { KanbanBoard } from "@/lib/views/kanban";
 import { KanbanBoardSkeleton } from "@/components/features/tasks/task-skeleton";
 import { PageHeaderSkeleton } from '@/components/layout/page-skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ExpandableMarkdown } from "@/components/ui/expandable-markdown";
 
 import type { TaskWithReadableId, TaskStatus } from "@/shared/types";
 import { useFeature, useTasks, useProject, useMoveTask, useDeleteTask, useModules } from "@/lib/query";
@@ -49,6 +50,7 @@ export default function FeatureDetailPage({
   const [selectedTask, setSelectedTask] = useState<TaskWithReadableId | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<TaskWithReadableId | null>(null);
+  const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
 
   // Deep Linking Effect
   useEffect(() => {
@@ -188,9 +190,10 @@ export default function FeatureDetailPage({
               {feature.title}
             </h1>
             {feature.description && (
-              <p className="text-muted-foreground max-w-2xl">
-                {feature.description}
-              </p>
+              <ExpandableMarkdown
+                value={feature.description}
+                className="text-muted-foreground max-w-2xl"
+              />
             )}
           </div>
 
@@ -202,6 +205,14 @@ export default function FeatureDetailPage({
               disabled={loading || isFetching}
             >
               <RefreshCw className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsSuggestModalOpen(true)}
+              className="gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Sugerir Tasks
             </Button>
             <Button onClick={() => setIsTaskDialogOpen(true)} className="gap-2">
               <Plus className="w-4 h-4" />
@@ -257,6 +268,16 @@ export default function FeatureDetailPage({
         onOpenChange={handleDetailModalClose}
         onEdit={handleEditTask}
         onDelete={handleDeleteTaskClick}
+      />
+
+      {/* Suggest Tasks Modal */}
+      <SuggestTasksModal
+        open={isSuggestModalOpen}
+        onOpenChange={setIsSuggestModalOpen}
+        featureId={feature.id}
+        featureTitle={feature.title}
+        projectId={resolvedParams.id}
+        onSuccess={refetchTasks}
       />
 
       {/* Delete Confirmation */}

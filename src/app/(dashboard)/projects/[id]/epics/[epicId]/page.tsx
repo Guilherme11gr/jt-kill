@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { ArrowLeft, Plus, Box, Loader2, MoreVertical, MoreHorizontal, Pencil, Trash2, Sparkles } from "lucide-react";
+import { ArrowLeft, Plus, Box, Loader2, MoreVertical, MoreHorizontal, Pencil, Trash2, Sparkles, Bug } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,9 +25,11 @@ interface Feature {
   description?: string | null;
   status: string;
   _count?: { tasks: number };
+  tasks?: Array<{ status: string; type: string }>;
 }
 
 import { EpicSummaryModal } from "@/components/features/epics/epic-summary-modal";
+import { StackedProgressBar } from "@/components/features/stacked-progress-bar";
 
 export default function EpicDetailPage({
   params,
@@ -376,11 +378,22 @@ export default function EpicDetailPage({
                       )}
                     </CardHeader>
                     <CardContent>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-primary" />
-                          {feature._count?.tasks || 0} tasks
+                      <div className="flex flex-col gap-3 mt-1">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-1.5 h-1.5 rounded-full bg-primary/70" />
+                              <span className="font-medium">{feature._count?.tasks || 0} tasks</span>
+                            </div>
+                          </div>
+                          {(feature.tasks?.filter(t => t.type === 'BUG' && t.status !== 'DONE').length || 0) > 0 && (
+                            <div className="flex items-center gap-1.5 text-red-500/90 font-medium bg-red-500/10 px-2 py-0.5 rounded-full text-[10px]" title="Bugs abertos">
+                              <Bug className="w-3 h-3" />
+                              {feature.tasks?.filter(t => t.type === 'BUG' && t.status !== 'DONE').length}
+                            </div>
+                          )}
                         </div>
+                        <StackedProgressBar tasks={feature.tasks || []} className="h-2" />
                       </div>
                     </CardContent>
                   </Card>

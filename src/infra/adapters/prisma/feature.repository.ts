@@ -31,12 +31,18 @@ export class FeatureRepository {
   async findManyWithStats(
     epicId: string,
     orgId: string
-  ): Promise<Array<Feature & { _count: { tasks: number } }>> {
+  ): Promise<Array<Feature & { _count: { tasks: number }; tasks: Array<{ status: string; type: string }> }>> {
     return await this.prisma.feature.findMany({
       where: { epicId, orgId },
       include: {
         _count: {
           select: { tasks: true },
+        },
+        tasks: {
+          select: {
+            status: true,
+            type: true,
+          },
         },
       },
       orderBy: { createdAt: 'desc' },

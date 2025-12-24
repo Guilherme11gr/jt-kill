@@ -339,30 +339,30 @@ export default function ProjectDetailPage({
                     <Card
                       className="hover:border-primary/50 hover:shadow-sm transition-all duration-300 cursor-pointer"
                     >
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-card-foreground group-hover:text-foreground transition-colors pr-12">
+                      <CardHeader className="pb-4">
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="space-y-1">
+                            <CardTitle className="text-lg font-semibold text-card-foreground group-hover:text-foreground transition-colors">
                               {epic.title}
                             </CardTitle>
                             {epic.description && (
-                              <CardDescription className="mt-2 text-muted-foreground group-hover:text-muted-foreground/80">
+                              <CardDescription className="text-sm text-muted-foreground group-hover:text-muted-foreground/80 line-clamp-2">
                                 {epic.description}
                               </CardDescription>
                             )}
                           </div>
-                          <div className="flex gap-2 items-center">
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
                             <Badge
                               variant={
                                 epic.status === "DONE" ? "outline-success" :
                                   epic.status === "IN_PROGRESS" ? "outline-info" :
                                     "outline"
                               }
-                              className="transition-colors"
+                              className="transition-colors text-[10px] px-2 py-0"
                             >
                               {epic.status}
                             </Badge>
-                            <span className="text-xs text-muted-foreground group-hover:text-muted-foreground/80">
+                            <span className="text-[10px] text-muted-foreground group-hover:text-muted-foreground/80 font-medium">
                               {epic._count?.features || 0} features
                             </span>
                           </div>

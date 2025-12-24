@@ -9,7 +9,7 @@ export async function getFeatures(
   epicId: string,
   orgId: string,
   deps: GetFeaturesDeps
-): Promise<Array<Feature & { _count: { tasks: number } }>> {
+): Promise<Array<Feature & { _count: { tasks: number }; tasks: Array<{ status: string; type: string }> }>> {
   const { featureRepository } = deps;
   return await featureRepository.findManyWithStats(epicId, orgId);
 }

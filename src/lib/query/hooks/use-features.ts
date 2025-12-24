@@ -24,6 +24,10 @@ interface Feature {
   _count?: {
     tasks: number;
   };
+  tasks?: Array<{
+    status: string;
+    type: string;
+  }>;
 }
 
 interface CreateFeatureInput {

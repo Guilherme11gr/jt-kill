@@ -176,3 +176,39 @@ export function useImproveFeatureDescription() {
         },
     });
 }
+// ============================================
+// Generate Epic Summary Hook
+// ============================================
+
+interface GenerateEpicSummaryInput {
+    epicId: string;
+}
+
+interface GenerateEpicSummaryResponse {
+    summary: string;
+}
+
+/**
+ * Hook para gerar Resumo Executivo de Épico com IA
+ */
+export function useGenerateEpicSummary() {
+    return useMutation({
+        mutationFn: async (input: GenerateEpicSummaryInput): Promise<GenerateEpicSummaryResponse> => {
+            const response = await fetch('/api/ai/generate-epic-summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(input),
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error?.error?.message || 'Erro ao gerar resumo do épico');
+            }
+
+            return await response.json();
+        },
+        onError: (error: Error) => {
+            toast.error(error.message);
+        },
+    });
+}

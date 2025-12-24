@@ -18,17 +18,9 @@ export interface GenerateTaskDescriptionDeps {
     aiAdapter: AIAdapter;
 }
 
-const SYSTEM_PROMPT = `Você é um assistente especializado em gestão de projetos de software.
-Seu papel é criar descrições de tarefas que sejam claras, objetivas e acionáveis.
-
-Diretrizes:
-- Crie uma descrição concisa mas completa
-- Use markdown para estruturar (## Objetivo, ## Critérios de Aceite, etc)
-- Inclua critérios de aceitação como checklist (- [ ] item)
-- Considere o contexto da feature pai
-- Escreva em português brasileiro
-- Não use emojis
-- Seja técnico mas acessível`;
+const SYSTEM_PROMPT = `Atue como PO senior. Crie descrições de tarefas claras, técnicas e objetivas em PT-BR.
+Use Markdown. Estruture em: ## Objetivo e ## Critérios de Aceite (checklist).
+Seja conciso. Sem emojis. Evite preâmbulos.`;
 
 const TYPE_LABELS: Record<string, string> = {
     TASK: 'Tarefa',
@@ -58,41 +50,21 @@ ${input.projectDocs.map(doc => `### ${doc.title}\n${doc.content}`).join('\n\n')}
 `
         : '';
 
-    let prompt = `## Contexto da Feature
-
-**Feature:** ${input.feature.title}
-${input.feature.description || '(sem descrição)'}
+    let prompt = `CONTEXTO DA FEATURE:
+"${input.feature.title}"
+${input.feature.description || ''}
 ${projectDocsSection}
----
 
-## Task a ser descrita
-
-**Título:** ${input.title}
-**Tipo:** ${type}
-**Prioridade:** ${priority}
-`;
+TAREFAS A DESCREVER:
+Título: ${input.title}
+Tipo: ${type}
+Prioridade: ${priority}`;
 
     if (currentDesc) {
-        prompt += `
-**Descrição atual (para melhorar):**
-${currentDesc}
-
----
-
-Melhore a descrição acima, tornando-a mais clara e adicionando critérios de aceite se não existirem.`;
+        prompt += `\n\nDESCRIÇÃO ATUAL (Melhorar/Refinar):\n${currentDesc}`;
     } else {
-        prompt += `
----
-
-Crie uma descrição completa para esta task, incluindo:
-1. Objetivo claro
-2. Contexto relevante
-3. Critérios de aceite como checklist`;
+        prompt += `\n\nGere uma descrição completa com Objetivo e Critérios de Aceite via checklist.`;
     }
-
-    prompt += `
-
-**Retorne APENAS a descrição em markdown, sem prefixos como "Aqui está" ou explicações.**`;
 
     return prompt;
 }

@@ -43,7 +43,8 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
       const searchLower = search.toLowerCase();
       result = result.filter(doc =>
         doc.title.toLowerCase().includes(searchLower) ||
-        (doc.content && doc.content.toLowerCase().includes(searchLower))
+        doc.title.toLowerCase().includes(searchLower) ||
+        (doc.content ? doc.content.toLowerCase().includes(searchLower) : false)
       );
     }
 
@@ -226,8 +227,8 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
                 <CardContent>
                   <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
                     {doc.content
-                      ? doc.content.replace(/#+\s/g, '').replace(/[\*_]/g, '') // Simple markdown strip
-                      : 'Sem conteúdo'}
+                      ? doc.content.replace(/#+\s/g, '').replace(/[\*_]/g, '')
+                      : <span className="italic opacity-50">Visualizar documento</span>}
                   </p>
                 </CardContent>
               </Card>

@@ -10,5 +10,6 @@ export async function getAllFeatures(
   deps: GetAllFeaturesDeps
 ): Promise<Feature[]> {
   const { featureRepository } = deps;
-  return await featureRepository.findAll(orgId);
+  // Use lightweight query for dropdowns
+  return await featureRepository.findOptions(orgId) as unknown as Feature[];
 }

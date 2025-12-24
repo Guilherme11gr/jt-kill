@@ -43,6 +43,30 @@ export class FeatureRepository {
     });
   }
 
+  async findManyInEpicWithTasks(
+    epicId: string,
+    orgId: string
+  ) {
+    return await this.prisma.feature.findMany({
+      where: { epicId, orgId },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        tasks: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            type: true,
+            priority: true,
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async findAll(orgId: string) {
     return await this.prisma.feature.findMany({
       where: { orgId },
@@ -60,6 +84,32 @@ export class FeatureRepository {
             },
           },
         },
+      },
+      orderBy: { title: 'asc' },
+    });
+  }
+
+  /**
+   * Ligthweight list for dropdowns
+   */
+  async findOptions(orgId: string) {
+    return await this.prisma.feature.findMany({
+      where: { orgId },
+      select: {
+        id: true,
+        title: true,
+        epic: {
+          select: {
+            id: true,
+            title: true,
+            project: {
+              select: {
+                id: true,
+                modules: true, // Needed for module filtering in tasks
+              }
+            }
+          }
+        }
       },
       orderBy: { title: 'asc' },
     });

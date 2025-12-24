@@ -44,6 +44,15 @@ export class EpicRepository {
     });
   }
 
+  async findByIdWithProject(id: string, orgId: string) {
+    return await this.prisma.epic.findFirst({
+      where: { id, orgId },
+      include: {
+        project: true,
+      }
+    });
+  }
+
   /**
    * Find epic with features count (for list view)
    */

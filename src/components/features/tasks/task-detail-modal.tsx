@@ -93,11 +93,11 @@ export function TaskDetailModal({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap leading-relaxed">
                 <Layout className="h-3.5 w-3.5 shrink-0" />
-                <span className="font-medium hover:text-foreground transition-colors cursor-default whitespace-nowrap">{task.feature.epic.project.name}</span>
+                <span className="font-medium hover:text-foreground transition-colors cursor-default whitespace-nowrap">{task.feature?.epic?.project?.name}</span>
                 <ChevronRight className="h-3 w-3 opacity-50 shrink-0" />
-                <span className="hover:text-foreground transition-colors cursor-default whitespace-nowrap max-w-[100px] truncate" title={task.feature.epic.title}>{task.feature.epic.title}</span>
+                <span className="hover:text-foreground transition-colors cursor-default whitespace-nowrap max-w-[100px] truncate" title={task.feature?.epic?.title}>{task.feature?.epic?.title}</span>
                 <ChevronRight className="h-3 w-3 opacity-50 shrink-0" />
-                <span className="hover:text-foreground transition-colors cursor-default font-medium text-foreground/80 truncate max-w-[150px]" title={task.feature.title}>{task.feature.title}</span>
+                <span className="hover:text-foreground transition-colors cursor-default font-medium text-foreground/80 truncate max-w-[150px]" title={task.feature?.title}>{task.feature?.title}</span>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">

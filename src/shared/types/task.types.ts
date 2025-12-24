@@ -22,6 +22,10 @@ export interface Task {
 // Task with human-readable ID (for display)
 export interface TaskWithReadableId extends Task {
   readableId: string; // e.g., "APP-123"
+  assignee?: {
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
   feature: {
     id: string;
     title: string;

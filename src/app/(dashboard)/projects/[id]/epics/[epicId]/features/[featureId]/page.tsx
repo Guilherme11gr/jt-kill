@@ -160,7 +160,7 @@ export default function FeatureDetailPage({
   // Inject feature into tasks if missing (for KanbanBoard display)
   const tasksForKanban = tasks.map(t => ({
     ...t,
-    feature: t.feature || { id: feature.id, title: feature.title }
+    feature: t.feature || feature
   }));
 
   return (

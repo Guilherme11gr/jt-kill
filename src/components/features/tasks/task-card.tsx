@@ -100,10 +100,10 @@ export function TaskCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {task.assigneeId && (
-            <Avatar className="h-5 w-5">
-              <AvatarImage src={undefined} />
+            <Avatar className="h-5 w-5" title={task.assignee?.displayName || 'Assignee'}>
+              <AvatarImage src={task.assignee?.avatarUrl || undefined} />
               <AvatarFallback className="text-[10px] bg-muted">
-                {task.assigneeId.slice(0, 2).toUpperCase()}
+                {task.assignee?.displayName?.slice(0, 2).toUpperCase() || task.assigneeId.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
           )}

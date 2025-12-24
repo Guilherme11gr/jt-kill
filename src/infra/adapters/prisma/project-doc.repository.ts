@@ -7,7 +7,7 @@ export interface ProjectDoc {
   id: string;
   projectId: string;
   title: string;
-  content: string;
+  content?: string;
   createdAt: Date;
   updatedAt: Date;
   tags?: Array<{
@@ -56,9 +56,15 @@ export class ProjectDocRepository {
         projectId,
         orgId,
       },
-      include: {
+      select: {
+        id: true,
+        projectId: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+        // Exclude content for performance
         tags: {
-          include: {
+          select: {
             tag: true,
           },
         },

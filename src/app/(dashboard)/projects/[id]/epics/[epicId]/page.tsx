@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { ArrowLeft, Plus, Box, Loader2, MoreVertical, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Box, Loader2, MoreVertical, MoreHorizontal, Pencil, Trash2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -26,6 +26,8 @@ interface Feature {
   status: string;
   _count?: { tasks: number };
 }
+
+import { EpicSummaryModal } from "@/components/features/epics/epic-summary-modal";
 
 export default function EpicDetailPage({
   params,
@@ -63,6 +65,9 @@ export default function EpicDetailPage({
 
   // Delete Feature State
   const [featureToDelete, setFeatureToDelete] = useState<Feature | null>(null);
+
+  // AI Summary State
+  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
 
   // AI handler for improving description
   const handleImproveDescription = useCallback(async () => {
@@ -204,11 +209,28 @@ export default function EpicDetailPage({
             </p>
           </div>
 
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-            <MoreVertical className="w-5 h-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsSummaryOpen(true)}
+              className="hidden sm:flex"
+            >
+              <Sparkles className="w-4 h-4 mr-2 text-violet-500" />
+              Resumo com IA
+            </Button>
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <MoreVertical className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
       </div>
+
+      <EpicSummaryModal
+        open={isSummaryOpen}
+        onOpenChange={setIsSummaryOpen}
+        epicId={epic.id}
+        currentDescription={epic.description || undefined}
+      />
 
       {/* Features Section */}
       <div className="mx-auto">

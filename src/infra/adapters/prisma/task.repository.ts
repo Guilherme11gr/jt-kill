@@ -152,6 +152,16 @@ export class TaskRepository {
             },
           },
         },
+        users: {
+          select: {
+            user_profiles: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
       },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -170,6 +180,10 @@ export class TaskRepository {
           project: task.project,
         },
       },
+      assignee: task.users?.user_profiles ? {
+        displayName: task.users.user_profiles.displayName,
+        avatarUrl: task.users.user_profiles.avatarUrl,
+      } : undefined,
     })) as TaskWithReadableId[];
   }
 

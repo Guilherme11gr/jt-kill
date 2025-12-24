@@ -14,6 +14,12 @@ export interface ProjectDoc {
   content: string;
   createdAt: string;
   updatedAt: string;
+  tags?: Array<{
+    tag: {
+      id: string;
+      name: string;
+    };
+  }>;
 }
 
 interface CreateDocInput {

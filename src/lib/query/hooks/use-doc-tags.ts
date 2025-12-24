@@ -158,12 +158,25 @@ export function useAssignTags(projectId: string) {
 
     return useMutation({
         mutationFn: assignTags,
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.docTags.forDoc(variables.docId) });
+        onMutate: async (variables) => {
+            // Cancel outgoing refetches
+            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.forDoc(variables.docId) });
+
+            // Return context for rollback
+            const previousTags = queryClient.getQueryData<DocTag[]>(queryKeys.docTags.forDoc(variables.docId));
+            return { previousTags };
+        },
+        onSuccess: (newTags, variables) => {
+            // Update cache with server response
+            queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), newTags);
             queryClient.invalidateQueries({ queryKey: queryKeys.docTags.list(projectId) });
             toast.success('Tag adicionada');
         },
-        onError: () => {
+        onError: (_, variables, context) => {
+            // Rollback on error
+            if (context?.previousTags) {
+                queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), context.previousTags);
+            }
             toast.error('Erro ao adicionar tag');
         },
     });
@@ -177,12 +190,31 @@ export function useUnassignTag(projectId: string) {
 
     return useMutation({
         mutationFn: unassignTag,
-        onSuccess: (_, variables) => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.docTags.forDoc(variables.docId) });
+        onMutate: async (variables) => {
+            // Cancel outgoing refetches
+            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.forDoc(variables.docId) });
+
+            // Optimistically remove the tag
+            const previousTags = queryClient.getQueryData<DocTag[]>(queryKeys.docTags.forDoc(variables.docId));
+            if (previousTags) {
+                queryClient.setQueryData(
+                    queryKeys.docTags.forDoc(variables.docId),
+                    previousTags.filter((t) => t.id !== variables.tagId)
+                );
+            }
+            return { previousTags };
+        },
+        onSuccess: (newTags, variables) => {
+            // Update cache with server response
+            queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), newTags);
             queryClient.invalidateQueries({ queryKey: queryKeys.docTags.list(projectId) });
             toast.success('Tag removida');
         },
-        onError: () => {
+        onError: (_, variables, context) => {
+            // Rollback on error
+            if (context?.previousTags) {
+                queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), context.previousTags);
+            }
             toast.error('Erro ao remover tag');
         },
     });

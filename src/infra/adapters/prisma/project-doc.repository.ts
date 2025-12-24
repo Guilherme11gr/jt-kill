@@ -10,6 +10,12 @@ export interface ProjectDoc {
   content: string;
   createdAt: Date;
   updatedAt: Date;
+  tags?: Array<{
+    tag: {
+      id: string;
+      name: string;
+    };
+  }>;
 }
 
 export interface CreateProjectDocInput {
@@ -49,6 +55,13 @@ export class ProjectDocRepository {
       where: {
         projectId,
         orgId,
+      },
+      include: {
+        tags: {
+          include: {
+            tag: true,
+          },
+        },
       },
       orderBy: {
         updatedAt: 'desc',

@@ -18,6 +18,7 @@ import { useCreateEpic, useUpdateEpic, useDeleteEpic } from "@/lib/query/hooks/u
 import { ProjectDocsList } from "@/components/features/projects";
 import { FileText } from "lucide-react";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
+import { useTabQuery } from "@/hooks/use-tab-query";
 
 interface Epic {
   id: string;
@@ -64,7 +65,8 @@ export default function ProjectDetailPage({
   const loading = projectLoading || epicsLoading;
   const saving = createEpicMutation.isPending || updateEpicMutation.isPending;
 
-  const [activeTab, setActiveTab] = useState<"epics" | "tasks" | "docs">("epics");
+  // Tab State
+  const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "tasks", "docs"]);
 
   // Create Epic State
   const [isEpicDialogOpen, setIsEpicDialogOpen] = useState(false);

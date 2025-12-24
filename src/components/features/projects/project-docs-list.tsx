@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DocEditorModal } from './doc-editor-modal';
-import { DocTagFilter, DocTagBadge, TagManagementModal } from '@/components/features/docs';
+import { DocTagFilter, DocTagBadge, TagManagementModal, DocsToolbar } from '@/components/features/docs';
 
 interface ProjectDocsListProps {
   projectId: string;
@@ -27,19 +27,39 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
   const [editingDoc, setEditingDoc] = useState<ProjectDoc | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
   const [showTagManagement, setShowTagManagement] = useState(false);
 
   const { data: docs = [], isLoading, isFetching } = useProjectDocs(projectId);
   const { data: tags = [], isLoading: tagsLoading } = useProjectTags(projectId);
   const deleteDoc = useDeleteDoc(projectId);
 
-  // Client-side filtering by selected tags
+  // Client-side filtering
   const filteredDocs = useMemo(() => {
-    if (selectedTagIds.length === 0) return docs;
-    // For now, show all docs - we'll need to fetch doc tags to filter properly
-    // This is a placeholder - ideally we'd have tags included in docs query
-    return docs;
-  }, [docs, selectedTagIds]);
+    let result = docs;
+
+    // Filter by search
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      result = result.filter(doc =>
+        doc.title.toLowerCase().includes(searchLower) ||
+        (doc.content && doc.content.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Filter by tags
+    if (selectedTagIds.length > 0) {
+      result = result.filter(doc => {
+        // Check if doc has any of the selected tags
+        if (!doc.tags || doc.tags.length === 0) return false;
+
+        const docTagIds = doc.tags.map(t => t.tag.id);
+        return selectedTagIds.some(selectedId => docTagIds.includes(selectedId));
+      });
+    }
+
+    return result;
+  }, [docs, search, selectedTagIds]);
 
   const formatDate = (date: string) => {
     return formatDistanceToNow(new Date(date), {
@@ -54,50 +74,61 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
     }
   };
 
+  const handleTagToggle = (tagId: string) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId)
+        ? prev.filter(id => id !== tagId)
+        : [...prev, tagId]
+    );
+  };
+
   return (
     <div className={cn('space-y-6', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg">
-            <FileText className="size-5 text-primary" />
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FileText className="size-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">Documentação</h2>
+              <p className="text-xs text-muted-foreground">Gerencie o conhecimento do projeto</p>
+            </div>
+            {isFetching && !isLoading && (
+              <Loader2 className="size-4 animate-spin text-muted-foreground ml-2" />
+            )}
           </div>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Documentação</h2>
-            <p className="text-xs text-muted-foreground">Gerencie o conhecimento do projeto</p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTagManagement(true)}
+              title="Gerenciar tags"
+            >
+              <Settings className="size-4" />
+            </Button>
+            <Button
+              onClick={() => setIsCreating(true)}
+              size="sm"
+              className="shadow-sm hover:shadow-md transition-all active:scale-95"
+            >
+              <Plus className="size-4 mr-2" />
+              Novo Documento
+            </Button>
           </div>
-          {isFetching && !isLoading && (
-            <Loader2 className="size-4 animate-spin text-muted-foreground ml-2" />
-          )}
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowTagManagement(true)}
-            title="Gerenciar tags"
-          >
-            <Settings className="size-4" />
-          </Button>
-          <Button
-            onClick={() => setIsCreating(true)}
-            size="sm"
-            className="shadow-sm hover:shadow-md transition-all active:scale-95"
-          >
-            <Plus className="size-4 mr-2" />
-            Novo Documento
-          </Button>
-        </div>
-      </div>
 
-      {/* Tag Filter */}
-      {!tagsLoading && tags.length > 0 && (
-        <DocTagFilter
+        {/* Toolbar */}
+        <DocsToolbar
+          search={search}
+          onSearchChange={setSearch}
           tags={tags}
           selectedTagIds={selectedTagIds}
-          onSelectionChange={setSelectedTagIds}
+          onTagSelect={handleTagToggle}
+          onClearTags={() => setSelectedTagIds([])}
         />
-      )}
+      </div>
 
       {/* Docs Grid */}
       {isLoading ? (
@@ -119,34 +150,39 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
             </Card>
           ))}
         </div>
-      ) : docs.length === 0 ? (
+      ) : filteredDocs.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="Nenhum documento"
-          description="Crie documentos para organizar o conhecimento do projeto."
+          title={search || selectedTagIds.length > 0 ? "Nenhum documento encontrado" : "Nenhum documento"}
+          description={
+            search || selectedTagIds.length > 0
+              ? "Tente ajustar seus filtros de busca."
+              : "Crie documentos para organizar o conhecimento do projeto."
+          }
           action={
-            <Button onClick={() => setIsCreating(true)} size="default">
-              Criar primeiro documento
-            </Button>
+            (search || selectedTagIds.length > 0) ? (
+              <Button onClick={() => { setSearch(''); setSelectedTagIds([]); }} variant="outline">Limpar Filtros</Button>
+            ) : (
+              <Button onClick={() => setIsCreating(true)} size="default">
+                Criar primeiro documento
+              </Button>
+            )
           }
           className="border-dashed bg-muted/5 animate-in fade-in zoom-in-95 duration-500"
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {docs.map((doc: ProjectDoc, index: number) => (
+          {filteredDocs.map((doc: ProjectDoc, index: number) => (
             <Link
               key={doc.id}
               href={`/projects/${projectId}/docs/${doc.id}`}
               className="block group relative"
             >
               <Card
-                className="h-full overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-muted/60 bg-card/50 hover:bg-card hover:border-primary/20 animate-in fade-in slide-in-from-bottom-4 fill-mode-backwards"
+                className="h-full overflow-hidden hover:shadow-sm hover:border-primary/50 transition-all duration-300 border-border bg-card hover:bg-accent/5"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
-                {/* Gradient glow effect on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-                <CardHeader className="pb-2 relative z-10">
+                <CardHeader className="pb-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 space-y-1">
                       <CardTitle className="text-base font-semibold line-clamp-1 group-hover:text-primary transition-colors">
@@ -157,11 +193,11 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
                         {formatDate(doc.updatedAt)}
                       </CardDescription>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
+                    <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-8 hover:bg-primary/10 hover:text-primary rounded-full relative z-20"
+                        className="size-7 hover:bg-primary/10 hover:text-primary rounded-full"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -174,7 +210,7 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-8 hover:bg-destructive/10 hover:text-destructive rounded-full relative z-20"
+                        className="size-7 hover:bg-destructive/10 hover:text-destructive rounded-full"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -187,14 +223,12 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="relative z-10">
-                  <p className="text-sm text-muted-foreground/80 line-clamp-3 leading-relaxed">
+                <CardContent>
+                  <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
                     {doc.content
                       ? doc.content.replace(/#+\s/g, '').replace(/[\*_]/g, '') // Simple markdown strip
                       : 'Sem conteúdo'}
                   </p>
-                  {/* Fade out text effect */}
-                  <div className="absolute bottom-6 left-6 right-6 h-6 bg-gradient-to-t from-card to-transparent pointer-events-none" />
                 </CardContent>
               </Card>
             </Link>
@@ -222,6 +256,6 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
         open={showTagManagement}
         onOpenChange={setShowTagManagement}
       />
-    </div >
+    </div>
   );
 }

@@ -66,11 +66,15 @@ export class DocTagRepository {
 
     /**
      * Find tag by name within a project (for uniqueness check)
+     * Case-insensitive comparison
      */
     async findByName(name: string, projectId: string, orgId: string): Promise<DocTag | null> {
         return this.prisma.docTag.findFirst({
             where: {
-                name: name.trim(),
+                name: {
+                    equals: name.trim(),
+                    mode: 'insensitive',
+                },
                 projectId,
                 orgId,
             },

@@ -133,17 +133,20 @@ export function DocTagInput({
             </div>
 
             {/* Suggestions Dropdown */}
-            {showSuggestions && filteredSuggestions.length > 0 && !disabled && (
+            {showSuggestions && filteredSuggestions.length > 0 && !disabled && (inputValue || isFocused) && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-1 p-1 rounded-lg border bg-popover shadow-lg animate-in fade-in-0 zoom-in-95 duration-100">
                     <div className="text-[10px] text-muted-foreground px-2 py-1 font-medium uppercase tracking-wider">
-                        Sugestões
+                        {inputValue ? 'Resultados' : 'Sugestões'}
                     </div>
                     <div className="max-h-[150px] overflow-y-auto">
                         {filteredSuggestions.slice(0, 8).map((tag) => (
                             <button
                                 key={tag.id}
                                 type="button"
-                                onClick={() => handleSelectTag(tag.id)}
+                                onMouseDown={(e) => {
+                                    e.preventDefault(); // Prevent blur
+                                    handleSelectTag(tag.id);
+                                }}
                                 className="w-full text-left px-2 py-1.5 text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-2"
                             >
                                 <Plus className="w-3 h-3 text-muted-foreground" />

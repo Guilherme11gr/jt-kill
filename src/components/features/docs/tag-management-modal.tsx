@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DocTagBadge } from './doc-tag-badge';
 import { useProjectTags, useCreateTag, useDeleteTag, type DocTag } from '@/lib/query/hooks/use-doc-tags';
+import { toast } from 'sonner';
 
 interface TagManagementModalProps {
     projectId: string;
@@ -36,15 +37,39 @@ export function TagManagementModal({
     const deleteTag = useDeleteTag(projectId);
 
     const handleCreate = async () => {
-        if (!newTagName.trim()) return;
+        const trimmedName = newTagName.trim();
 
-        // Check for duplicate
-        if (tags.some((t) => t.name.toLowerCase() === newTagName.trim().toLowerCase())) {
-            return; // Toast will show from hook
+        // Validation: empty
+        if (!trimmedName) {
+            toast.error('Nome da tag não pode estar vazio');
+            return;
         }
 
-        await createTag.mutateAsync({ projectId, name: newTagName.trim() });
-        setNewTagName('');
+        // Validation: max length
+        if (trimmedName.length > 30) {
+            toast.error('Nome da tag deve ter no máximo 30 caracteres');
+            return;
+        }
+
+        // Validation: special characters (allow only letters, numbers, spaces, hyphens)
+        const validNameRegex = /^[a-zA-ZÀ-ÿ0-9\s-]+$/;
+        if (!validNameRegex.test(trimmedName)) {
+            toast.error('Nome da tag contém caracteres inválidos');
+            return;
+        }
+
+        // Check for duplicate (case-insensitive)
+        if (tags.some((t) => t.name.toLowerCase() === trimmedName.toLowerCase())) {
+            toast.error('Essa tag já existe neste projeto');
+            return;
+        }
+
+        try {
+            await createTag.mutateAsync({ projectId, name: trimmedName });
+            setNewTagName('');
+        } catch {
+            // Error toast handled by hook
+        }
     };
 
     const handleDelete = async () => {
@@ -75,6 +100,7 @@ export function TagManagementModal({
                                 value={newTagName}
                                 onChange={(e) => setNewTagName(e.target.value)}
                                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                                maxLength={30}
                                 className="flex-1"
                             />
                             <Button

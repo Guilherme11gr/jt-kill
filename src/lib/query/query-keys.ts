@@ -71,6 +71,14 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.projectDocs.details(), id] as const,
   },
 
+  // ============ DOC TAGS ============
+  docTags: {
+    all: ['docTags'] as const,
+    lists: () => [...queryKeys.docTags.all, 'list'] as const,
+    list: (projectId: string) => [...queryKeys.docTags.lists(), projectId] as const,
+    forDoc: (docId: string) => [...queryKeys.docTags.all, 'doc', docId] as const,
+  },
+
   // ============ USERS ============
   users: {
     all: ['users'] as const,

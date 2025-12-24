@@ -5,7 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowLeft, Calendar, Clock, Edit, FileText, Share2, MoreHorizontal } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Edit, FileText, Share2, MoreHorizontal, Tag, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -21,7 +21,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import { useDoc } from "@/lib/query/hooks/use-project-docs";
+import { useDocTags, useProjectTags, useAssignTags, useUnassignTag } from "@/lib/query/hooks/use-doc-tags";
 import { UserAvatar } from "@/components/features/shared/user-avatar";
+import { DocTagBadge, DocTagInput } from "@/components/features/docs";
 
 export default function ProjectDocPage({
   params,
@@ -31,6 +33,18 @@ export default function ProjectDocPage({
   const { id: projectId, docId } = use(params);
   const router = useRouter();
   const { data: doc, isLoading, isError } = useDoc(docId);
+  const { data: docTags = [], isLoading: tagsLoading } = useDocTags(docId);
+  const { data: projectTags = [] } = useProjectTags(projectId);
+  const assignTags = useAssignTags(projectId);
+  const unassignTag = useUnassignTag(projectId);
+
+  const handleAddTag = (tagId: string) => {
+    assignTags.mutate({ docId, tagIds: [tagId] });
+  };
+
+  const handleRemoveTag = (tagId: string) => {
+    unassignTag.mutate({ docId, tagId });
+  };
 
   if (isLoading) {
     return <DocDetailSkeleton />;
@@ -94,7 +108,8 @@ export default function ProjectDocPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-4 text-sm text-muted-foreground border-b pb-6">
+        {/* Metadata */}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Calendar className="size-4" />
             <span>
@@ -108,6 +123,24 @@ export default function ProjectDocPage({
               Atualizado {formatDistanceToNow(new Date(doc.updatedAt), { locale: ptBR, addSuffix: true })}
             </span>
           </div>
+        </div>
+
+        {/* Tags Section */}
+        <div className="pt-4 border-t">
+          <div className="flex items-center gap-2 mb-3">
+            <Tag className="size-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Tags</span>
+            {(assignTags.isPending || unassignTag.isPending) && (
+              <Loader2 className="size-3 animate-spin text-muted-foreground" />
+            )}
+          </div>
+          <DocTagInput
+            value={docTags}
+            availableTags={projectTags}
+            onAdd={handleAddTag}
+            onRemove={handleRemoveTag}
+            isLoading={tagsLoading}
+          />
         </div>
       </div>
 

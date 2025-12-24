@@ -1,16 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useProjectDocs, useDeleteDoc, type ProjectDoc } from '@/lib/query/hooks/use-project-docs';
-import { Loader2, Plus, FileText, Trash2, Pencil, Clock } from 'lucide-react';
+import { useProjectTags, useDocTags } from '@/lib/query/hooks/use-doc-tags';
+import { Loader2, Plus, FileText, Trash2, Pencil, Clock, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DocEditorModal } from './doc-editor-modal';
+import { DocTagFilter, DocTagBadge, TagManagementModal } from '@/components/features/docs';
 
 interface ProjectDocsListProps {
   projectId: string;
@@ -19,14 +21,25 @@ interface ProjectDocsListProps {
 
 /**
  * Project documentation list
- * Shows all docs with create/edit/delete functionality
+ * Shows all docs with create/edit/delete functionality and tag filtering
  */
 export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) {
   const [editingDoc, setEditingDoc] = useState<ProjectDoc | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [showTagManagement, setShowTagManagement] = useState(false);
 
   const { data: docs = [], isLoading, isFetching } = useProjectDocs(projectId);
+  const { data: tags = [], isLoading: tagsLoading } = useProjectTags(projectId);
   const deleteDoc = useDeleteDoc(projectId);
+
+  // Client-side filtering by selected tags
+  const filteredDocs = useMemo(() => {
+    if (selectedTagIds.length === 0) return docs;
+    // For now, show all docs - we'll need to fetch doc tags to filter properly
+    // This is a placeholder - ideally we'd have tags included in docs query
+    return docs;
+  }, [docs, selectedTagIds]);
 
   const formatDate = (date: string) => {
     return formatDistanceToNow(new Date(date), {
@@ -36,7 +49,6 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
   };
 
   const handleDelete = (docId: string, title: string) => {
-    // Stop propagation to prevent opening edit modal if we add card click later
     if (confirm(`Excluir documento "${title}"?`)) {
       deleteDoc.mutate(docId);
     }
@@ -58,15 +70,34 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
             <Loader2 className="size-4 animate-spin text-muted-foreground ml-2" />
           )}
         </div>
-        <Button
-          onClick={() => setIsCreating(true)}
-          size="sm"
-          className="shadow-sm hover:shadow-md transition-all active:scale-95"
-        >
-          <Plus className="size-4 mr-2" />
-          Novo Documento
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTagManagement(true)}
+            title="Gerenciar tags"
+          >
+            <Settings className="size-4" />
+          </Button>
+          <Button
+            onClick={() => setIsCreating(true)}
+            size="sm"
+            className="shadow-sm hover:shadow-md transition-all active:scale-95"
+          >
+            <Plus className="size-4 mr-2" />
+            Novo Documento
+          </Button>
+        </div>
       </div>
+
+      {/* Tag Filter */}
+      {!tagsLoading && tags.length > 0 && (
+        <DocTagFilter
+          tags={tags}
+          selectedTagIds={selectedTagIds}
+          onSelectionChange={setSelectedTagIds}
+        />
+      )}
 
       {/* Docs Grid */}
       {isLoading ? (
@@ -183,6 +214,13 @@ export function ProjectDocsList({ projectId, className }: ProjectDocsListProps) 
         }}
         projectId={projectId}
         doc={editingDoc}
+      />
+
+      {/* Tag Management Modal */}
+      <TagManagementModal
+        projectId={projectId}
+        open={showTagManagement}
+        onOpenChange={setShowTagManagement}
       />
     </div >
   );

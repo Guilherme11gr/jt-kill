@@ -131,6 +131,7 @@ export default function EpicDetailPage({
         data: {
           title: featureFormData.title,
           description: featureFormData.description || undefined,
+          status: featureFormData.status,
         },
       });
       setIsFeatureEditDialogOpen(false);

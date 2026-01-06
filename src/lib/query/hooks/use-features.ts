@@ -38,7 +38,9 @@ interface CreateFeatureInput {
 
 interface UpdateFeatureInput {
   id: string;
-  data: Partial<Omit<CreateFeatureInput, 'epicId'>>;
+  data: Partial<Omit<CreateFeatureInput, 'epicId'>> & {
+    status?: 'BACKLOG' | 'TODO' | 'DOING' | 'DONE';
+  };
 }
 
 // ============ Fetch Functions ============

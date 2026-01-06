@@ -102,13 +102,15 @@ function DashboardTaskCard({ task, onClick }: { task: TaskWithReadableId; onClic
   );
 }
 
-// Module section component
-function ModuleSection({
-  module,
+// Project section component
+function ProjectSection({
+  projectName,
+  projectKey,
   tasks,
   onTaskClick,
 }: {
-  module: string;
+  projectName: string;
+  projectKey: string;
   tasks: TaskWithReadableId[];
   onTaskClick: (task: TaskWithReadableId) => void;
 }) {
@@ -121,7 +123,10 @@ function ModuleSection({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Layers className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-semibold">{module}</h3>
+          <h3 className="font-semibold">{projectName}</h3>
+          <Badge variant="outline" className="text-xs font-mono">
+            {projectKey}
+          </Badge>
           <Badge variant="secondary" className="text-xs">
             {tasks.length} tasks
           </Badge>
@@ -181,26 +186,28 @@ export default function DashboardPage() {
     });
   }, [tasks]);
 
-  // Group tasks by module (tasks with multiple modules appear in each group)
-  const tasksByModule = useMemo(() => {
-    const groups: Record<string, TaskWithReadableId[]> = {};
+  // Group tasks by project
+  const tasksByProject = useMemo(() => {
+    const groups: Record<string, { projectName: string; projectKey: string; tasks: TaskWithReadableId[] }> = {};
 
     sortedTasks.forEach(task => {
-      const taskModules = task.modules && task.modules.length > 0 ? task.modules : ['Sem Módulo'];
-      taskModules.forEach(module => {
-        if (!groups[module]) {
-          groups[module] = [];
-        }
-        groups[module].push(task);
-      });
+      const projectId = task.feature.epic.project.id;
+      if (!groups[projectId]) {
+        groups[projectId] = {
+          projectName: task.feature.epic.project.name,
+          projectKey: task.feature.epic.project.key,
+          tasks: [],
+        };
+      }
+      groups[projectId].tasks.push(task);
     });
 
-    // Sort modules: modules with bugs first, then by task count
-    return Object.entries(groups).sort(([, tasksA], [, tasksB]) => {
-      const bugsA = tasksA.filter(t => t.type === 'BUG').length;
-      const bugsB = tasksB.filter(t => t.type === 'BUG').length;
+    // Sort projects: projects with bugs first, then by task count
+    return Object.entries(groups).sort(([, groupA], [, groupB]) => {
+      const bugsA = groupA.tasks.filter(t => t.type === 'BUG').length;
+      const bugsB = groupB.tasks.filter(t => t.type === 'BUG').length;
       if (bugsA !== bugsB) return bugsB - bugsA;
-      return tasksB.length - tasksA.length;
+      return groupB.tasks.length - groupA.tasks.length;
     });
   }, [sortedTasks]);
 
@@ -338,14 +345,15 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Tasks grouped by module */}
-      {!isLoading && !error && tasksByModule.length > 0 && (
+      {/* Tasks grouped by project */}
+      {!isLoading && !error && tasksByProject.length > 0 && (
         <div className="space-y-8">
-          {tasksByModule.map(([module, moduleTasks]) => (
-            <ModuleSection
-              key={module}
-              module={module}
-              tasks={moduleTasks}
+          {tasksByProject.map(([projectId, { projectName, projectKey, tasks: projectTasks }]) => (
+            <ProjectSection
+              key={projectId}
+              projectName={projectName}
+              projectKey={projectKey}
+              tasks={projectTasks}
               onTaskClick={handleTaskClick}
             />
           ))}

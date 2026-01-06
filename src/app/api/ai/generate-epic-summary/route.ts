@@ -18,12 +18,12 @@ export const POST = async (req: NextRequest) => {
         const body = await req.json();
         const { epicId } = bodySchema.parse(body);
 
-        const summary = await generateEpicSummary(
+        const result = await generateEpicSummary(
             { epicId, orgId: tenantId },
             { aiAdapter, epicRepository, featureRepository }
         );
 
-        return NextResponse.json({ summary });
+        return NextResponse.json(result);
     } catch (error: any) {
         console.error('Error generating epic summary:', error);
         return NextResponse.json(

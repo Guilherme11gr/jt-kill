@@ -66,6 +66,7 @@ export class FeatureRepository {
             status: true,
             type: true,
             priority: true,
+            updatedAt: true,
           }
         }
       },

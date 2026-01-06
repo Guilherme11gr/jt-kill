@@ -7,30 +7,25 @@ interface GenerateEpicSummaryInput {
     forceRegenerate?: boolean;
 }
 
-const SYSTEM_PROMPT = `Atue como um Tech Lead e Product Manager Sênior.
-Seu objetivo é gerar um Resumo Executivo Analítico de um Épico de software.
-Você deve analisar friamente os dados e dar um parecer sobre o andamento.
+const SYSTEM_PROMPT = `Atue como um Product Manager Sênior e experiente.
+Analise os dados deste Épico e gere um relatório curto, direto e executivo em Markdown.
 
-Estrutura Obrigatória do Markdown:
+Estrutura Obrigatória:
 
-## 📊 Visão Geral
-(Resumo de 2-3 linhas sobre o objetivo do épico e seu estado atual de conclusão)
+### 1. 👔 O Veredito
+(Uma frase resumo sobre a saúde geral do épico. Comece com 🟢, 🟡 ou 🔴. Diga se está saudável, em risco ou atrasado.)
 
-## 🚧 Status das Features
-(Liste as features agrupadas por status macro, ex: "Em Desenvolvimento", "Concluídas", "Não Iniciadas")
-- **[Nome Feature]** ([Status Feature]):
-  - *Progresso*: X/Y tasks concluídas ([%])
-  - *Detalhes*: (Cite brevemente o que está sendo feito ou o que falta, mencionando tasks críticas se houver)
+### 2. ⚠️ Bloqueios e Riscos
+(Liste tasks paradas em DOING há mais de 4 dias, features com bugs abertos ou muitos itens não iniciados. Seja específico. Se houver "Tasks Sem Movimento", cite-as.)
 
-## 🚦 Análise de Risco e Próximos Passos
-- (Identifique gargalos: features atrasadas, muitas tasks de alta prioridade pendentes, ou bugs abertos)
-- (Sugestão de foco imediato para a equipe)
+### 3. 📅 Previsão e Próximos Passos
+(Baseado no ritmo e no que falta, dê uma estimativa macro e sugira onde focar. Ex: "Focar em fechar bugs da feature X".)
 
 Regras:
-- Use Português do Brasil.
-- Seja analítico e orientado a dados.
-- Se houver Bugs abertos, DESTAQUE-OS em Riscos.
-- Não invente informações. Use apenas os dados fornecidos.`;
+- Seja conciso. O leitor é um executivo.
+- Destaque riscos reais.
+- Use tom profissional mas direto.
+- Não invente datas se não tiver certeza, mas faça projeções baseadas no volume de trabalho restante.`;
 
 interface Deps {
     epicRepository: EpicRepository;
@@ -41,7 +36,7 @@ interface Deps {
 export async function generateEpicSummary(
     input: GenerateEpicSummaryInput,
     deps: Deps
-): Promise<string> {
+): Promise<{ summary: string; lastAnalyzedAt: Date }> {
     const { epicRepository, featureRepository, aiAdapter } = deps;
 
     // 1. Fetch Deep Context
@@ -50,17 +45,41 @@ export async function generateEpicSummary(
 
     const features = await featureRepository.findManyInEpicWithTasks(input.epicId, input.orgId);
 
-    // 2. Calculate Metrics
+    // 2. Metrics & Analysis
+    const now = new Date();
+    const fourDaysAgo = new Date();
+    fourDaysAgo.setDate(now.getDate() - 4);
+    const twoDaysAgo = new Date();
+    twoDaysAgo.setDate(now.getDate() - 2);
+
     let totalTasks = 0;
     let completedTasks = 0;
     let totalFeatures = features.length;
     let completedFeatures = 0;
+
+    // Global lists for prompt
+    const allStaleTasks: string[] = [];
+    const recentActivity: string[] = [];
 
     const featureAnalysis = features.map(f => {
         const fTotal = f.tasks.length;
         const fCompleted = f.tasks.filter(t => t.status === 'DONE').length;
         const fBugs = f.tasks.filter(t => t.type === 'BUG' && t.status !== 'DONE').length;
         const fInProgress = f.tasks.filter(t => t.status === 'DOING').length;
+
+        // Check for stale tasks (Doing for > 4 days)
+        f.tasks.forEach(t => {
+            // @ts-ignore - repository was updated but types might lag in IDE
+            const updatedAt = t.updatedAt ? new Date(t.updatedAt) : new Date();
+
+            if (t.status === 'DOING' && updatedAt < fourDaysAgo) {
+                allStaleTasks.push(`- [${f.title}] Task "${t.title}" parada em DOING há mais de 4 dias.`);
+            }
+
+            if (t.status === 'DONE' && updatedAt > twoDaysAgo) {
+                recentActivity.push(`- [${f.title}] Task "${t.title}" concluída recentemente.`);
+            }
+        });
 
         totalTasks += fTotal;
         completedTasks += fCompleted;
@@ -73,7 +92,11 @@ export async function generateEpicSummary(
             percent: fTotal > 0 ? Math.round((fCompleted / fTotal) * 100) : 0,
             bugs: fBugs,
             blocking: fInProgress,
-            tasks: f.tasks.map(t => `- [${t.status}] ${t.type === 'BUG' ? '🐞 ' : ''}${t.title} (${t.priority})`).join('\n')
+            // Only list non-done tasks to save tokens, highlighting bugs
+            tasks: f.tasks
+                .filter(t => t.status !== 'DONE')
+                .map(t => `- [${t.status}] ${t.type === 'BUG' ? '🐞 ' : ''}${t.title} (${t.priority})`)
+                .join('\n')
         };
     });
 
@@ -83,33 +106,48 @@ export async function generateEpicSummary(
     const userPrompt = `
 DADOS DO ÉPICO:
 Título: ${epic.title}
-Descrição: ${epic.description || 'N/A'}
 Status Atual: ${epic.status}
 Progresso Global: ${completedTasks}/${totalTasks} tasks (${epicPercent}%)
 Features Concluídas: ${completedFeatures}/${totalFeatures}
 
-DETALHAMENTO POR FEATURE:
+🚨 TASKS SEM MOVIMENTO (RISCO):
+${allStaleTasks.length > 0 ? allStaleTasks.join('\n') : "Nenhuma task parada identificada."}
+
+⚡ ATIVIDADE RECENTE (Últimas 48h):
+${recentActivity.length > 0 ? recentActivity.slice(0, 5).join('\n') : "Nenhuma conclusão recente."}
+
+DETALHAMENTO POR FEATURE (Foco no que falta):
 ${featureAnalysis.map(f => `
 ### ${f.title}
 - Status: ${f.status}
-- Progresso: ${f.percent}% (${f.stats})
+- Progresso: ${f.percent}%
 - Bugs Abertos: ${f.bugs}
-- Tasks Importantes:
-${f.tasks}
+- Tasks Pendentes:
+${f.tasks || " (Todas as tasks concluídas)"}
 `).join('\n')}
 
-TAREFA: Gere o Resumo Executivo Analítico seguindo o template do sistema. Destaque features com bugs ou baixo progresso.
+TAREFA: Gere o Executive Briefing (O Veredito, Bloqueios/Riscos, Previsão).
 `;
 
     // 4. Call AI
-    const response = await aiAdapter.generateText(
+    const summary = await aiAdapter.generateText(
         userPrompt,
         {
             systemPrompt: SYSTEM_PROMPT,
-            temperature: 0.4, // Lower temperature for analytical precision
-            maxTokens: 1500,
+            temperature: 0.5,
+            maxTokens: 1000,
         }
     );
 
-    return response;
+    // 5. Persist Result
+    const lastAnalyzedAt = new Date();
+    await epicRepository.update(input.epicId, input.orgId, {
+        aiSummary: summary,
+        lastAnalyzedAt
+    });
+
+    return {
+        summary,
+        lastAnalyzedAt
+    };
 }

@@ -12,6 +12,8 @@ interface Epic {
   status: string;
   projectId: string;
   _count?: { features: number };
+  aiSummary?: string | null;
+  lastAnalyzedAt?: string | null;
 }
 
 interface CreateEpicInput {

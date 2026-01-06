@@ -24,9 +24,10 @@ last-updated: 2025-12
 - [x] Documentação de contexto IA
 - [x] Schema do banco definido
 - [x] Design system definido
-- [ ] Projeto Next.js inicializado
-- [ ] Supabase configurado
-- [ ] CI/CD configurado
+- [x] Projeto Next.js inicializado
+- [x] Supabase configurado
+- [x] Configurações de deploy para Vercel
+- [ ] CI/CD em produção (aguardando primeiro deploy)
 
 ### 📋 Sprint 1 - Core CRUD
 - [ ] Auth + Multi-tenancy

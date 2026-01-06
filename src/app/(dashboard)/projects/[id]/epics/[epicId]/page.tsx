@@ -28,7 +28,7 @@ interface Feature {
   tasks?: Array<{ status: string; type: string }>;
 }
 
-import { EpicSummaryModal } from "@/components/features/epics/epic-summary-modal";
+import { EpicAISummaryCard } from "@/components/features/epics/epic-ai-summary-card";
 import { StackedProgressBar } from "@/components/features/stacked-progress-bar";
 
 export default function EpicDetailPage({
@@ -69,7 +69,7 @@ export default function EpicDetailPage({
   const [featureToDelete, setFeatureToDelete] = useState<Feature | null>(null);
 
   // AI Summary State
-  const [isSummaryOpen, setIsSummaryOpen] = useState(false);
+
 
   // AI handler for improving description
   const handleImproveDescription = useCallback(async () => {
@@ -212,14 +212,7 @@ export default function EpicDetailPage({
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setIsSummaryOpen(true)}
-              className="hidden sm:flex"
-            >
-              <Sparkles className="w-4 h-4 mr-2 text-violet-500" />
-              Resumo com IA
-            </Button>
+
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <MoreVertical className="w-5 h-5" />
             </Button>
@@ -227,12 +220,13 @@ export default function EpicDetailPage({
         </div>
       </div>
 
-      <EpicSummaryModal
-        open={isSummaryOpen}
-        onOpenChange={setIsSummaryOpen}
-        epicId={epic.id}
-        currentDescription={epic.description || undefined}
-      />
+      <div className="mb-8">
+        <EpicAISummaryCard
+          epicId={epic.id}
+          initialSummary={epic.aiSummary}
+          lastAnalyzedAt={epic.lastAnalyzedAt}
+        />
+      </div>
 
       {/* Features Section */}
       <div className="mx-auto">
@@ -371,11 +365,20 @@ export default function EpicDetailPage({
                       <CardTitle className="text-lg pr-8">
                         {feature.title}
                       </CardTitle>
-                      {feature.description && (
-                        <CardDescription className="line-clamp-2">
-                          {feature.description}
-                        </CardDescription>
-                      )}
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1.5 font-medium">
+                        <span className="flex items-center gap-1">
+                          <span className="text-emerald-500">✅</span>
+                          {feature.tasks?.filter(t => t.status === 'DONE').length || 0} Done
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="text-blue-500">🔵</span>
+                          {feature.tasks?.filter(t => t.status === 'DOING').length || 0} Doing
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="text-zinc-500">⚪</span>
+                          {feature.tasks?.filter(t => !['DONE', 'DOING'].includes(t.status)).length || 0} Todo
+                        </span>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-col gap-3 mt-1">

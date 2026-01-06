@@ -13,6 +13,8 @@ export interface UpdateEpicInput {
   title?: string;
   description?: string | null;
   status?: EpicStatus;
+  aiSummary?: string;
+  lastAnalyzedAt?: Date;
 }
 
 export class EpicRepository {

@@ -194,6 +194,94 @@ docs/
 
 ---
 
+## 🚀 Deploy
+
+### Vercel (Produção)
+
+**1. Setup inicial na Vercel:**
+```bash
+# 1. Instale a CLI da Vercel (opcional)
+npm i -g vercel
+
+# 2. Faça login
+vercel login
+
+# 3. Link o projeto (se ainda não estiver linkado)
+vercel link
+```
+
+**2. Configure Environment Variables na Vercel Dashboard:**
+
+Acesse: [Vercel Dashboard](https://vercel.com) → Seu Projeto → Settings → Environment Variables
+
+```bash
+# Database (copie do Supabase Dashboard)
+DATABASE_URL=postgresql://...
+DIRECT_URL=postgresql://...
+
+# Supabase Public Keys
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your-publishable-key
+
+# AI API
+DEEPSEEK_API_KEY=sk-your-key
+```
+
+**3. Deploy:**
+```bash
+# Deploy preview (branch)
+git push origin your-branch
+# Vercel cria preview automaticamente
+
+# Deploy production (main)
+git push origin main
+# Vercel deploya automaticamente
+```
+
+**4. Verificar build:**
+- Acesse a Vercel Dashboard → Deployments
+- Verifique logs de build
+- Teste a URL de preview/production
+
+**⚠️ Importante:**
+- **NÃO** adicionar `DEV_MOCK_AUTH` em produção
+- Migrations são gerenciadas pelo Supabase (não na Vercel)
+- `prisma generate` roda automaticamente via `postinstall`
+
+### Local Development
+
+```bash
+# 1. Clone o repositório
+git clone https://github.com/your-org/jira-killer.git
+cd jira-killer
+
+# 2. Instale dependências
+npm install
+
+# 3. Configure .env.local (copie de .env.production.example)
+cp .env.production.example .env.local
+# Edite .env.local com suas credenciais locais
+
+# 4. Gere o Prisma Client
+npm run db:generate
+
+# 5. Rode o servidor de desenvolvimento
+npm run dev
+```
+
+**Comandos úteis:**
+```bash
+npm run dev          # Dev server (port 3005)
+npm run build        # Build de produção
+npm run start        # Servidor de produção
+npm run lint         # Lint
+npm run typecheck    # Type checking
+npm run test         # Rodar testes
+```
+
+---
+
 ## 🤝 Contribuindo
 
 1. Fork o projeto

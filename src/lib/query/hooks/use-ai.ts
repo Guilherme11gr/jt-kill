@@ -186,6 +186,7 @@ interface GenerateEpicSummaryInput {
 
 interface GenerateEpicSummaryResponse {
     summary: string;
+    lastAnalyzedAt: Date;
 }
 
 /**

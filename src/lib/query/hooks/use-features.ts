@@ -141,21 +141,24 @@ export function useCreateFeature() {
   return useMutation({
     mutationFn: createFeature,
     onSuccess: (newFeature, variables) => {
-      // 1. Update the list by epic
+      // 1. Optimistic update: add to epic's features list
       queryClient.setQueryData<Feature[]>(queryKeys.features.list(variables.epicId), (old) => {
         if (!old) return [newFeature];
         return [...old, newFeature];
       });
 
-      // 2. Update the all-list if it exists
+      // 2. Optimistic update: add to all-list if cached
       queryClient.setQueryData<Feature[]>(queryKeys.features.list(), (old) => {
         if (!old) return old; // Don't create if not cached
         return [...old, newFeature];
       });
 
-      // 3. Invalidate
+      // 3. Invalidate specific queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.features.list(variables.epicId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.features.list() });
+      
+      // 4. Invalidate epic detail to update counters (e.g., features count)
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(variables.epicId) });
 
       toast.success('Feature criada');
     },
@@ -173,8 +176,22 @@ export function useUpdateFeature() {
 
   return useMutation({
     mutationFn: updateFeature,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.features.all });
+    onSuccess: (updatedFeature, variables) => {
+      // 1. Optimistic update: update the specific feature in cache
+      queryClient.setQueryData<Feature>(queryKeys.features.detail(variables.id), updatedFeature);
+
+      // 2. Invalidate specific queries to ensure consistency
+      queryClient.invalidateQueries({ queryKey: queryKeys.features.detail(variables.id) });
+      
+      // 3. Invalidate lists that contain this feature
+      queryClient.invalidateQueries({ queryKey: queryKeys.features.lists() });
+      
+      // 4. Invalidate epic detail (status/title changes may affect UI)
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(updatedFeature.epicId) });
+      
+      // 5. Invalidate tasks for this feature (tasks depend on feature.status)
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list({ featureId: variables.id }) });
+
       toast.success('Feature atualizada');
     },
     onError: () => {
@@ -191,8 +208,17 @@ export function useDeleteFeature() {
 
   return useMutation({
     mutationFn: deleteFeature,
-    onSuccess: () => {
+    onSuccess: (_, deletedFeatureId) => {
+      // 1. Invalidate all feature queries (feature no longer exists)
       queryClient.invalidateQueries({ queryKey: queryKeys.features.all });
+      
+      // 2. Remove from cache to avoid stale data
+      queryClient.removeQueries({ queryKey: queryKeys.features.detail(deletedFeatureId) });
+      queryClient.removeQueries({ queryKey: queryKeys.tasks.list({ featureId: deletedFeatureId }) });
+      
+      // 3. Invalidate epic detail to update counters
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics.all });
+
       toast.success('Feature excluída');
     },
     onError: () => {

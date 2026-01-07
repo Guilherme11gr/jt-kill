@@ -59,60 +59,61 @@ const statusVariantMap: Record<string, 'outline' | 'outline-success' | 'outline-
 };
 
 // Task card component for the dashboard
-function DashboardTaskCard({ task, onClick }: { task: TaskWithReadableId; onClick: () => void }) {
+function DashboardTaskCard({ task }: { task: TaskWithReadableId }) {
   const isBug = task.type === 'BUG';
 
   return (
-    <Card
-      className={`cursor-pointer hover:border-primary/50 transition-all ${isBug ? 'border-red-500/50 hover:border-red-500' : ''
-        }`}
-      onClick={onClick}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className={`p-1.5 rounded ${isBug ? 'bg-red-500/10' : 'bg-blue-500/10'}`}>
-            {isBug ? (
-              <Bug className="h-4 w-4 text-red-500" />
-            ) : (
-              <CheckSquare className="h-4 w-4 text-blue-500" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <Badge variant="outline" className="font-mono text-xs">
-                {task.readableId}
-              </Badge>
-              <Badge variant={statusVariantMap[task.status] || 'outline'} className="text-xs">
-                {statusLabels[task.status] || task.status}
-              </Badge>
-              {task.points && (
-                <Badge variant="secondary" className="text-xs">
-                  {task.points}pts
-                </Badge>
+    <Link href={`/tasks?task=${task.id}`}>
+      <Card
+        className={`cursor-pointer hover:border-primary/50 transition-all ${isBug ? 'border-red-500/50 hover:border-red-500' : ''
+          }`}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className={`p-1.5 rounded ${isBug ? 'bg-red-500/10' : 'bg-blue-500/10'}`}>
+              {isBug ? (
+                <Bug className="h-4 w-4 text-red-500" />
+              ) : (
+                <CheckSquare className="h-4 w-4 text-blue-500" />
               )}
             </div>
-            <h4 className="font-medium text-sm truncate">{task.title}</h4>
-            <p className="text-xs text-muted-foreground mt-1 truncate">
-              {task.feature.epic.title} → {task.feature.title}
-            </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <Badge variant="outline" className="font-mono text-xs">
+                  {task.readableId}
+                </Badge>
+                <Badge variant={statusVariantMap[task.status] || 'outline'} className="text-xs">
+                  {statusLabels[task.status] || task.status}
+                </Badge>
+                {task.points && (
+                  <Badge variant="secondary" className="text-xs">
+                    {task.points}pts
+                  </Badge>
+                )}
+              </div>
+              <h4 className="font-medium text-sm truncate">{task.title}</h4>
+              <p className="text-xs text-muted-foreground mt-1 truncate">
+                {task.feature.epic.title} → {task.feature.title}
+              </p>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
 // Project section component
 function ProjectSection({
+  projectId,
   projectName,
   projectKey,
   tasks,
-  onTaskClick,
 }: {
+  projectId: string;
   projectName: string;
   projectKey: string;
   tasks: TaskWithReadableId[];
-  onTaskClick: (task: TaskWithReadableId) => void;
 }) {
   // Count bugs and other stats
   const bugCount = tasks.filter(t => t.type === 'BUG').length;
@@ -121,16 +122,19 @@ function ProjectSection({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link 
+          href={`/projects/${projectId}`}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
+        >
           <Layers className="h-4 w-4 text-muted-foreground" />
-          <h3 className="font-semibold">{projectName}</h3>
+          <h3 className="font-semibold group-hover:underline">{projectName}</h3>
           <Badge variant="outline" className="text-xs font-mono">
             {projectKey}
           </Badge>
           <Badge variant="secondary" className="text-xs">
             {tasks.length} tasks
           </Badge>
-        </div>
+        </Link>
         <div className="flex gap-2">
           {bugCount > 0 && (
             <Badge variant="destructive" className="text-xs">
@@ -149,7 +153,6 @@ function ProjectSection({
           <DashboardTaskCard
             key={task.id}
             task={task}
-            onClick={() => onTaskClick(task)}
           />
         ))}
       </div>
@@ -158,8 +161,6 @@ function ProjectSection({
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
-
   // Use React Query for shared cache with Kanban
   const { data, isLoading, error, refetch, isFetching } = useTasks();
 
@@ -220,11 +221,6 @@ export default function DashboardPage() {
     return { bugCount, doingCount, reviewCount, todoCount, total: tasks.length };
   }, [tasks]);
 
-  // Navigate to task detail
-  const handleTaskClick = useCallback((task: TaskWithReadableId) => {
-    router.push(`/tasks?task=${task.id}`);
-  }, [router]);
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -262,46 +258,54 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className={stats.bugCount > 0 ? 'border-red-500/50' : ''}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Bugs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-500">{stats.bugCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Em Andamento
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-500">{stats.doingCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Em Revisão
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-500">{stats.reviewCount}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              A Fazer
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-muted-foreground">{stats.todoCount}</div>
-          </CardContent>
-        </Card>
+        <Link href="/tasks?type=BUG">
+          <Card className={`cursor-pointer hover:border-red-500 transition-all ${stats.bugCount > 0 ? 'border-red-500/50' : ''}`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Bugs
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-500">{stats.bugCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/tasks?status=DOING">
+          <Card className="cursor-pointer hover:border-blue-500 transition-all">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Em Andamento
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-500">{stats.doingCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/tasks?status=REVIEW">
+          <Card className="cursor-pointer hover:border-purple-500 transition-all">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Em Revisão
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-500">{stats.reviewCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/tasks?status=TODO">
+          <Card className="cursor-pointer hover:border-primary transition-all">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                A Fazer
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-muted-foreground">{stats.todoCount}</div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Error state */}
@@ -351,10 +355,10 @@ export default function DashboardPage() {
           {tasksByProject.map(([projectId, { projectName, projectKey, tasks: projectTasks }]) => (
             <ProjectSection
               key={projectId}
+              projectId={projectId}
               projectName={projectName}
               projectKey={projectKey}
               tasks={projectTasks}
-              onTaskClick={handleTaskClick}
             />
           ))}
         </div>

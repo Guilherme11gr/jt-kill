@@ -279,6 +279,91 @@ Domínio não conhece infraestrutura ou transporte.
 
 ---
 
+## React Query Cache Strategy
+
+### Filosofia
+- **Invalidações específicas** por query key (evita refetches desnecessários)
+- **Optimistic updates** em mutations para feedback instantâneo
+- **Cross-entity invalidation** (epic ↔ features ↔ tasks)
+
+### Padrões de Invalidação
+
+#### 1. CREATE Mutations
+```typescript
+onSuccess: (newEntity, variables) => {
+  // 1. Optimistic update: adiciona no cache
+  queryClient.setQueryData(queryKeys.entity.list(parentId), ...);
+  
+  // 2. Invalidate specific lists
+  queryClient.invalidateQueries({ queryKey: queryKeys.entity.list(parentId) });
+  
+  // 3. Invalidate parent detail (atualiza contadores)
+  queryClient.invalidateQueries({ queryKey: queryKeys.parent.detail(parentId) });
+}
+```
+
+#### 2. UPDATE Mutations
+```typescript
+onSuccess: (updatedEntity, variables) => {
+  // 1. Optimistic update: atualiza no cache
+  queryClient.setQueryData(queryKeys.entity.detail(id), updatedEntity);
+  
+  // 2. Invalidate detail
+  queryClient.invalidateQueries({ queryKey: queryKeys.entity.detail(id) });
+  
+  // 3. Invalidate lists que contêm essa entity
+  queryClient.invalidateQueries({ queryKey: queryKeys.entity.lists() });
+  
+  // 4. Invalidate entidades relacionadas (cross-entity)
+  queryClient.invalidateQueries({ queryKey: queryKeys.related.list(entityId) });
+}
+```
+
+#### 3. DELETE Mutations
+```typescript
+onSuccess: (_, deletedId) => {
+  // 1. Invalidate all (entity não existe mais)
+  queryClient.invalidateQueries({ queryKey: queryKeys.entity.all });
+  
+  // 2. Remove queries órfãs do cache
+  queryClient.removeQueries({ queryKey: queryKeys.entity.detail(deletedId) });
+  queryClient.removeQueries({ queryKey: queryKeys.children.list(deletedId) });
+}
+```
+
+### Hierarquia de Invalidação
+
+```
+Epic (CREATE/UPDATE/DELETE)
+  ↓
+  └─ Invalida: queryKeys.projects.detail(projectId)
+  └─ Invalida: queryKeys.features.list(epicId)
+  └─ Invalida: queryKeys.epics.lists()
+
+Feature (CREATE/UPDATE/DELETE)
+  ↓
+  └─ Invalida: queryKeys.epics.detail(epicId)
+  └─ Invalida: queryKeys.tasks.lists()
+  └─ Invalida: queryKeys.features.lists()
+
+Task (CREATE/UPDATE/DELETE)
+  ↓
+  └─ Invalida: queryKeys.features.detail(featureId)
+  └─ Invalida: queryKeys.tasks.lists()
+```
+
+### Cache Times (CACHE_TIMES)
+- **staleTime:** 30s - Dados considerados frescos por 30s
+- **cacheTime:** 5min - Cache mantido em memória por 5min
+
+### Benefícios
+- ✅ **UI reflete mudanças instantaneamente** (sem F5 manual)
+- ✅ **Zero latência perceptível** (optimistic updates)
+- ✅ **Consistência cross-entity** (contadores atualizados)
+- ✅ **Performance otimizada** (invalida apenas o necessário)
+
+---
+
 ## Ver Também
 
 - [domain-model.md](./domain-model.md) - Modelo de domínio detalhado

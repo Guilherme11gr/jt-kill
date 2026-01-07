@@ -139,21 +139,24 @@ export function useCreateEpic() {
   return useMutation({
     mutationFn: createEpic,
     onSuccess: (newEpic, variables) => {
-      // 1. Update the list by project
+      // 1. Optimistic update: add to project list
       queryClient.setQueryData<Epic[]>(queryKeys.epics.list(variables.projectId), (old) => {
         if (!old) return [newEpic];
         return [...old, newEpic];
       });
 
-      // 2. Update the all-list if it exists
+      // 2. Optimistic update: add to all-list if cached
       queryClient.setQueryData<Epic[]>(queryKeys.epics.allList(), (old) => {
         if (!old) return old;
         return [...old, newEpic];
       });
 
-      // 3. Invalidate to ensure consistency (optional but safe)
+      // 3. Invalidate specific queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.epics.list(variables.projectId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.epics.allList() });
+
+      // 4. Invalidate project detail to update counters (e.g., epic count)
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(variables.projectId) });
 
       toast.success('Epic criado');
     },
@@ -171,8 +174,25 @@ export function useUpdateEpic() {
 
   return useMutation({
     mutationFn: updateEpic,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.all });
+    onSuccess: (updatedEpic, variables) => {
+      // 1. Optimistic update: update the specific epic in cache
+      queryClient.setQueryData<Epic>(queryKeys.epics.detail(variables.id), updatedEpic);
+
+      // 2. Invalidate specific queries to ensure consistency
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(variables.id) });
+
+      // 3. Invalidate lists that contain this epic
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics.lists() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.epics.allList() });
+
+      // 4. Invalidate features of this epic (title change may affect UI)
+      queryClient.invalidateQueries({ queryKey: queryKeys.features.list(updatedEpic.id) });
+
+      // 5. Invalidate project detail if epic has projectId
+      if (updatedEpic.projectId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(updatedEpic.projectId) });
+      }
+
       toast.success('Epic atualizado');
     },
     onError: () => {
@@ -189,8 +209,14 @@ export function useDeleteEpic() {
 
   return useMutation({
     mutationFn: deleteEpic,
-    onSuccess: () => {
+    onSuccess: (_, deletedEpicId) => {
+      // 1. Invalidate all epic queries (epic no longer exists)
       queryClient.invalidateQueries({ queryKey: queryKeys.epics.all });
+
+      // 2. Remove from cache to avoid stale data
+      queryClient.removeQueries({ queryKey: queryKeys.epics.detail(deletedEpicId) });
+      queryClient.removeQueries({ queryKey: queryKeys.features.list(deletedEpicId) });
+
       toast.success('Epic excluído');
     },
     onError: () => {

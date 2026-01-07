@@ -23,7 +23,7 @@ export function EpicAISummaryCard({
     const [analyzedAt, setAnalyzedAt] = useState<Date | null>(
         lastAnalyzedAt ? new Date(lastAnalyzedAt) : null
     );
-    const [isExpanded, setIsExpanded] = useState(true);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const generateMutation = useGenerateEpicSummary();
     const isLoading = generateMutation.isPending;

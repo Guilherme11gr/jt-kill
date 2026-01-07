@@ -7,6 +7,7 @@ export interface CreateTaskInput {
   featureId?: string | null;
   title: string;
   description?: string | null;
+  status?: 'BACKLOG' | 'TODO' | 'DOING' | 'REVIEW' | 'QA_READY' | 'DONE';
   type?: TaskType;
   priority?: TaskPriority;
   points?: StoryPoints | null;

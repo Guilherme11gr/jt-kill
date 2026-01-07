@@ -217,13 +217,22 @@ export function useDeleteTask() {
 /**
  * Move task to new status (optimistic update)
  * Updates UI immediately, reverts on error.
+ * Uses dedicated /status endpoint to ensure only status is changed.
  */
 export function useMoveTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
-      updateTask({ id, data: { status } }),
+    mutationFn: async ({ id, status }: { id: string; status: TaskStatus }) => {
+      const res = await fetch(`/api/tasks/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error('Failed to move task');
+      const json = await res.json();
+      return json.data as TaskWithReadableId;
+    },
 
     // Optimistic update
     onMutate: async ({ id, status }) => {

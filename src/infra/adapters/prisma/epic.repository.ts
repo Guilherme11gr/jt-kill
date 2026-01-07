@@ -6,6 +6,7 @@ export interface CreateEpicInput {
   projectId: string;
   title: string;
   description?: string | null;
+  status?: 'OPEN' | 'CLOSED';
   isSystem?: boolean;
 }
 

@@ -6,6 +6,7 @@ export interface CreateFeatureInput {
   epicId: string;
   title: string;
   description?: string | null;
+  status?: 'BACKLOG' | 'TODO' | 'DOING' | 'DONE';
   isSystem?: boolean;
 }
 

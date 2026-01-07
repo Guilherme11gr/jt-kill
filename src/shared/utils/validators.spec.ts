@@ -5,6 +5,7 @@ import {
   projectKeySchema,
   paginationSchema,
   createTaskSchema,
+  updateTaskSchema,
   storyPointsSchema,
   safeParse,
 } from './validators';
@@ -92,7 +93,8 @@ describe('validators', () => {
   describe('createTaskSchema', () => {
     it('should validate valid task', () => {
       const input = {
-        featureId: '123e4567-e89b-12d3-a456-426614174000',
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+        featureId: '123e4567-e89b-12d3-a456-426614174001',
         title: 'Valid Task',
         type: 'TASK',
         priority: 'MEDIUM',
@@ -102,10 +104,104 @@ describe('validators', () => {
 
     it('should reject short title', () => {
       const input = {
-        featureId: '123e4567-e89b-12d3-a456-426614174000',
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+        featureId: '123e4567-e89b-12d3-a456-426614174001',
         title: 'No',
       };
       expect(createTaskSchema.safeParse(input).success).toBe(false);
+    });
+
+    it('should include status field and preserve custom values', () => {
+      // CRITICAL: This test ensures status is passed through to the backend
+      // When creating a task with status TODO, it should NOT default to BACKLOG
+      const input = {
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+        title: 'Bug with custom status',
+        type: 'BUG',
+        priority: 'CRITICAL',
+        status: 'TODO',
+      };
+      const result = createTaskSchema.safeParse(input);
+      
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.status).toBe('TODO');
+        expect(result.data.type).toBe('BUG');
+        expect(result.data.priority).toBe('CRITICAL');
+      }
+    });
+
+    it('should use default BACKLOG when status not provided', () => {
+      const input = {
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+        title: 'Task without explicit status',
+      };
+      const result = createTaskSchema.safeParse(input);
+      
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.status).toBe('BACKLOG');
+      }
+    });
+  });
+
+  describe('updateTaskSchema', () => {
+    it('should accept partial updates without applying defaults', () => {
+      // CRITICAL: This test ensures the Kanban drag-drop bug doesn't regress
+      // When moving a task, we only send { status: 'TODO' }
+      // The schema must NOT apply defaults for type/priority
+      const input = { status: 'TODO' };
+      const result = updateTaskSchema.safeParse(input);
+      
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toEqual({ status: 'TODO' });
+        // Explicitly verify no defaults were applied
+        expect(result.data.type).toBeUndefined();
+        expect(result.data.priority).toBeUndefined();
+      }
+    });
+
+    it('should preserve all fields when explicitly provided', () => {
+      const input = {
+        status: 'DOING',
+        type: 'BUG',
+        priority: 'CRITICAL',
+        title: 'Fix critical issue',
+      };
+      const result = updateTaskSchema.safeParse(input);
+      
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.status).toBe('DOING');
+        expect(result.data.type).toBe('BUG');
+        expect(result.data.priority).toBe('CRITICAL');
+        expect(result.data.title).toBe('Fix critical issue');
+      }
+    });
+
+    it('should allow updating only status (Kanban use case)', () => {
+      // Simulating what happens during Kanban drag-drop
+      const bugTaskUpdate = { status: 'REVIEW' as const };
+      const result = updateTaskSchema.safeParse(bugTaskUpdate);
+      
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Only status should be in the result, nothing else
+        expect(Object.keys(result.data)).toEqual(['status']);
+      }
+    });
+
+    it('should allow updating blocked status only', () => {
+      const input = { blocked: true };
+      const result = updateTaskSchema.safeParse(input);
+      
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.blocked).toBe(true);
+        expect(result.data.type).toBeUndefined();
+        expect(result.data.priority).toBeUndefined();
+      }
     });
   });
 

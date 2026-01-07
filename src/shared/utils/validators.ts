@@ -68,6 +68,7 @@ export const createTaskSchema = z.object({
   featureId: uuidSchema.nullable().optional(),
   title: z.string().min(3, 'Mínimo 3 caracteres').max(200, 'Máximo 200 caracteres'),
   description: z.string().max(10000).nullable().optional(),
+  status: taskStatusSchema.default('BACKLOG'),
   type: taskTypeSchema.default('TASK'),
   priority: taskPrioritySchema.default('MEDIUM'),
   points: storyPointsSchema.optional(),
@@ -76,7 +77,19 @@ export const createTaskSchema = z.object({
 });
 
 // Update task input validator
-export const updateTaskSchema = createTaskSchema.partial().extend({
+// IMPORTANTE: NÃO usar .partial() em createTaskSchema pois os defaults seriam aplicados
+// Ex: enviar { status: 'TODO' } resultaria em { type: 'TASK', priority: 'MEDIUM', status: 'TODO' }
+// Isso causaria sobrescrita indesejada de campos (bug crítico no Kanban drag-drop)
+export const updateTaskSchema = z.object({
+  title: z.string().min(3, 'Mínimo 3 caracteres').max(200, 'Máximo 200 caracteres').optional(),
+  description: z.string().max(10000).nullable().optional(),
+  type: taskTypeSchema.optional(),
+  priority: taskPrioritySchema.optional(),
+  points: storyPointsSchema.optional(),
+  modules: z.array(z.string().max(50)).max(10).optional(),
+  assigneeId: uuidSchema.nullable().optional(),
+  featureId: uuidSchema.nullable().optional(),
+  projectId: uuidSchema.optional(),
   status: taskStatusSchema.optional(),
   blocked: z.boolean().optional(),
 });

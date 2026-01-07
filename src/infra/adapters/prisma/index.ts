@@ -5,6 +5,7 @@ import { FeatureRepository } from './feature.repository';
 import { TaskRepository } from './task.repository';
 import { CommentRepository } from './comment.repository';
 import { ProjectDocRepository } from './project-doc.repository';
+import { ProjectNoteRepository } from './project-note.repository';
 import { UserProfileRepository } from './user-profile.repository';
 import { DocTagRepository } from './doc-tag.repository';
 
@@ -29,6 +30,7 @@ export const featureRepository = new FeatureRepository(prisma);
 export const taskRepository = new TaskRepository(prisma);
 export const commentRepository = new CommentRepository(prisma);
 export const projectDocRepository = new ProjectDocRepository(prisma);
+export const projectNoteRepository = new ProjectNoteRepository(prisma);
 export const userProfileRepository = new UserProfileRepository(prisma);
 export const docTagRepository = new DocTagRepository(prisma);
 
@@ -40,6 +42,7 @@ export {
   TaskRepository,
   CommentRepository,
   ProjectDocRepository,
+  ProjectNoteRepository,
   UserProfileRepository,
   DocTagRepository,
 };

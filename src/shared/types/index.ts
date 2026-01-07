@@ -13,6 +13,9 @@ export * from './comment.types';
 // Project Doc types
 export * from './project-doc.types';
 
+// Project Note types
+export * from './project-note.types';
+
 // User types
 export * from './user.types';
 

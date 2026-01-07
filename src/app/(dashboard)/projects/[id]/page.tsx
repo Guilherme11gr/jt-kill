@@ -10,12 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2, ArrowLeft, Layers, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Loader2, ArrowLeft, Layers, MoreHorizontal, Pencil, Trash2, Lightbulb } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useProject, useEpics } from "@/lib/query";
 import { useCreateEpic, useUpdateEpic, useDeleteEpic } from "@/lib/query/hooks/use-epics";
-import { ProjectDocsList } from "@/components/features/projects";
+import { ProjectDocsList, ProjectNotesList } from "@/components/features/projects";
 import { FileText } from "lucide-react";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { useTabQuery } from "@/hooks/use-tab-query";
@@ -51,7 +51,7 @@ export default function ProjectDetailPage({
   const saving = createEpicMutation.isPending || updateEpicMutation.isPending;
 
   // Tab State
-  const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "docs"]);
+  const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "docs", "ideas"]);
 
   // Create Epic State
   const [isEpicDialogOpen, setIsEpicDialogOpen] = useState(false);
@@ -211,6 +211,17 @@ export default function ProjectDetailPage({
         >
           <FileText className="w-4 h-4 inline mr-2" />
           Docs
+        </button>
+
+        <button
+          onClick={() => setActiveTab("ideas")}
+          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${activeTab === "ideas"
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
+            }`}
+        >
+          <Lightbulb className="w-4 h-4 inline mr-2" />
+          Ideias
         </button>
       </div>
 
@@ -487,6 +498,11 @@ export default function ProjectDetailPage({
       {/* Docs Tab */}
       {activeTab === "docs" && (
         <ProjectDocsList projectId={resolvedParams.id} />
+      )}
+
+      {/* Ideas Tab */}
+      {activeTab === "ideas" && (
+        <ProjectNotesList projectId={resolvedParams.id} />
       )}
     </div>
   );

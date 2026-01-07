@@ -17,6 +17,9 @@ export interface Task {
   assigneeId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  // Health check fields
+  blocked: boolean;
+  statusChangedAt: Date | null;
 }
 
 // Task with human-readable ID (for display)

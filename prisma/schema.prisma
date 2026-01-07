@@ -118,20 +118,24 @@ model DocTagAssignment {
 }
 
 model Epic {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String       @map("org_id") @db.Uuid
-  projectId    String       @map("project_id") @db.Uuid
-  title        String
-  description  String?
-  status       EpicStatus   @default(OPEN)
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  isSystem     Boolean      @default(false) @map("is_system")
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  features     Feature[]
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId          String       @map("org_id") @db.Uuid
+  projectId      String       @map("project_id") @db.Uuid
+  title          String
+  description    String?
+  status         EpicStatus   @default(OPEN)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isSystem       Boolean      @default(false) @map("is_system")
   aiSummary      String?      @map("ai_summary")
   lastAnalyzedAt DateTime?    @map("last_analyzed_at") @db.Timestamptz(6)
+  // Health check fields
+  risk           EpicRisk     @default(low)
+  riskUpdatedAt  DateTime     @default(now()) @map("risk_updated_at") @db.Timestamptz(6)
+  riskReason     String?      @map("risk_reason")
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  features       Feature[]
 
   @@index([orgId], map: "idx_epics_org")
   @@index([projectId], map: "idx_epics_project")
@@ -140,18 +144,22 @@ model Epic {
 }
 
 model Feature {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String        @map("org_id") @db.Uuid
-  epicId       String        @map("epic_id") @db.Uuid
-  title        String
-  description  String?
-  status       FeatureStatus @default(BACKLOG)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  isSystem     Boolean       @default(false) @map("is_system")
-  epic         Epic          @relation(fields: [epicId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tasks        Task[]
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId           String        @map("org_id") @db.Uuid
+  epicId          String        @map("epic_id") @db.Uuid
+  title           String
+  description     String?
+  status          FeatureStatus @default(BACKLOG)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isSystem        Boolean       @default(false) @map("is_system")
+  // Health check fields
+  health          FeatureHealth @default(healthy)
+  healthUpdatedAt DateTime      @default(now()) @map("health_updated_at") @db.Timestamptz(6)
+  healthReason    String?       @map("health_reason")
+  epic            Epic          @relation(fields: [epicId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tasks           Task[]
 
   @@index([epicId], map: "idx_features_epic")
   @@index([orgId], map: "idx_features_org")
@@ -165,18 +173,21 @@ model Task {
   orgId        String        @map("org_id") @db.Uuid
   projectId    String        @map("project_id") @db.Uuid
   featureId    String        @map("feature_id") @db.Uuid
-  localId      Int           @map("local_id")
-  title        String
-  description  String?
-  status       TaskStatus    @default(BACKLOG)
-  type         TaskType      @default(TASK)
-  priority     TaskPriority  @default(MEDIUM)
-  points       Int?
-  modules      String[]      @default([])
-  assigneeId   String?       @map("assignee_id") @db.Uuid
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  comments     Comment[]
+  localId         Int           @map("local_id")
+  title           String
+  description     String?
+  status          TaskStatus    @default(BACKLOG)
+  type            TaskType      @default(TASK)
+  priority        TaskPriority  @default(MEDIUM)
+  points          Int?
+  modules         String[]      @default([])
+  assigneeId      String?       @map("assignee_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // Health check fields
+  blocked         Boolean       @default(false)
+  statusChangedAt DateTime?     @map("status_changed_at") @db.Timestamptz(6)
+  comments        Comment[]
   pokerSession PokerSession?
   users        users?        @relation(fields: [assigneeId], references: [id], onUpdate: NoAction)
   feature      Feature       @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -717,6 +728,24 @@ enum PokerStatus {
   CLOSED
 
   @@map("poker_status")
+  @@schema("public")
+}
+
+enum FeatureHealth {
+  healthy
+  warning
+  critical
+
+  @@map("feature_health")
+  @@schema("public")
+}
+
+enum EpicRisk {
+  low
+  medium
+  high
+
+  @@map("epic_risk")
   @@schema("public")
 }
 

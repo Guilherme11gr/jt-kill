@@ -6,6 +6,10 @@ export type TaskType = 'TASK' | 'BUG';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type PokerStatus = 'VOTING' | 'REVEALED' | 'CLOSED';
 
+// Health check types
+export type FeatureHealth = 'healthy' | 'warning' | 'critical';
+export type EpicRisk = 'low' | 'medium' | 'high';
+
 // Fibonacci points
 export type StoryPoints = 0 | 1 | 2 | 3 | 5 | 8 | 13 | 21 | null;
 export type PokerVote = 0 | 1 | 2 | 3 | 5 | 8 | 13 | 21; // 0 = "?"
@@ -41,6 +45,10 @@ export interface Epic {
   status: EpicStatus;
   createdAt: Date;
   updatedAt: Date;
+  // Health check fields
+  risk: EpicRisk;
+  riskUpdatedAt: Date;
+  riskReason: string | null;
 }
 
 // Feature
@@ -53,4 +61,8 @@ export interface Feature {
   status: FeatureStatus;
   createdAt: Date;
   updatedAt: Date;
+  // Health check fields
+  health: FeatureHealth;
+  healthUpdatedAt: Date;
+  healthReason: string | null;
 }

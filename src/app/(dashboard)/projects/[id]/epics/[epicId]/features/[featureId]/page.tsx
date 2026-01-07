@@ -136,7 +136,9 @@ export default function FeatureDetailPage({
     featureId: editingTask.feature?.id || feature?.id || ""
   } : null;
 
-  if (loading) {
+  // Only show skeleton on initial load (no cached data yet)
+  // During refetch, keep UI mounted to preserve modal state
+  if (loading && !feature && tasks.length === 0) {
     return (
       <div className="space-y-6">
         <div className="mb-6 md:mb-8">

@@ -300,7 +300,9 @@ function TasksPageContent() {
     featureId: editingTask.feature.id
   } : null;
 
-  if (isLoading) {
+  // Only show skeleton on initial load (no cached data yet)
+  // During refetch (isFetching), keep UI mounted to preserve modal state
+  if (isLoading && tasks.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeaderSkeleton />

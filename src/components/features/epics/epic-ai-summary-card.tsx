@@ -1,8 +1,6 @@
-"use client";
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, RefreshCw, XCircle } from "lucide-react";
+import { Sparkles, RefreshCw, ChevronDown } from "lucide-react";
 import { MarkdownViewer } from "@/components/ui/markdown-viewer";
 import { toast } from "sonner";
 import { useGenerateEpicSummary } from "@/lib/query";
@@ -25,15 +23,18 @@ export function EpicAISummaryCard({
     const [analyzedAt, setAnalyzedAt] = useState<Date | null>(
         lastAnalyzedAt ? new Date(lastAnalyzedAt) : null
     );
+    const [isExpanded, setIsExpanded] = useState(true);
 
     const generateMutation = useGenerateEpicSummary();
     const isLoading = generateMutation.isPending;
 
-    const handleRefresh = async () => {
+    const handleRefresh = async (e: React.MouseEvent) => {
+        e.stopPropagation();
         try {
             const result = await generateMutation.mutateAsync({ epicId });
             setSummary(result.summary);
             setAnalyzedAt(new Date(result.lastAnalyzedAt));
+            if (!isExpanded) setIsExpanded(true); // Auto-expand when refreshing
             toast.success("Análise atualizada com sucesso!");
         } catch {
             toast.error("Falha ao atualizar a análise.");
@@ -71,8 +72,23 @@ export function EpicAISummaryCard({
     return (
         <div className="group relative rounded-lg border bg-gradient-to-b from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-900/50 shadow-sm transition-all hover:shadow-md">
             {/* Header / Info Status */}
-            <div className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-neutral-100 dark:border-neutral-800/50">
+            <div
+                className="flex items-center justify-between px-5 pt-4 pb-2 border-b border-transparent hover:bg-accent/5 cursor-pointer select-none"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 hover:bg-transparent"
+                    >
+                        <ChevronDown
+                            className={cn(
+                                "w-4 h-4 transition-transform duration-200",
+                                !isExpanded && "-rotate-90"
+                            )}
+                        />
+                    </Button>
                     <Sparkles className="w-4 h-4 text-violet-500" />
                     <span className="font-medium text-foreground">Executive Briefing</span>
                     <span className="text-xs text-muted-foreground/60">•</span>
@@ -88,7 +104,7 @@ export function EpicAISummaryCard({
                     size="sm"
                     onClick={handleRefresh}
                     disabled={isLoading}
-                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground z-10"
                     title="Atualizar análise"
                 >
                     <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
@@ -96,19 +112,21 @@ export function EpicAISummaryCard({
             </div>
 
             {/* Content */}
-            <div className="p-5">
-                {isLoading ? (
-                    <div className="space-y-4 animate-pulse">
-                        <div className="h-4 bg-muted rounded w-3/4" />
-                        <div className="h-4 bg-muted rounded w-1/2" />
-                        <div className="h-20 bg-muted/50 rounded w-full mt-4" />
-                    </div>
-                ) : (
-                    <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-headings:font-semibold prose-headings:text-foreground prose-p:leading-relaxed prose-strong:text-foreground">
-                        <MarkdownViewer value={summary || ""} />
-                    </div>
-                )}
-            </div>
+            {isExpanded && (
+                <div className="p-5 border-t border-neutral-100 dark:border-neutral-800/50 animate-in fade-in slide-in-from-top-1 duration-200">
+                    {isLoading ? (
+                        <div className="space-y-4 animate-pulse">
+                            <div className="h-4 bg-muted rounded w-3/4" />
+                            <div className="h-4 bg-muted rounded w-1/2" />
+                            <div className="h-20 bg-muted/50 rounded w-full mt-4" />
+                        </div>
+                    ) : (
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground prose-headings:font-semibold prose-headings:text-foreground prose-p:leading-relaxed prose-strong:text-foreground">
+                            <MarkdownViewer value={summary || ""} />
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

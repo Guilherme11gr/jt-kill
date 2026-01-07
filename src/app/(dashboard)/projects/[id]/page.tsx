@@ -75,6 +75,7 @@ export default function ProjectDetailPage({
         projectId: resolvedParams.id,
         title: epicFormData.title,
         description: epicFormData.description || undefined,
+        status: epicFormData.status,
       });
       setEpicFormData({ title: "", description: "", status: "OPEN" });
       setIsEpicDialogOpen(false);
@@ -105,6 +106,7 @@ export default function ProjectDetailPage({
         data: {
           title: epicFormData.title,
           description: epicFormData.description || undefined,
+          status: epicFormData.status,
         },
       });
       setIsEpicEditDialogOpen(false);

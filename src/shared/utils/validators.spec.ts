@@ -110,6 +110,39 @@ describe('validators', () => {
       };
       expect(createTaskSchema.safeParse(input).success).toBe(false);
     });
+
+    it('should include status field and preserve custom values', () => {
+      // CRITICAL: This test ensures status is passed through to the backend
+      // When creating a task with status TODO, it should NOT default to BACKLOG
+      const input = {
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+        title: 'Bug with custom status',
+        type: 'BUG',
+        priority: 'CRITICAL',
+        status: 'TODO',
+      };
+      const result = createTaskSchema.safeParse(input);
+      
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.status).toBe('TODO');
+        expect(result.data.type).toBe('BUG');
+        expect(result.data.priority).toBe('CRITICAL');
+      }
+    });
+
+    it('should use default BACKLOG when status not provided', () => {
+      const input = {
+        projectId: '123e4567-e89b-12d3-a456-426614174000',
+        title: 'Task without explicit status',
+      };
+      const result = createTaskSchema.safeParse(input);
+      
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.status).toBe('BACKLOG');
+      }
+    });
   });
 
   describe('updateTaskSchema', () => {

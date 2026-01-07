@@ -3,7 +3,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { toast } from "sonner";
-import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import { TaskCard, KanbanBoardSkeleton } from '@/components/features/tasks';
 import { KanbanColumn } from './kanban-column';

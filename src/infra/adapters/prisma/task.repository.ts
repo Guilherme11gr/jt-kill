@@ -16,6 +16,7 @@ export interface CreateTaskInput {
   featureId: string;
   title: string;
   description?: string | null;
+  status?: TaskStatus;
   type?: TaskType;
   priority?: TaskPriority;
   points?: StoryPoints;
@@ -86,6 +87,7 @@ export class TaskRepository {
         localId: await this.getNextLocalId(feature.epic.projectId),
         title: input.title,
         description: input.description,
+        status: input.status ?? 'BACKLOG',
         type: input.type ?? 'TASK',
         priority: input.priority ?? 'MEDIUM',
         points: input.points ?? null,

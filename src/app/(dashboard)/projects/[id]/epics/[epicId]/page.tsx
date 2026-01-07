@@ -108,6 +108,7 @@ export default function EpicDetailPage({
         epicId: resolvedParams.epicId,
         title: featureFormData.title,
         description: featureFormData.description || undefined,
+        status: featureFormData.status,
       });
       setFeatureFormData({ title: "", description: "", status: "BACKLOG" });
       setIsFeatureDialogOpen(false);

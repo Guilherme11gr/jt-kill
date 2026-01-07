@@ -68,6 +68,7 @@ export const createTaskSchema = z.object({
   featureId: uuidSchema.nullable().optional(),
   title: z.string().min(3, 'Mínimo 3 caracteres').max(200, 'Máximo 200 caracteres'),
   description: z.string().max(10000).nullable().optional(),
+  status: taskStatusSchema.default('BACKLOG'),
   type: taskTypeSchema.default('TASK'),
   priority: taskPrioritySchema.default('MEDIUM'),
   points: storyPointsSchema.optional(),

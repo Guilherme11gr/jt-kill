@@ -23,12 +23,15 @@ interface Epic {
 interface CreateEpicInput {
   title: string;
   description?: string;
+  status?: 'OPEN' | 'CLOSED';
   projectId: string;
 }
 
 interface UpdateEpicInput {
   id: string;
-  data: Partial<Omit<CreateEpicInput, 'projectId'>>;
+  data: Partial<Omit<CreateEpicInput, 'projectId'>> & {
+    status?: 'OPEN' | 'CLOSED';
+  };
 }
 
 
@@ -60,7 +63,11 @@ async function createEpic(data: CreateEpicInput): Promise<Epic> {
   const res = await fetch(`/api/projects/${data.projectId}/epics`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: data.title, description: data.description }),
+    body: JSON.stringify({ 
+      title: data.title, 
+      description: data.description,
+      status: data.status,
+    }),
   });
   if (!res.ok) throw new Error('Failed to create epic');
   const json = await res.json();

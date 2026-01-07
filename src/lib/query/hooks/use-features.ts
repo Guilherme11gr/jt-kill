@@ -37,6 +37,7 @@ interface Feature {
 interface CreateFeatureInput {
   title: string;
   description?: string;
+  status?: 'BACKLOG' | 'TODO' | 'DOING' | 'DONE';
   epicId: string;
 }
 
@@ -74,7 +75,11 @@ async function createFeature(data: CreateFeatureInput): Promise<Feature> {
   const res = await fetch(`/api/epics/${data.epicId}/features`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: data.title, description: data.description }),
+    body: JSON.stringify({ 
+      title: data.title, 
+      description: data.description,
+      status: data.status,
+    }),
   });
   if (!res.ok) throw new Error('Failed to create feature');
   const json = await res.json();

@@ -10,10 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Loader2, ArrowLeft, Layers, CheckSquare, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Plus, Loader2, ArrowLeft, Layers, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useProject, useEpics, useTasks } from "@/lib/query";
+import { useProject, useEpics } from "@/lib/query";
 import { useCreateEpic, useUpdateEpic, useDeleteEpic } from "@/lib/query/hooks/use-epics";
 import { ProjectDocsList } from "@/components/features/projects";
 import { FileText } from "lucide-react";
@@ -28,21 +28,7 @@ interface Epic {
   _count?: { features: number };
 }
 
-interface Task {
-  id: string;
-  title: string;
-  status: string;
-  type: string;
-  priority: string;
-  points: number | null;
-  readableId: string;
-  feature: {
-    title: string;
-    epic: {
-      title: string;
-    };
-  };
-}
+
 
 export default function ProjectDetailPage({
   params,
@@ -54,8 +40,7 @@ export default function ProjectDetailPage({
   // React Query hooks
   const { data: project, isLoading: projectLoading } = useProject(resolvedParams.id);
   const { data: epics = [], isLoading: epicsLoading } = useEpics(resolvedParams.id);
-  const { data: tasksData } = useTasks({ projectId: resolvedParams.id });
-  const tasks = (tasksData?.items ?? []) as Task[];
+
 
   // Mutations
   const createEpicMutation = useCreateEpic();
@@ -66,7 +51,7 @@ export default function ProjectDetailPage({
   const saving = createEpicMutation.isPending || updateEpicMutation.isPending;
 
   // Tab State
-  const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "tasks", "docs"]);
+  const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "docs"]);
 
   // Create Epic State
   const [isEpicDialogOpen, setIsEpicDialogOpen] = useState(false);
@@ -214,16 +199,7 @@ export default function ProjectDetailPage({
           <Layers className="w-4 h-4 inline mr-2" />
           Epics ({epics.length})
         </button>
-        <button
-          onClick={() => setActiveTab("tasks")}
-          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${activeTab === "tasks"
-            ? "text-primary border-b-2 border-primary"
-            : "text-muted-foreground hover:text-foreground"
-            }`}
-        >
-          <CheckSquare className="w-4 h-4 inline mr-2" />
-          Tasks ({tasks.length})
-        </button>
+
         <button
           onClick={() => setActiveTab("docs")}
           className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${activeTab === "docs"
@@ -505,78 +481,6 @@ export default function ProjectDetailPage({
         </DialogContent>
       </Dialog>
 
-      {/* Tasks Tab */}
-      {activeTab === "tasks" && (
-        <div>
-          <h2 className="text-xl font-semibold mb-6">Tasks</h2>
-          {tasks.length === 0 ? (
-            <EmptyState
-              icon={CheckSquare}
-              title="Nenhuma task ainda"
-              description="Tasks criadas dentro das epics aparecerão aqui globalmente."
-            />
-          ) : (
-            <div className="space-y-3">
-              {tasks.map((task) => (
-                <Card
-                  key={task.id}
-                  className="hover:border-primary transition-colors"
-                >
-                  <CardContent className="pt-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {task.readableId}
-                          </Badge>
-                          <Badge
-                            variant={task.type === "BUG" ? "destructive" : "outline-info"}
-                            className="text-xs"
-                          >
-                            {task.type}
-                          </Badge>
-                          <Badge
-                            variant={
-                              task.status === "DONE" ? "outline-success" :
-                                task.status === "DOING" ? "outline-info" :
-                                  task.status === "REVIEW" ? "outline-purple" :
-                                    "outline"
-                            }
-                            className="text-xs"
-                          >
-                            {task.status}
-                          </Badge>
-                          {task.points && (
-                            <Badge variant="secondary" className="text-xs">
-                              {task.points}pts
-                            </Badge>
-                          )}
-                        </div>
-                        <h4 className="font-medium mb-1">{task.title}</h4>
-                        <p className="text-xs text-muted-foreground">
-                          {task.feature.epic.title} → {task.feature.title}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          task.priority === "CRITICAL"
-                            ? "destructive"
-                            : task.priority === "HIGH"
-                              ? "outline-warning"
-                              : "outline"
-                        }
-                        className="text-xs"
-                      >
-                        {task.priority}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Docs Tab */}
       {activeTab === "docs" && (

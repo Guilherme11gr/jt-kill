@@ -1,7 +1,7 @@
 'use client';
 
 
-import { useState, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { toast } from "sonner";
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
@@ -28,21 +28,10 @@ export function KanbanBoard({
   onDelete,
   isLoading = false,
 }: KanbanBoardProps) {
-  // Local optimistic state
-  const [optimisticTasks, setOptimisticTasks] = useState<TaskWithReadableId[]>([]);
-  const [pendingMoves, setPendingMoves] = useState<Set<string>>(new Set());
+  // Group by status - optimistic updates are handled by useMoveTask hook
+  const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
 
-  // Merge server tasks with optimistic updates
-  const mergedTasks = useMemo(() => {
-    const taskMap = new Map(tasks.map((t) => [t.id, t]));
-    optimisticTasks.forEach((t) => taskMap.set(t.id, t));
-    return Array.from(taskMap.values());
-  }, [tasks, optimisticTasks]);
-
-  // Group by status
-  const tasksByStatus = useMemo(() => groupTasksByStatus(mergedTasks), [mergedTasks]);
-
-  // Handle drag end with optimistic update
+  // Handle drag end with validation
   const handleDragEnd = useCallback(
     async (taskId: string, newStatus: TaskStatus) => {
       const task = tasks.find((t) => t.id === taskId);
@@ -54,25 +43,12 @@ export function KanbanBoard({
         return;
       }
 
-      // Optimistic update
-      const optimisticTask = { ...task, status: newStatus };
-      setOptimisticTasks((prev) => [...prev.filter((t) => t.id !== taskId), optimisticTask]);
-      setPendingMoves((prev) => new Set(prev).add(taskId));
-
+      // Delegate to parent - optimistic updates handled by useMoveTask
       try {
         await onTaskMove(taskId, newStatus);
-        // Clear optimistic on success (server state will update)
-        setOptimisticTasks((prev) => prev.filter((t) => t.id !== taskId));
       } catch (error) {
-        // Rollback on error
-        setOptimisticTasks((prev) => prev.filter((t) => t.id !== taskId));
+        // Error handling done by useMoveTask
         console.error('Failed to move task:', error);
-      } finally {
-        setPendingMoves((prev) => {
-          const next = new Set(prev);
-          next.delete(taskId);
-          return next;
-        });
       }
     },
     [tasks, onTaskMove]
@@ -85,7 +61,7 @@ export function KanbanBoard({
     handleDragEnd: dndHandleDragEnd,
     collisionDetection,
   } = useDragDrop({
-    tasks: mergedTasks,
+    tasks,
     onDragEnd: handleDragEnd,
   });
 

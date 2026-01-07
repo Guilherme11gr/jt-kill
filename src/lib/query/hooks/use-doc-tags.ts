@@ -121,7 +121,17 @@ export function useCreateTag(projectId: string) {
 
     return useMutation({
         mutationFn: createTag,
-        onSuccess: () => {
+        onSuccess: (newTag) => {
+            // 1. Optimistic update: add to list immediately
+            queryClient.setQueryData<DocTag[]>(
+                queryKeys.docTags.list(projectId),
+                (old) => {
+                    if (!old) return [newTag];
+                    return [...old, newTag];
+                }
+            );
+
+            // 2. Invalidate for consistency
             queryClient.invalidateQueries({ queryKey: queryKeys.docTags.list(projectId) });
             toast.success('Tag criada');
         },
@@ -139,12 +149,38 @@ export function useDeleteTag(projectId: string) {
 
     return useMutation({
         mutationFn: deleteTag,
+        onMutate: async (deletedId) => {
+            // Cancel outgoing refetches
+            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.list(projectId) });
+
+            // Snapshot previous value
+            const previousTags = queryClient.getQueryData<DocTag[]>(
+                queryKeys.docTags.list(projectId)
+            );
+
+            // Optimistically remove
+            if (previousTags) {
+                queryClient.setQueryData<DocTag[]>(
+                    queryKeys.docTags.list(projectId),
+                    previousTags.filter((t) => t.id !== deletedId)
+                );
+            }
+
+            return { previousTags };
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: queryKeys.docTags.list(projectId) });
             queryClient.invalidateQueries({ queryKey: queryKeys.docTags.all });
             toast.success('Tag excluída');
         },
-        onError: () => {
+        onError: (_, __, context) => {
+            // Rollback on error
+            if (context?.previousTags) {
+                queryClient.setQueryData(
+                    queryKeys.docTags.list(projectId),
+                    context.previousTags
+                );
+            }
             toast.error('Erro ao excluir tag');
         },
     });

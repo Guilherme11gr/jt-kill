@@ -32,6 +32,7 @@ export interface UpdateTaskInput {
   points?: StoryPoints;
   modules?: string[];
   assigneeId?: string | null;
+  blocked?: boolean;
 }
 
 export class TaskRepository {
@@ -132,6 +133,8 @@ export class TaskRepository {
         featureId: true,
         createdAt: true,
         updatedAt: true,
+        blocked: true,
+        statusChangedAt: true,
         // Use direct project relation (1 JOIN instead of 3)
         project: {
           select: {

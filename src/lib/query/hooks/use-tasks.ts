@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 
 // ============ Types ============
 
-interface TasksResponse {
+export interface TasksResponse {
   items: TaskWithReadableId[];
   total: number;
   page: number;
@@ -42,6 +42,7 @@ interface UpdateTaskInput {
     modules: string[];
     featureId: string;
     assigneeId: string | null;
+    blocked: boolean;
   }>;
 }
 
@@ -159,9 +160,32 @@ export function useUpdateTask() {
 
   return useMutation({
     mutationFn: updateTask,
-    onSuccess: () => {
-      // Invalidate all task lists to refresh data
+    onSuccess: (updatedTask) => {
+      // 1. Optimistic update: update task in all lists immediately
+      queryClient.setQueriesData<TasksResponse>(
+        { queryKey: queryKeys.tasks.lists() },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((task) =>
+              task.id === updatedTask.id ? updatedTask : task
+            ),
+          };
+        }
+      );
+
+      // 2. Update feature detail if task belongs to a feature (for count updates)
+      if (updatedTask.featureId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.features.detail(updatedTask.featureId),
+        });
+      }
+
+      // 3. Invalidate all task lists to ensure consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+
+      toast.success('Task atualizada');
     },
     onError: (error) => {
       toast.error('Erro ao atualizar task');

@@ -11,6 +11,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { MarkdownViewer } from '@/components/ui/markdown-viewer';
 import {
   Bug,
@@ -24,13 +26,16 @@ import {
   Hash,
   Copy,
   Layout,
-  Tag
+  Tag,
+  Ban,
 } from 'lucide-react';
 import type { TaskWithReadableId } from '@/shared/types';
+import { cn } from '@/lib/utils';
 import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
 import { TaskComments } from './task-comments';
 import { UserAvatar } from '@/components/features/shared';
+import { useBlockTask } from '@/hooks/use-block-task';
 import { toast } from 'sonner';
 
 interface TaskDetailModalProps {
@@ -56,6 +61,10 @@ export function TaskDetailModal({
   onEdit,
   onDelete,
 }: TaskDetailModalProps) {
+  // 🔴 CRITICAL: Hooks devem ser chamados SEMPRE, mesmo se task for null
+  // Early return só deve acontecer após todos os hooks
+  const { toggleBlocked, isPending: isBlockPending } = useBlockTask(task?.id || '');
+
   const handleEdit = useCallback(() => {
     if (task && onEdit) {
       onEdit(task);
@@ -77,6 +86,11 @@ export function TaskDetailModal({
     }
   };
 
+  const handleBlockedChange = (checked: boolean) => {
+    toggleBlocked(checked);
+  };
+
+  // Early return APÓS todos os hooks (Rules of Hooks)
   if (!task) return null;
 
   const isBug = task.type === 'BUG';
@@ -171,6 +185,41 @@ export function TaskDetailModal({
               <UserAvatar userId={task.assigneeId || undefined} size="sm" />
               <span className="text-xs text-muted-foreground">{task.assigneeId ? 'Atribuído' : 'Sem responsável'}</span>
             </div>
+
+            {/* Blocked status - apenas se não estiver DONE */}
+            {task.status !== 'DONE' && (
+              <>
+                <Separator orientation="vertical" className="h-4" />
+                <div className="flex items-center gap-2 px-2.5 py-1 rounded-full border bg-background/50 shadow-sm">
+                  <Checkbox
+                    id="task-blocked"
+                    checked={task.blocked}
+                    disabled={isBlockPending}
+                    onCheckedChange={handleBlockedChange}
+                    className={cn(
+                      'h-4 w-4',
+                      task.blocked && 'border-red-500 data-[state=checked]:bg-red-500'
+                    )}
+                  />
+                  <Label
+                    htmlFor="task-blocked"
+                    className={cn(
+                      'text-xs font-medium cursor-pointer',
+                      task.blocked ? 'text-red-500' : 'text-muted-foreground'
+                    )}
+                  >
+                    {task.blocked ? (
+                      <span className="flex items-center gap-1">
+                        <Ban className="h-3 w-3" />
+                        Bloqueada
+                      </span>
+                    ) : (
+                      'Bloqueada'
+                    )}
+                  </Label>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

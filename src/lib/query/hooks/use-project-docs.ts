@@ -111,7 +111,17 @@ export function useCreateDoc() {
 
   return useMutation({
     mutationFn: createDoc,
-    onSuccess: (_, variables) => {
+    onSuccess: (newDoc, variables) => {
+      // 1. Optimistic update: add to list immediately
+      queryClient.setQueryData<ProjectDoc[]>(
+        queryKeys.projectDocs.list(variables.projectId),
+        (old) => {
+          if (!old) return [newDoc];
+          return [...old, newDoc];
+        }
+      );
+
+      // 2. Invalidate for consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.projectDocs.list(variables.projectId) });
       toast.success('Documento criado');
     },

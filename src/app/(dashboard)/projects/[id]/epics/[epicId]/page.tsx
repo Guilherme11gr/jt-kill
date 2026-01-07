@@ -18,6 +18,7 @@ import { AIImproveButton } from "@/components/ui/ai-improve-button";
 import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature, useImproveFeatureDescription } from "@/lib/query";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { toast } from "sonner";
+import type { FeatureHealth } from "@/shared/types/project.types";
 
 interface Feature {
   id: string;
@@ -26,9 +27,15 @@ interface Feature {
   status: string;
   _count?: { tasks: number };
   tasks?: Array<{ status: string; type: string }>;
+  // Health check fields
+  health?: FeatureHealth;
+  healthReason?: string | null;
+  healthUpdatedAt?: string | Date | null;
 }
 
 import { EpicAISummaryCard } from "@/components/features/epics/epic-ai-summary-card";
+import { EpicRiskBadge } from "@/components/features/epics";
+import { FeatureHealthBadge } from "@/components/features/features";
 import { StackedProgressBar } from "@/components/features/stacked-progress-bar";
 
 export default function EpicDetailPage({
@@ -203,6 +210,13 @@ export default function EpicDetailPage({
               <Badge variant="secondary">
                 {epic.status}
               </Badge>
+              {epic.risk && (
+                <EpicRiskBadge
+                  risk={epic.risk}
+                  riskReason={epic.riskReason}
+                  riskUpdatedAt={epic.riskUpdatedAt}
+                />
+              )}
             </div>
             <h1 className="text-3xl font-bold tracking-tight mb-2">
               {epic.title}
@@ -362,6 +376,13 @@ export default function EpicDetailPage({
                         >
                           {feature.status}
                         </Badge>
+                        {feature.health && (
+                          <FeatureHealthBadge
+                            health={feature.health}
+                            healthReason={feature.healthReason}
+                            healthUpdatedAt={feature.healthUpdatedAt}
+                          />
+                        )}
                       </div>
                       <CardTitle className="text-lg pr-8">
                         {feature.title}

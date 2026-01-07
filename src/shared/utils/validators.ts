@@ -78,6 +78,7 @@ export const createTaskSchema = z.object({
 // Update task input validator
 export const updateTaskSchema = createTaskSchema.partial().extend({
   status: taskStatusSchema.optional(),
+  blocked: z.boolean().optional(),
 });
 
 // Create comment validator

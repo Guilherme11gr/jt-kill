@@ -77,7 +77,17 @@ export function useUpdateProfile() {
 
   return useMutation({
     mutationFn: updateProfile,
-    onSuccess: () => {
+    onSuccess: (updatedUser) => {
+      // 1. Optimistic update: update current user immediately
+      queryClient.setQueryData<User>(queryKeys.users.current(), updatedUser);
+
+      // 2. Update in users list
+      queryClient.setQueryData<User[]>(queryKeys.users.list(), (old) => {
+        if (!old) return old;
+        return old.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+      });
+
+      // 3. Invalidate for consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.users.current() });
       queryClient.invalidateQueries({ queryKey: queryKeys.users.list() });
       toast.success('Perfil atualizado');

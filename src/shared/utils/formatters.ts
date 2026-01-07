@@ -65,6 +65,12 @@ export function formatDate(
  */
 export function formatRelativeTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
+  
+  // Validação de Invalid Date
+  if (isNaN(d.getTime())) {
+    return 'Data inválida';
+  }
+  
   return formatDistanceToNow(d, { addSuffix: true, locale: ptBR });
 }
 

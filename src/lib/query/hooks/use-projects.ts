@@ -14,14 +14,7 @@ interface Project {
   _count?: { epics: number; tasks: number };
 }
 
-interface Epic {
-  id: string;
-  title: string;
-  description?: string | null;
-  status: string;
-  projectId: string;
-  _count?: { features: number };
-}
+
 
 
 interface CreateProjectInput {
@@ -176,7 +169,20 @@ export function useUpdateProject() {
 
   return useMutation({
     mutationFn: updateProject,
-    onSuccess: () => {
+    onSuccess: (updatedProject, variables) => {
+      // 1. Optimistic update: update the specific project in cache
+      queryClient.setQueryData<Project>(
+        queryKeys.projects.detail(variables.id),
+        updatedProject
+      );
+
+      // 2. Update in list immediately
+      queryClient.setQueryData<Project[]>(queryKeys.projects.list(), (old) => {
+        if (!old) return old;
+        return old.map((p) => (p.id === variables.id ? updatedProject : p));
+      });
+
+      // 3. Invalidate for consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
       toast.success('Projeto atualizado');
     },

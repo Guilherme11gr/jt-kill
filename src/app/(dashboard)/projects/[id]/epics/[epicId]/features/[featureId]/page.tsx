@@ -18,6 +18,7 @@ import { ExpandableMarkdown } from "@/components/ui/expandable-markdown";
 
 import type { TaskWithReadableId, TaskStatus } from "@/shared/types";
 import { useFeature, useTasks, useProject, useMoveTask, useDeleteTask, useModules } from "@/lib/query";
+import { FeatureHealthBadge } from "@/components/features/features";
 
 export default function FeatureDetailPage({
   params,
@@ -185,6 +186,13 @@ export default function FeatureDetailPage({
             <div className="flex items-center gap-3 mb-2">
               <Badge variant="outline">FEATURE</Badge>
               <Badge variant="secondary">{feature.status}</Badge>
+              {feature.health && (
+                <FeatureHealthBadge
+                  health={feature.health}
+                  healthReason={feature.healthReason}
+                  healthUpdatedAt={feature.healthUpdatedAt}
+                />
+              )}
             </div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-2">
               {feature.title}

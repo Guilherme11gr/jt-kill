@@ -1,12 +1,20 @@
 'use client';
 
+import { useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Bug } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Bug, Ban } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
+import { useBlockTask } from '@/hooks/use-block-task';
 import type { TaskWithReadableId } from '@/shared/types';
 
 // Generate consistent colors for modules based on hash
@@ -50,6 +58,15 @@ export function TaskCard({
   className,
 }: TaskCardProps) {
   const isBug = task.type === 'BUG';
+  const { toggleBlocked, isPending } = useBlockTask(task.id);
+
+  const handleBlockedChange = useCallback((checked: boolean) => {
+    toggleBlocked(checked);
+  }, [toggleBlocked]);
+
+  const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation(); // Previne abertura do modal
+  }, []);
 
   return (
     <Card
@@ -58,6 +75,7 @@ export function TaskCard({
         'p-4 cursor-pointer transition-all duration-200',
         'hover:bg-accent/50 hover:border-primary/30',
         isBug && 'border-l-2 border-l-red-500',
+        task.blocked && 'border-red-500/50 bg-red-500/5',
         isDragging && 'rotate-2 scale-[1.02] shadow-lg opacity-90',
         className
       )}
@@ -96,7 +114,7 @@ export function TaskCard({
         {task.title}
       </h4>
 
-      {/* Footer: Avatar + Points + Bug */}
+      {/* Footer: Avatar + Points + Bug + Blocked */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {task.assigneeId && (
@@ -117,6 +135,36 @@ export function TaskCard({
           )}
           {isBug && (
             <Bug className="w-3.5 h-3.5 text-red-500" />
+          )}
+          {/* Blocked toggle - apenas se não estiver DONE */}
+          {task.status !== 'DONE' && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div
+                  onClick={handleCheckboxClick}
+                  className="flex items-center gap-1 cursor-pointer"
+                >
+                  <Checkbox
+                    checked={task.blocked}
+                    disabled={isPending}
+                    onCheckedChange={handleBlockedChange}
+                    aria-label="Marcar task como bloqueada"
+                    className={cn(
+                      'h-3.5 w-3.5',
+                      task.blocked && 'border-red-500 data-[state=checked]:bg-red-500'
+                    )}
+                  />
+                  {task.blocked && (
+                    <Ban className="w-3 h-3 text-red-500" />
+                  )}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  {task.blocked ? 'Task bloqueada' : 'Marcar como bloqueada'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </div>

@@ -116,7 +116,17 @@ export function useUpdateComment(taskId: string) {
 
   return useMutation({
     mutationFn: updateComment,
-    onSuccess: () => {
+    onSuccess: (updatedComment) => {
+      // 1. Optimistic update: update in list immediately
+      queryClient.setQueryData<Comment[]>(
+        queryKeys.comments.list(taskId),
+        (old) => {
+          if (!old) return old;
+          return old.map((c) => (c.id === updatedComment.id ? updatedComment : c));
+        }
+      );
+
+      // 2. Invalidate for consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(taskId) });
       toast.success('Comentário atualizado');
     },
@@ -134,11 +144,37 @@ export function useDeleteComment(taskId: string) {
 
   return useMutation({
     mutationFn: deleteComment,
+    onMutate: async (deletedId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.comments.list(taskId) });
+
+      // Snapshot previous value
+      const previousComments = queryClient.getQueryData<Comment[]>(
+        queryKeys.comments.list(taskId)
+      );
+
+      // Optimistically remove
+      if (previousComments) {
+        queryClient.setQueryData<Comment[]>(
+          queryKeys.comments.list(taskId),
+          previousComments.filter((c) => c.id !== deletedId)
+        );
+      }
+
+      return { previousComments };
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(taskId) });
       toast.success('Comentário excluído');
     },
-    onError: () => {
+    onError: (_, __, context) => {
+      // Rollback on error
+      if (context?.previousComments) {
+        queryClient.setQueryData(
+          queryKeys.comments.list(taskId),
+          context.previousComments
+        );
+      }
       toast.error('Erro ao excluir comentário');
     },
   });

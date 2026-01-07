@@ -11,6 +11,7 @@ export interface UpdateTaskInput {
   points?: StoryPoints | null;
   modules?: string[];
   assigneeId?: string | null;
+  blocked?: boolean;
 }
 
 export interface UpdateTaskDeps {

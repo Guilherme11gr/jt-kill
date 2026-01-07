@@ -14,6 +14,10 @@ interface Epic {
   _count?: { features: number };
   aiSummary?: string | null;
   lastAnalyzedAt?: string | null;
+  // Health check fields
+  risk?: 'low' | 'medium' | 'high';
+  riskReason?: string | null;
+  riskUpdatedAt?: string | null;
 }
 
 interface CreateEpicInput {

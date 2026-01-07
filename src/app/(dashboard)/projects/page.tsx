@@ -136,7 +136,9 @@ export default function ProjectsPage() {
   // Derived state for saving indicator
   const saving = createProjectMutation.isPending || updateProjectMutation.isPending;
 
-  if (loading) {
+  // Only show skeleton on initial load (no cached data yet)
+  // During refetch, keep UI mounted to preserve modal state
+  if (loading && projects.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeaderSkeleton />

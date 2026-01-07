@@ -151,21 +151,35 @@ export class CommentRepository {
 
   /**
    * Update comment content
+   * Uses updateMany for tenant isolation (defense in depth)
    */
   async update(id: string, orgId: string, content: string): Promise<Comment> {
-    return this.prisma.comment.update({
-      where: { id },
+    const result = await this.prisma.comment.updateMany({
+      where: { id, orgId },
       data: { content },
     });
+    if (result.count === 0) {
+      throw new Error('Comment not found');
+    }
+    // Fetch updated record to return
+    const updated = await this.findById(id, orgId);
+    if (!updated) {
+      throw new Error('Comment not found after update');
+    }
+    return updated;
   }
 
   /**
    * Delete a comment
+   * Uses deleteMany for tenant isolation
    */
   async delete(id: string, orgId: string): Promise<void> {
-    await this.prisma.comment.delete({
-      where: { id },
+    const result = await this.prisma.comment.deleteMany({
+      where: { id, orgId },
     });
+    if (result.count === 0) {
+      throw new Error('Comment not found');
+    }
   }
 
   /**

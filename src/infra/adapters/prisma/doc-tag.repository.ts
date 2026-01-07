@@ -83,16 +83,15 @@ export class DocTagRepository {
 
     /**
      * Delete a tag (assignments cascade automatically)
+     * Uses deleteMany for atomic tenant-safe deletion
      */
     async delete(id: string, orgId: string): Promise<void> {
-        const existing = await this.findById(id, orgId);
-        if (!existing) {
+        const result = await this.prisma.docTag.deleteMany({
+            where: { id, orgId },
+        });
+        if (result.count === 0) {
             throw new Error('DocTag not found');
         }
-
-        await this.prisma.docTag.delete({
-            where: { id },
-        });
     }
 
     /**

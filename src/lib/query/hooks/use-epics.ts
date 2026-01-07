@@ -42,23 +42,11 @@ async function fetchEpic(id: string): Promise<Epic> {
 }
 
 async function fetchAllEpics(): Promise<Epic[]> {
-  // Fetch all epics by getting them from all projects
-  const projectsRes = await fetch('/api/projects');
-  if (!projectsRes.ok) throw new Error('Failed to fetch projects');
-  const projectsJson = await projectsRes.json();
-  const projects = projectsJson.data || [];
-
-  const epicsPromises = projects.map(async (p: { id: string }) => {
-    const res = await fetch(`/api/projects/${p.id}/epics`);
-    if (res.ok) {
-      const json = await res.json();
-      return (json.data || []).map((e: Epic) => ({ ...e, projectId: p.id }));
-    }
-    return [];
-  });
-
-  const epicsArrays = await Promise.all(epicsPromises);
-  return epicsArrays.flat();
+  // Single query - no N+1
+  const res = await fetch('/api/epics');
+  if (!res.ok) throw new Error('Failed to fetch epics');
+  const json = await res.json();
+  return json.data || [];
 }
 
 async function fetchEpics(projectId: string): Promise<Epic[]> {

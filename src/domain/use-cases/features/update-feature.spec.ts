@@ -22,7 +22,7 @@ describe('updateFeature', () => {
     const orgId = 'org-1';
     const input = {
       title: 'Updated Feature',
-      status: 'IN_PROGRESS' as const,
+      status: 'DOING' as const,
     };
 
     const existingFeature: Feature = {
@@ -30,9 +30,13 @@ describe('updateFeature', () => {
       orgId,
       epicId: 'epic-1',
       title: 'Old Feature',
-      status: 'OPEN',
+      description: null,
+      status: 'BACKLOG',
       createdAt: new Date(),
       updatedAt: new Date(),
+      health: 'healthy',
+      healthUpdatedAt: new Date(),
+      healthReason: null,
     };
 
     const updatedFeature: Feature = {

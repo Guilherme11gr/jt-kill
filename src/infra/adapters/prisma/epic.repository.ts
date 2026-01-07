@@ -38,6 +38,25 @@ export class EpicRepository {
   }
 
   /**
+   * Find ALL epics in organization (single query, no N+1)
+   * Used by /api/epics endpoint for dropdowns
+   */
+  async findAllByOrg(orgId: string): Promise<Epic[]> {
+    return await this.prisma.epic.findMany({
+      where: { orgId },
+      include: {
+        project: {
+          select: { id: true, name: true, key: true },
+        },
+        _count: {
+          select: { features: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
    * Find epic by ID with relations (for detail view)
    */
   async findById(id: string, orgId: string): Promise<Epic | null> {

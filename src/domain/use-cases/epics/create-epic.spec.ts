@@ -33,6 +33,9 @@ describe('createEpic', () => {
       status: 'OPEN',
       createdAt: new Date(),
       updatedAt: new Date(),
+      risk: 'low',
+      riskUpdatedAt: new Date(),
+      riskReason: null,
     };
 
     vi.mocked(mockRepo.create).mockResolvedValue(expectedEpic);

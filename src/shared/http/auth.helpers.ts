@@ -2,11 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthenticatedTenant } from '@/shared/types';
 import { UnauthorizedError, ForbiddenError } from '@/shared/errors';
 
-// Mock para desenvolvimento - TODO: Remover antes de produção
-const DEV_MOCK_AUTH = process.env.DEV_MOCK_AUTH === 'true';
-const MOCK_USER_ID = '00000000-0000-0000-0000-000000000001';
-const MOCK_TENANT_ID = '00000000-0000-0000-0000-000000000001';
-
 /**
  * Extract authenticated user and tenant from Supabase session.
  * Use this in ALL protected API routes.
@@ -17,15 +12,6 @@ const MOCK_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 export async function extractAuthenticatedTenant(
   supabase: SupabaseClient
 ): Promise<AuthenticatedTenant> {
-  // DEV: Mock auth bypass para testes locais
-  if (DEV_MOCK_AUTH) {
-    console.warn('[DEV] Using mock auth - DO NOT USE IN PRODUCTION');
-    return {
-      userId: MOCK_USER_ID,
-      tenantId: MOCK_TENANT_ID,
-    };
-  }
-
   // 1. Get current user
   const {
     data: { user },
@@ -85,11 +71,6 @@ export async function requireRole(
  * @throws UnauthorizedError if not authenticated
  */
 export async function extractUserId(supabase: SupabaseClient): Promise<string> {
-  // DEV: Mock auth bypass para testes locais
-  if (DEV_MOCK_AUTH) {
-    return MOCK_USER_ID;
-  }
-
   const {
     data: { user },
     error: authError,
@@ -101,4 +82,3 @@ export async function extractUserId(supabase: SupabaseClient): Promise<string> {
 
   return user.id;
 }
-

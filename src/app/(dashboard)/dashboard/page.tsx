@@ -14,11 +14,13 @@ import {
   ArrowRight,
   Target,
   Inbox,
+  Coffee,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import { useTasks } from '@/lib/query';
 import { PageHeaderSkeleton, CardsSkeleton, SingleColumnSkeleton } from '@/components/layout/page-skeleton';
+import { useAuth } from '@/hooks/use-auth';
 
 // Priority order for status (lower = higher priority)
 const statusPriority: Record<TaskStatus, number> = {
@@ -122,7 +124,7 @@ function ProjectSection({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <Link 
+        <Link
           href={`/projects/${projectId}`}
           className="flex items-center gap-2 hover:opacity-80 transition-opacity group"
         >
@@ -163,6 +165,7 @@ function ProjectSection({
 export default function DashboardPage() {
   // Use React Query for shared cache with Kanban
   const { data, isLoading, error, refetch, isFetching } = useTasks();
+  const { profile } = useAuth();
 
   // Filter out DONE tasks for "My Focus" view
   const tasks = useMemo((): TaskWithReadableId[] => {
@@ -227,8 +230,17 @@ export default function DashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Target className="h-8 w-8 text-primary" />
-            My Focus
+            {profile?.displayName ? (
+              <>
+                <Coffee className="h-8 w-8 text-primary" />
+                Bem-vindo de volta, {profile.displayName}!
+              </>
+            ) : (
+              <>
+                <Target className="h-8 w-8 text-primary" />
+                My Focus
+              </>
+            )}
           </h1>
           <p className="text-muted-foreground">
             Suas tarefas ativas, organizadas por prioridade

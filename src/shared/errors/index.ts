@@ -49,6 +49,13 @@ export class ValidationError extends DomainError {
   }
 }
 
+export class BadRequestError extends DomainError {
+  constructor(message: string) {
+    super(message, 'BAD_REQUEST', 400);
+    this.name = 'BadRequestError';
+  }
+}
+
 export class ConflictError extends DomainError {
   constructor(message: string) {
     super(message, 'CONFLICT', 409);
@@ -86,7 +93,7 @@ export function handleError(error: unknown): {
   if (error && typeof error === 'object' && 'issues' in error) {
     const zodError = error as { issues: Array<{ path: string[]; message: string }> };
     const details: Record<string, string[]> = {};
-    
+
     for (const issue of zodError.issues) {
       const path = issue.path.join('.');
       if (!details[path]) details[path] = [];
@@ -107,7 +114,7 @@ export function handleError(error: unknown): {
 
   // Unknown errors - log and return generic message
   console.error('Unexpected error:', error);
-  
+
   return {
     status: 500,
     body: {

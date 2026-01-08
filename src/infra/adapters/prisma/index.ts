@@ -8,6 +8,8 @@ import { ProjectDocRepository } from './project-doc.repository';
 import { ProjectNoteRepository } from './project-note.repository';
 import { UserProfileRepository } from './user-profile.repository';
 import { DocTagRepository } from './doc-tag.repository';
+import { InviteRepository } from './invite.repository';
+import { AuditLogRepository } from './audit-log.repository';
 
 // Singleton Prisma Client
 // https://www.prisma.io/docs/guides/performance-and-optimization/connection-management#prismaclient-in-long-running-applications
@@ -33,6 +35,8 @@ export const projectDocRepository = new ProjectDocRepository(prisma);
 export const projectNoteRepository = new ProjectNoteRepository(prisma);
 export const userProfileRepository = new UserProfileRepository(prisma);
 export const docTagRepository = new DocTagRepository(prisma);
+export const inviteRepository = new InviteRepository(prisma);
+export const auditLogRepository = new AuditLogRepository(prisma);
 
 // Re-export for convenience
 export {
@@ -45,4 +49,9 @@ export {
   ProjectNoteRepository,
   UserProfileRepository,
   DocTagRepository,
+  InviteRepository,
+  AuditLogRepository,
 };
+
+// Re-export audit action constants
+export { AUDIT_ACTIONS, type AuditAction } from './audit-log.repository';

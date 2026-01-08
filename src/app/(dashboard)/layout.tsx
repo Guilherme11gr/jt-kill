@@ -10,6 +10,7 @@ import {
   LogOut,
   Zap,
   Menu,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ export default function DashboardLayout({
     { icon: FolderKanban, label: "Projetos", href: "/projects" },
     { icon: CheckSquare, label: "Minhas Tasks", href: "/tasks" },
     { icon: Zap, label: "AI Scribe", href: "/scribe" },
+    { icon: Users, label: "Equipe", href: "/settings/team" },
     { icon: Settings, label: "Configurações", href: "/settings" },
   ];
 

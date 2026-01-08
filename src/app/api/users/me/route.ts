@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
 
     return jsonSuccess({
       id: user.id,
+      orgId: tenantId,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
       role: user.role,

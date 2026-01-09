@@ -30,6 +30,7 @@ O sistema de IA do Jira Killer é projetado para **augmentar** a produtividade d
 | Gerar Descrição de Task | ✅ Implementado | Cria descrição com base no título e contexto |
 | Sugerir Tasks de Feature | ✅ Implementado | Sugere 3-8 tasks com base na descrição da Feature |
 | Melhorar Descrição de Feature | ✅ Implementado | Gera/melhora descrição estruturada de Features |
+| Refinar Texto | ✅ Implementado | Melhora escrita, gramática e markdown de qualquer texto |
 | Contexto de Docs do Projeto | ✅ Implementado | Inclui documentação do projeto como contexto para IA |
 | Resumir Epic | 🔜 Planejado | Cria resumo executivo de um Epic |
 
@@ -193,7 +194,32 @@ Use cases orquestram o fluxo completo: contexto → prompt → AI → resultado.
 | `suggestTasksForFeature` | Feature + Epic? + ProjectDocs? | `SuggestedTask[]` | Sugere tasks filhas |
 
 ---
+## 🔀 Diferenças Entre Features de IA
 
+### Improve Description vs Refine Text
+
+| Aspecto | **Improve Description** | **Refine Text** |
+|---------|------------------------|-----------------|
+| **Objetivo** | Gerar descrição completa usando contexto rico | Melhorar escrita do texto existente |
+| **Input** | taskId (busca contexto automaticamente) | Apenas o texto bruto |
+| **Contexto** | Feature, Project Docs, Task atual | Nenhum (ou contexto minimal) |
+| **Output** | Nova descrição estruturada | Versão refinada do texto original |
+| **Temperatura** | 0.7 (criativo) | 0.3 (conservador) |
+| **Uso** | Gerar descrição detalhada | Polir texto rapidamente |
+| **Adiciona Info?** | ✅ Sim (baseado em contexto) | ❌ Não (só melhora existente) |
+
+**Quando usar Improve?**
+- Task nova sem descrição
+- Descrição muito curta que precisa de contexto
+- Quer aproveitar docs do projeto
+
+**Quando usar Refine?**
+- Já tem texto bom, só quer polir
+- Corrigir gramática/markdown
+- Não quer adicionar info nova
+- Resposta rápida (menos tokens)
+
+---
 ## 🌐 API Endpoints
 
 ### `POST /api/ai/improve-description`
@@ -252,6 +278,50 @@ Analisa uma Feature e sugere tasks filhas.
   }
 }
 ```
+
+---
+
+### `POST /api/ai/improve-feature-description`
+
+Melhora/gera descrição de uma Feature.
+
+```json
+// Request
+{ "featureId": "uuid", "includeProjectDocs": true }
+
+// Response
+{ "data": { "description": "...", "featureId": "uuid" } }
+```
+
+---
+
+### `POST /api/ai/refine-text`
+
+**Nova Feature** - Refina texto existente (gramática, markdown, clareza).
+
+```json
+// Request
+{
+  "text": "implementar login com email e senha validar campos",
+  "context": "descrição de task" // opcional
+}
+
+// Response
+{
+  "data": {
+    "refinedText": "Implementar autenticação por email e senha:\n\n- Validar formato de email\n- Validar senha (mínimo 8 caracteres)\n- Exibir mensagens de erro\n- Redirecionar após sucesso",
+    "originalLength": 52,
+    "refinedLength": 178
+  }
+}
+```
+
+**Diferenças vs `/improve-description`:**
+- ❌ Não busca contexto (Feature, Docs)
+- ❌ Não adiciona informações novas
+- ✅ Apenas melhora o que já existe
+- ✅ Mais rápido (menos tokens)
+- ✅ Temperatura baixa (0.3 vs 0.7)
 
 ---
 

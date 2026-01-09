@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useCallback, use } from "react";
+import { useState, useCallback, use, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { AIImproveButton } from "@/components/ui/ai-improve-button";
 import { Plus, Loader2, ArrowLeft, Layers, MoreHorizontal, Pencil, Trash2, Lightbulb } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -19,6 +20,7 @@ import { ProjectDocsList, ProjectNotesList } from "@/components/features/project
 import { FileText } from "lucide-react";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { useTabQuery } from "@/hooks/use-tab-query";
+import { toast } from "sonner";
 
 interface Epic {
   id: string;
@@ -50,6 +52,9 @@ export default function ProjectDetailPage({
   const loading = projectLoading || epicsLoading;
   const saving = createEpicMutation.isPending || updateEpicMutation.isPending;
 
+  // AI State
+  const [isRefiningDescription, setIsRefiningDescription] = useState(false);
+
   // Tab State
   const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "docs", "ideas"]);
 
@@ -67,6 +72,68 @@ export default function ProjectDetailPage({
 
   // Delete Epic State
   const [epicToDelete, setEpicToDelete] = useState<Epic | null>(null);
+
+  // AI handler for refining description
+  const isRefiningRef = useRef(false);
+  
+  const handleRefineDescription = useCallback(async () => {
+    // Prevent double-clicks with ref (fixes race condition)
+    if (isRefiningRef.current) return;
+
+    if (!epicFormData.description?.trim()) {
+      toast.error('Adicione uma descrição primeiro');
+      return;
+    }
+
+    isRefiningRef.current = true;
+    setIsRefiningDescription(true);
+
+    // Timeout controller to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+    try {
+      const response = await fetch('/api/ai/refine-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: epicFormData.description,
+          context: 'descrição de epic',
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Erro ao refinar texto');
+      }
+
+      const result = await response.json();
+      setEpicFormData(prev => ({ ...prev, description: result.data.refinedText }));
+      
+      toast.success('Descrição refinada', {
+        description: `${result.data.originalLength} → ${result.data.refinedLength} caracteres`,
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('[AI] Refine error:', error);
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('Tempo esgotado', {
+          description: 'A requisição demorou muito. Tente novamente.',
+        });
+      } else {
+        toast.error('Erro ao refinar', {
+          description: error instanceof Error ? error.message : 'Erro desconhecido',
+        });
+      }
+    } finally {
+      isRefiningRef.current = false;
+      setIsRefiningDescription(false);
+    }
+  }, [epicFormData.description]);
 
   const handleCreateEpic = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,14 +327,24 @@ export default function ProjectDetailPage({
                     />
                   </div>
                   <div>
-                    <Label htmlFor="epic-description">Descrição</Label>
-                    <Textarea
+                    <div className="flex items-center justify-between mb-1">
+                      <Label htmlFor="epic-description">Descrição</Label>
+                      <AIImproveButton
+                        onClick={handleRefineDescription}
+                        isLoading={isRefiningDescription}
+                        disabled={!epicFormData.description?.trim()}
+                        label={isRefiningDescription ? 'Refinando...' : 'Refinar'}
+                        title="Refinar descrição com IA (gramática, markdown, clareza)"
+                      />
+                    </div>
+                    <MarkdownEditor
                       id="epic-description"
                       value={epicFormData.description}
-                      onChange={(e) =>
-                        setEpicFormData({ ...epicFormData, description: e.target.value })
+                      onChange={(v) =>
+                        setEpicFormData({ ...epicFormData, description: v })
                       }
-                      placeholder="Descrição da epic..."
+                      placeholder="Descrição da epic...&#10;&#10;## Objetivo&#10;Descreva o objetivo geral&#10;&#10;## Escopo&#10;- [ ] Item 1"
+                      minHeight="200px"
                     />
                   </div>
                   <div>
@@ -414,14 +491,24 @@ export default function ProjectDetailPage({
               />
             </div>
             <div>
-              <Label htmlFor="edit-epic-description">Descrição</Label>
-              <Textarea
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="edit-epic-description">Descrição</Label>
+                <AIImproveButton
+                  onClick={handleRefineDescription}
+                  isLoading={isRefiningDescription}
+                  disabled={!epicFormData.description?.trim()}
+                  label={isRefiningDescription ? 'Refinando...' : 'Refinar'}
+                  title="Refinar descrição com IA (gramática, markdown, clareza)"
+                />
+              </div>
+              <MarkdownEditor
                 id="edit-epic-description"
                 value={epicFormData.description}
-                onChange={(e) =>
-                  setEpicFormData({ ...epicFormData, description: e.target.value })
+                onChange={(v) =>
+                  setEpicFormData({ ...epicFormData, description: v })
                 }
-                placeholder="Descrição da epic..."
+                placeholder="Descrição da epic...&#10;&#10;## Objetivo&#10;Descreva o objetivo geral&#10;&#10;## Escopo&#10;- [ ] Item 1"
+                minHeight="200px"
               />
             </div>
             <div>

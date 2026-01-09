@@ -96,6 +96,7 @@ model Project {
   key          String
   description  String?
   modules      String[]     @default([])
+  createdBy    String?      @map("created_by") @db.Uuid
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   docTags      DocTag[]
@@ -103,10 +104,12 @@ model Project {
   projectDocs  ProjectDoc[]
   projectNotes ProjectNote[]
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator      users?       @relation("ProjectCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   tasks        Task[]
 
   @@unique([orgId, key])
   @@index([orgId], map: "idx_projects_org")
+  @@index([createdBy], map: "idx_projects_created_by")
   @@map("projects")
   @@schema("public")
 }
@@ -117,10 +120,12 @@ model ProjectDoc {
   projectId    String             @map("project_id") @db.Uuid
   title        String
   content      String
+  createdBy    String?            @map("created_by") @db.Uuid
   createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator      users?             @relation("DocCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   tags         DocTagAssignment[]
 
   @@index([orgId], map: "idx_project_docs_org")
@@ -137,16 +142,19 @@ model ProjectNote {
   content              String
   status               NoteStatus   @default(ACTIVE)
   convertedToFeatureId String?      @map("converted_to_feature_id") @db.Uuid
+  createdBy            String?      @map("created_by") @db.Uuid
   createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   project              Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   convertedToFeature   Feature?     @relation(fields: [convertedToFeatureId], references: [id], onUpdate: NoAction)
+  creator              users?       @relation("NoteCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
 
   @@index([orgId], map: "idx_project_notes_org")
   @@index([projectId], map: "idx_project_notes_project")
   @@index([projectId, status], map: "idx_project_notes_project_status")
+  @@index([createdBy], map: "idx_project_notes_created_by")
   @@map("project_notes")
   @@schema("public")
 }
@@ -190,6 +198,7 @@ model Epic {
   title          String
   description    String?
   status         EpicStatus   @default(OPEN)
+  createdBy      String?      @map("created_by") @db.Uuid
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   isSystem       Boolean      @default(false) @map("is_system")
@@ -201,10 +210,12 @@ model Epic {
   riskReason     String?      @map("risk_reason")
   organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator        users?       @relation("EpicCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   features       Feature[]
 
   @@index([orgId], map: "idx_epics_org")
   @@index([projectId], map: "idx_epics_project")
+  @@index([createdBy], map: "idx_epics_created_by")
   @@map("epics")
   @@schema("public")
 }
@@ -216,6 +227,7 @@ model Feature {
   title           String
   description     String?
   status          FeatureStatus @default(BACKLOG)
+  createdBy       String?       @map("created_by") @db.Uuid
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   isSystem        Boolean       @default(false) @map("is_system")
@@ -225,12 +237,14 @@ model Feature {
   healthReason    String?       @map("health_reason")
   epic            Epic          @relation(fields: [epicId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator         users?        @relation("FeatureCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   tasks           Task[]
   fromNotes       ProjectNote[]
 
   @@index([epicId], map: "idx_features_epic")
   @@index([orgId], map: "idx_features_org")
   @@index([status], map: "idx_features_status")
+  @@index([createdBy], map: "idx_features_created_by")
   @@map("features")
   @@schema("public")
 }
@@ -249,6 +263,7 @@ model Task {
   points          Int?
   modules         String[]      @default([])
   assigneeId      String?       @map("assignee_id") @db.Uuid
+  createdBy       String?       @map("created_by") @db.Uuid
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   // Health check fields
@@ -256,7 +271,8 @@ model Task {
   statusChangedAt DateTime?     @map("status_changed_at") @db.Timestamptz(6)
   comments        Comment[]
   pokerSession PokerSession?
-  users        users?        @relation(fields: [assigneeId], references: [id], onUpdate: NoAction)
+  assignee     users?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onUpdate: NoAction)
+  creator      users?        @relation("TaskCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   feature      Feature       @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -267,6 +283,7 @@ model Task {
   @@index([orgId], map: "idx_tasks_org")
   @@index([projectId], map: "idx_tasks_project")
   @@index([projectId, localId], map: "idx_tasks_project_local_id")
+  @@index([createdBy], map: "idx_tasks_created_by")
   @@map("tasks")
   @@schema("public")
 }
@@ -724,7 +741,15 @@ model users {
   comments                    Comment[]
   poker_sessions              PokerSession[]
   poker_votes                 PokerVote[]
-  tasks                       Task[]
+  // Task relations
+  tasksAssigned               Task[]                 @relation("TaskAssignee")
+  tasksCreated                Task[]                 @relation("TaskCreator")
+  // Creator relations
+  projectsCreated             Project[]              @relation("ProjectCreator")
+  docsCreated                 ProjectDoc[]           @relation("DocCreator")
+  notesCreated                ProjectNote[]          @relation("NoteCreator")
+  epicsCreated                Epic[]                 @relation("EpicCreator")
+  featuresCreated             Feature[]              @relation("FeatureCreator")
   user_profiles               UserProfile?
 
   @@index([instance_id])

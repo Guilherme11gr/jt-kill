@@ -40,6 +40,12 @@ export const AUDIT_ACTIONS = {
   PROJECT_CREATED: 'project.created',
   PROJECT_DELETED: 'project.deleted',
 
+  // Task actions
+  TASK_CREATED: 'task.created',
+  TASK_STATUS_CHANGED: 'task.status.changed',
+  TASK_ASSIGNED: 'task.assigned',
+  TASK_DELETED: 'task.deleted',
+
   // Organization actions
   ORG_UPDATED: 'org.updated',
 } as const;

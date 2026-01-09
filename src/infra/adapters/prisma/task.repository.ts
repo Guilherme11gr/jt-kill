@@ -22,6 +22,7 @@ export interface CreateTaskInput {
   points?: StoryPoints;
   modules?: string[];
   assigneeId?: string | null;
+  createdBy?: string | null;
 }
 
 export interface UpdateTaskInput {
@@ -93,6 +94,7 @@ export class TaskRepository {
         points: input.points ?? null,
         modules: input.modules ?? [],
         assigneeId: input.assigneeId,
+        createdBy: input.createdBy,
       },
     });
 
@@ -157,7 +159,7 @@ export class TaskRepository {
             },
           },
         },
-        users: {
+        assignee: {
           select: {
             user_profiles: {
               select: {
@@ -185,9 +187,9 @@ export class TaskRepository {
           project: task.project,
         },
       },
-      assignee: task.users?.user_profiles ? {
-        displayName: task.users.user_profiles.displayName,
-        avatarUrl: task.users.user_profiles.avatarUrl,
+      assignee: task.assignee?.user_profiles ? {
+        displayName: task.assignee.user_profiles.displayName,
+        avatarUrl: task.assignee.user_profiles.avatarUrl,
       } : undefined,
     })) as TaskWithReadableId[];
   }

@@ -95,6 +95,16 @@ export const queryKeys = {
     list: () => [...queryKeys.users.all, 'list'] as const,
     current: () => [...queryKeys.users.all, 'current'] as const,
   },
+
+  // ============ DASHBOARD ============
+  dashboard: {
+    all: ['dashboard'] as const,
+    myTasks: (includeDone?: boolean, teamView?: boolean) =>
+      [...queryKeys.dashboard.all, 'myTasks', includeDone ?? false, teamView ?? false] as const,
+    activeProjects: () => [...queryKeys.dashboard.all, 'activeProjects'] as const,
+    activity: (hours?: number) =>
+      [...queryKeys.dashboard.all, 'activity', hours ?? 24] as const,
+  },
 } as const;
 
 // Type helper for extracting query key types

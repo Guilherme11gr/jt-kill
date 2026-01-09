@@ -2,10 +2,11 @@ import { NextRequest } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 import { createClient } from '@/lib/supabase/server';
-import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
+import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { taskRepository, featureRepository } from '@/infra/adapters/prisma';
+import { taskRepository, featureRepository, auditLogRepository } from '@/infra/adapters/prisma';
+import { AUDIT_ACTIONS } from '@/infra/adapters/prisma/audit-log.repository';
 import { searchTasks } from '@/domain/use-cases/tasks/search-tasks';
 import { createTask } from '@/domain/use-cases/tasks/create-task';
 import { z } from 'zod';
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { tenantId } = await extractAuthenticatedTenant(supabase); // tenantId = orgId
+    const userId = await extractUserId(supabase);
 
     const body = await request.json();
     const parsed = createTaskSchema.safeParse(body);
@@ -68,8 +70,23 @@ export async function POST(request: NextRequest) {
 
     const task = await createTask({
       orgId: tenantId,
+      createdBy: userId,
       ...parsed.data,
     }, { taskRepository, featureRepository });
+
+    // Registra auditoria
+    await auditLogRepository.log({
+      orgId: tenantId,
+      userId,
+      action: AUDIT_ACTIONS.TASK_CREATED,
+      targetType: 'task',
+      targetId: task.id,
+      metadata: {
+        taskTitle: task.title,
+        localId: task.localId,
+        projectId: task.projectId
+      }
+    });
 
     return jsonSuccess(task, { status: 201 });
 

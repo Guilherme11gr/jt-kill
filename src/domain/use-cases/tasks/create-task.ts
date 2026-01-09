@@ -13,6 +13,7 @@ export interface CreateTaskInput {
   points?: StoryPoints | null;
   modules?: string[];
   assigneeId?: string | null;
+  createdBy?: string; // Quem criou a task
 }
 
 export interface CreateTaskDeps {
@@ -48,6 +49,7 @@ export async function createTask(
   return await taskRepository.create({
     ...input,
     featureId,
+    // createdBy já vem no input
   });
 }
 

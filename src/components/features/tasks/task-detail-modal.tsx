@@ -13,6 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MarkdownViewer } from '@/components/ui/markdown-viewer';
 import {
   Bug,
@@ -29,13 +36,14 @@ import {
   Tag,
   Ban,
 } from 'lucide-react';
-import type { TaskWithReadableId } from '@/shared/types';
+import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
 import { TaskComments } from './task-comments';
 import { UserAvatar } from '@/components/features/shared';
 import { useBlockTask } from '@/hooks/use-block-task';
+import { useMoveTaskWithUndo } from '@/hooks/use-move-task-undo';
 import { toast } from 'sonner';
 
 interface TaskDetailModalProps {
@@ -54,6 +62,16 @@ const priorityLabels: Record<string, string> = {
   CRITICAL: 'Crítica',
 };
 
+// Status labels in Portuguese
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  BACKLOG: 'Backlog',
+  TODO: 'A Fazer',
+  DOING: 'Em Andamento',
+  REVIEW: 'Em Revisão',
+  QA_READY: 'QA',
+  DONE: 'Concluído',
+};
+
 export function TaskDetailModal({
   task,
   open,
@@ -64,6 +82,7 @@ export function TaskDetailModal({
   // 🔴 CRITICAL: Hooks devem ser chamados SEMPRE, mesmo se task for null
   // Early return só deve acontecer após todos os hooks
   const { toggleBlocked, isPending: isBlockPending } = useBlockTask(task?.id || '');
+  const { moveWithUndo, isPending: isMovePending } = useMoveTaskWithUndo();
 
   const handleEdit = useCallback(() => {
     if (task && onEdit) {
@@ -88,6 +107,11 @@ export function TaskDetailModal({
 
   const handleBlockedChange = (checked: boolean) => {
     toggleBlocked(checked);
+  };
+
+  const handleStatusChange = (newStatus: TaskStatus) => {
+    if (!task) return;
+    moveWithUndo(task.id, newStatus);
   };
 
   // Early return APÓS todos os hooks (Rules of Hooks)
@@ -150,7 +174,24 @@ export function TaskDetailModal({
           {/* New Horizontal Metadata Bar - Dense */}
           <div className="px-5 pb-3 flex flex-wrap gap-3 items-center text-sm border-t bg-muted/20 pt-2">
 
-            <StatusBadge status={task.status} className="h-6 text-xs px-2.5 shadow-sm" />
+            {/* Status Select - Editável */}
+            <Select 
+              value={task.status} 
+              onValueChange={handleStatusChange}
+              disabled={isMovePending}
+            >
+              <SelectTrigger className="h-6 text-xs px-2.5 shadow-sm w-auto gap-1.5 border-0 ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="BACKLOG">{STATUS_LABELS.BACKLOG}</SelectItem>
+                <SelectItem value="TODO">{STATUS_LABELS.TODO}</SelectItem>
+                <SelectItem value="DOING">{STATUS_LABELS.DOING}</SelectItem>
+                <SelectItem value="REVIEW">{STATUS_LABELS.REVIEW}</SelectItem>
+                <SelectItem value="QA_READY">{STATUS_LABELS.QA_READY}</SelectItem>
+                <SelectItem value="DONE">{STATUS_LABELS.DONE}</SelectItem>
+              </SelectContent>
+            </Select>
 
             <Separator orientation="vertical" className="h-4" />
 

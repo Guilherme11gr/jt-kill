@@ -17,6 +17,7 @@ export interface Task {
   assigneeId: string | null;
   createdAt: Date;
   updatedAt: Date;
+  createdBy?: string | null; // Quem criou a tarefa
   // Health check fields
   blocked: boolean;
   statusChangedAt: Date | null;

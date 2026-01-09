@@ -19,6 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { LogoutButton } from "@/components/layout/logout-button";
+import { TaskModalProvider } from "@/providers/task-modal-provider";
 
 export default function DashboardLayout({
   children,
@@ -110,7 +111,9 @@ export default function DashboardLayout({
       {/* Main Content */}
       <main className="flex-1 md:ml-64 pt-16 md:pt-0 min-h-screen bg-background">
         <div className="p-6 md:p-8 max-w-screen-2xl mx-auto">
-          {children}
+          <TaskModalProvider>
+            {children}
+          </TaskModalProvider>
         </div>
       </main>
     </div>

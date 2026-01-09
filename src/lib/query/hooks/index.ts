@@ -12,6 +12,7 @@ export * from './use-project-notes';
 export * from './use-doc-tags';
 export * from './use-users';
 export * from './use-ai';
+export * from './use-dashboard';
 
 
 

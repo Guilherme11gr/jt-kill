@@ -1,4 +1,5 @@
 import type { TaskStatus, TaskType, TaskPriority, StoryPoints } from './project.types';
+import type { TagInfo } from './tag.types';
 
 // Base Task
 export interface Task {
@@ -13,7 +14,8 @@ export interface Task {
   type: TaskType;
   priority: TaskPriority;
   points: StoryPoints;
-  modules: string[];
+  modules: string[]; // Legacy - to be deprecated
+  tags?: TagInfo[]; // New tag system
   assigneeId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -22,6 +24,7 @@ export interface Task {
   blocked: boolean;
   statusChangedAt: Date | null;
 }
+
 
 // Task with human-readable ID (for display)
 export interface TaskWithReadableId extends Task {

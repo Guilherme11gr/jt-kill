@@ -350,7 +350,9 @@ function TasksPageContent() {
     status: editingTask.status,
     points: editingTask.points?.toString(),
     modules: editingTask.modules,
-    featureId: editingTask.feature.id
+    featureId: editingTask.feature.id,
+    assigneeId: editingTask.assigneeId,
+    tags: editingTask.tags,
   } : null;
 
   // Only show skeleton on initial load (no cached data yet)

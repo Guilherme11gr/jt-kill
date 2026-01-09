@@ -36,6 +36,7 @@ export interface TaskFilterParams extends PaginationParams, SortParams {
   priority?: string;
   assigneeId?: string;
   module?: string;
+  tagId?: string; // New: filter by tag
   projectId?: string;
   epicId?: string;
   featureId?: string;

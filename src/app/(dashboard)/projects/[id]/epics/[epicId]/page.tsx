@@ -15,10 +15,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AIImproveButton } from "@/components/ui/ai-improve-button";
+import { TagSelector } from "@/components/features/tags";
 import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature, useImproveFeatureDescription } from "@/lib/query";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { toast } from "sonner";
 import type { FeatureHealth } from "@/shared/types/project.types";
+import type { TagInfo } from "@/shared/types/tag.types";
 
 interface Feature {
   id: string;
@@ -66,6 +68,7 @@ export default function EpicDetailPage({
     title: "",
     description: "",
     status: "BACKLOG" as "BACKLOG" | "TODO" | "DOING" | "DONE",
+    tags: [] as TagInfo[],
   });
 
   // Edit Feature State
@@ -110,7 +113,8 @@ export default function EpicDetailPage({
         description: featureFormData.description || undefined,
         status: featureFormData.status,
       });
-      setFeatureFormData({ title: "", description: "", status: "BACKLOG" });
+      // TODO: Assign tags to feature after creation when API supports it
+      setFeatureFormData({ title: "", description: "", status: "BACKLOG", tags: [] });
       setIsFeatureDialogOpen(false);
     } catch (error) {
       // Error handled by mutation
@@ -125,6 +129,7 @@ export default function EpicDetailPage({
       title: feature.title,
       description: feature.description || "",
       status: (feature.status as "BACKLOG" | "TODO" | "DOING" | "DONE") || "BACKLOG",
+      tags: [], // Tags will be loaded separately if needed
     });
     setIsFeatureEditDialogOpen(true);
   }, []);
@@ -142,9 +147,10 @@ export default function EpicDetailPage({
           status: featureFormData.status,
         },
       });
+      // TODO: Assign tags to feature when API supports it
       setIsFeatureEditDialogOpen(false);
       setEditingFeature(null);
-      setFeatureFormData({ title: "", description: "", status: "BACKLOG" });
+      setFeatureFormData({ title: "", description: "", status: "BACKLOG", tags: [] });
     } catch (error) {
       // Error handled by mutation
     }
@@ -322,6 +328,18 @@ export default function EpicDetailPage({
                     </SelectContent>
                   </Select>
                 </div>
+                {/* Tags - Multi-select */}
+                {resolvedParams.id && (
+                  <div>
+                    <Label>Tags</Label>
+                    <TagSelector
+                      projectId={resolvedParams.id}
+                      selectedTags={featureFormData.tags}
+                      onTagsChange={(tags) => setFeatureFormData({ ...featureFormData, tags })}
+                      placeholder="Selecionar tags..."
+                    />
+                  </div>
+                )}
                 <div className="flex justify-end gap-2">
                   <Button
                     type="button"
@@ -515,6 +533,18 @@ export default function EpicDetailPage({
                 </SelectContent>
               </Select>
             </div>
+            {/* Tags - Multi-select */}
+            {resolvedParams.id && (
+              <div>
+                <Label>Tags</Label>
+                <TagSelector
+                  projectId={resolvedParams.id}
+                  selectedTags={featureFormData.tags}
+                  onTagsChange={(tags) => setFeatureFormData({ ...featureFormData, tags })}
+                  placeholder="Selecionar tags..."
+                />
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button
                 type="button"

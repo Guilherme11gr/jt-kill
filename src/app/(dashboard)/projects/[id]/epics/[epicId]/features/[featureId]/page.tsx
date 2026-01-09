@@ -127,13 +127,15 @@ export default function FeatureDetailPage({
   const taskToEditForDialog = editingTask ? {
     id: editingTask.id,
     title: editingTask.title,
-    description: editingTask.description,
+    description: editingTask.description || "",
     type: editingTask.type,
     priority: editingTask.priority,
     status: editingTask.status,
     points: editingTask.points?.toString(),
     modules: editingTask.modules,
-    featureId: editingTask.feature?.id || feature?.id || ""
+    featureId: editingTask.feature?.id || feature?.id || "",
+    assigneeId: editingTask.assigneeId,
+    tags: editingTask.tags,
   } : null;
 
   // Only show skeleton on initial load (no cached data yet)
@@ -266,7 +268,6 @@ export default function FeatureDetailPage({
         features={dialogFeatures}
         defaultFeatureId={feature.id}
         modules={modules}
-        // @ts-ignore
         taskToEdit={taskToEditForDialog}
         onSuccess={refetchTasks}
       />

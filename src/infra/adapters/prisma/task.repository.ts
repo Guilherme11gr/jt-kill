@@ -139,6 +139,14 @@ export class TaskRepository {
         updatedAt: true,
         blocked: true,
         statusChangedAt: true,
+        // Include tags to avoid N+1 when displaying
+        tagAssignments: {
+          select: {
+            tag: {
+              select: { id: true, name: true, color: true },
+            },
+          },
+        },
         // Use direct project relation (1 JOIN instead of 3)
         project: {
           select: {
@@ -179,6 +187,8 @@ export class TaskRepository {
     return tasks.map((task) => ({
       ...task,
       readableId: buildReadableId(task.project.key, task.localId),
+      // Transform tag assignments to flat array
+      tags: task.tagAssignments.map((a) => a.tag),
       // Add nested project for compatibility with existing frontend
       feature: {
         ...task.feature,
@@ -408,6 +418,7 @@ export class TaskRepository {
       priority,
       assigneeId,
       module,
+      tagId,
       projectId,
       featureId,
       epicId,
@@ -426,6 +437,11 @@ export class TaskRepository {
     if (projectId) where.projectId = projectId;
     if (featureId) where.featureId = featureId;
 
+    // Filter by tag (requires JOIN via tagAssignments)
+    if (tagId) {
+      where.tagAssignments = { some: { tagId } };
+    }
+
     if (search) {
       // Escape caracteres especiais do LIKE (%, _) para evitar wildcard injection
       const escapedSearch = this.escapeLike(search);
@@ -442,6 +458,7 @@ export class TaskRepository {
 
     return where;
   }
+
 
   /**
    * Get the next localId for a project (auto-increment workaround)
@@ -464,3 +481,4 @@ export class TaskRepository {
     return value.replace(/[%_]/g, (match: string) => `\\${match}`);
   }
 }
+

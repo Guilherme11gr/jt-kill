@@ -16,6 +16,9 @@ export * from './project-doc.types';
 // Project Note types
 export * from './project-note.types';
 
+// Tag types
+export * from './tag.types';
+
 // User types
 export * from './user.types';
 

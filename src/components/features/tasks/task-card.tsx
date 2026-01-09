@@ -14,10 +14,11 @@ import {
 import { Bug, Ban } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
+import { TagBadge } from '@/components/features/tags';
 import { useBlockTask } from '@/hooks/use-block-task';
 import type { TaskWithReadableId } from '@/shared/types';
 
-// Generate consistent colors for modules based on hash
+// Generate consistent colors for modules based on hash (legacy fallback)
 const MODULE_COLORS = [
   'bg-purple-500/20 text-purple-300 border-purple-500/30',
   'bg-blue-500/20 text-blue-300 border-blue-500/30',
@@ -60,6 +61,10 @@ export function TaskCard({
   const isBug = task.type === 'BUG';
   const { toggleBlocked, isPending } = useBlockTask(task.id);
 
+  // Prefer new tags system, fallback to legacy modules
+  const hasTags = task.tags && task.tags.length > 0;
+  const hasModules = task.modules && task.modules.length > 0;
+
   const handleBlockedChange = useCallback((checked: boolean) => {
     toggleBlocked(checked);
   }, [toggleBlocked]);
@@ -80,10 +85,21 @@ export function TaskCard({
         className
       )}
     >
-      {/* Header: Module(s) + ID + Priority */}
+      {/* Header: Tags/Modules + ID + Priority */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          {task.modules && task.modules.length > 0 && (
+          {/* Prefer new tags system */}
+          {hasTags ? (
+            <>
+              {task.tags!.slice(0, 2).map((tag) => (
+                <TagBadge key={tag.id} tag={tag} size="sm" />
+              ))}
+              {task.tags!.length > 2 && (
+                <span className="text-[10px] text-muted-foreground">+{task.tags!.length - 2}</span>
+              )}
+            </>
+          ) : hasModules ? (
+            /* Fallback to legacy modules */
             <>
               {task.modules.slice(0, 2).map((mod) => (
                 <Badge
@@ -98,13 +114,14 @@ export function TaskCard({
                 <span className="text-[10px] text-muted-foreground">+{task.modules.length - 2}</span>
               )}
             </>
-          )}
+          ) : null}
           <span className="text-xs text-muted-foreground font-mono truncate">
             {task.readableId}
           </span>
         </div>
         <PriorityIndicator priority={task.priority} />
       </div>
+
 
       {/* Body: Title */}
       <h4 className={cn(

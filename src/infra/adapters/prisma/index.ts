@@ -8,6 +8,7 @@ import { ProjectDocRepository } from './project-doc.repository';
 import { ProjectNoteRepository } from './project-note.repository';
 import { UserProfileRepository } from './user-profile.repository';
 import { DocTagRepository } from './doc-tag.repository';
+import { TaskTagRepository } from './task-tag.repository';
 import { InviteRepository } from './invite.repository';
 import { AuditLogRepository } from './audit-log.repository';
 
@@ -35,6 +36,7 @@ export const projectDocRepository = new ProjectDocRepository(prisma);
 export const projectNoteRepository = new ProjectNoteRepository(prisma);
 export const userProfileRepository = new UserProfileRepository(prisma);
 export const docTagRepository = new DocTagRepository(prisma);
+export const taskTagRepository = new TaskTagRepository(prisma);
 export const inviteRepository = new InviteRepository(prisma);
 export const auditLogRepository = new AuditLogRepository(prisma);
 
@@ -49,6 +51,7 @@ export {
   ProjectNoteRepository,
   UserProfileRepository,
   DocTagRepository,
+  TaskTagRepository,
   InviteRepository,
   AuditLogRepository,
 };

@@ -8,12 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
 import { AssigneeSelect } from "@/components/features/shared";
+import { TagSelector } from "@/components/features/tags";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { ModuleTagInput } from "@/components/ui/module-tag-input";
 import { AIImproveButton } from "@/components/ui/ai-improve-button";
 import { useProjects, useCreateTask, useUpdateTask, useGenerateDescription, useImproveDescription } from "@/lib/query";
+import { useAssignTaskTags } from "@/lib/query/hooks/use-task-tags";
 import { TaskStatus } from "@/shared/types";
+import type { TagInfo } from "@/shared/types/tag.types";
 
 interface Feature {
   id: string;
@@ -37,6 +40,7 @@ interface Task {
   points?: string | null;
   modules?: string[];
   assigneeId?: string | null;
+  tags?: TagInfo[];
 }
 
 interface TaskFormData {
@@ -48,6 +52,7 @@ interface TaskFormData {
   featureId: string;
   points: string;
   modules: string[];
+  tags: TagInfo[];
   assigneeId: string | null;
 }
 
@@ -77,6 +82,7 @@ const INITIAL_FORM_DATA: TaskFormData = {
   featureId: "",
   points: "Sem estimativa",
   modules: [],
+  tags: [],
   assigneeId: null,
 };
 
@@ -98,10 +104,11 @@ export function TaskDialog({
 
   const createTaskMutation = useCreateTask();
   const updateTaskMutation = useUpdateTask();
+  const assignTagsMutation = useAssignTaskTags();
   const generateDescription = useGenerateDescription();
   const improveDescription = useImproveDescription();
 
-  const isSaving = createTaskMutation.isPending || updateTaskMutation.isPending;
+  const isSaving = createTaskMutation.isPending || updateTaskMutation.isPending || assignTagsMutation.isPending;
   const isGeneratingAI = generateDescription.isPending || improveDescription.isPending;
 
   const isEditing = !!taskToEdit;
@@ -134,6 +141,7 @@ export function TaskDialog({
           featureId: taskToEdit.featureId,
           points: taskToEdit.points || "Sem estimativa",
           modules: taskToEdit.modules || [],
+          tags: taskToEdit.tags || [],
           assigneeId: taskToEdit.assigneeId || null,
         });
       } else {
@@ -143,6 +151,7 @@ export function TaskDialog({
           status: (defaultValues?.status as any) || INITIAL_FORM_DATA.status,
           priority: (defaultValues?.priority as any) || INITIAL_FORM_DATA.priority,
           modules: defaultValues?.modules || INITIAL_FORM_DATA.modules,
+          tags: [],
           featureId: defaultValues?.featureId || defaultFeatureId || features[0]?.id || "",
         });
       }
@@ -230,9 +239,16 @@ export function TaskDialog({
             assigneeId: formData.assigneeId
           }
         });
+        // Assign tags after update
+        if (formData.tags.length > 0) {
+          await assignTagsMutation.mutateAsync({
+            taskId: taskToEdit.id,
+            tagIds: formData.tags.map(t => t.id),
+          });
+        }
         // Success toast handled by hook
       } else {
-        await createTaskMutation.mutateAsync({
+        const newTask = await createTaskMutation.mutateAsync({
           title: formData.title,
           description: formData.description,
           type: formData.type,
@@ -244,6 +260,13 @@ export function TaskDialog({
           assigneeId: formData.assigneeId,
           projectId: resolvedProjectId
         });
+        // Assign tags to newly created task
+        if (formData.tags.length > 0 && newTask?.id) {
+          await assignTagsMutation.mutateAsync({
+            taskId: newTask.id,
+            tagIds: formData.tags.map(t => t.id),
+          });
+        }
         // Success toast handled by hook
       }
 
@@ -390,7 +413,7 @@ export function TaskDialog({
             </div>
           </div>
 
-          {/* Module and Points */}
+          {/* Modules and Tags */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label className="text-sm font-medium">Módulos</Label>
@@ -402,6 +425,26 @@ export function TaskDialog({
               />
             </div>
 
+            {/* Tags - Multi-select */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Tags</Label>
+              {resolvedProjectId ? (
+                <TagSelector
+                  projectId={resolvedProjectId}
+                  selectedTags={formData.tags}
+                  onTagsChange={(tags) => setFormData({ ...formData, tags })}
+                  placeholder="Selecionar tags..."
+                />
+              ) : (
+                <div className="text-sm text-muted-foreground p-2 border rounded-md">
+                  Selecione uma feature para ver as tags
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Points */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <Label className="text-sm font-medium">Story Points</Label>
               <Select

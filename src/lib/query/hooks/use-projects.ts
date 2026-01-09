@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateDashboardQueries } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import { toast } from 'sonner';
@@ -153,6 +154,9 @@ export function useCreateProject() {
       // 2. Invalidate to ensure consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
 
+      // 3. Invalidate Dashboard Active Projects (new project might be active soon)
+      invalidateDashboardQueries(queryClient);
+
       toast.success('Projeto criado');
     },
     onError: () => {
@@ -184,6 +188,9 @@ export function useUpdateProject() {
 
       // 3. Invalidate for consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+
+      // 4. Invalidate Dashboard
+      invalidateDashboardQueries(queryClient);
       toast.success('Projeto atualizado');
     },
     onError: () => {
@@ -202,6 +209,7 @@ export function useDeleteProject() {
     mutationFn: deleteProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      invalidateDashboardQueries(queryClient);
       toast.success('Projeto excluído');
     },
     onError: () => {

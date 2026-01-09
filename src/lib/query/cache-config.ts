@@ -29,15 +29,19 @@ export const CACHE_TIMES = {
     gcTime: 1 * MINUTE,
   },
 
-  /** Frequently changing - 30s fresh, 5min cache */
+  /** Frequently changing - 5s fresh, 5min cache
+   * Reduced to 5s to feel "snappy" on navigation but avoid instant refetches during quick interactions.
+   */
   FRESH: {
-    staleTime: 30 * SECOND,
+    staleTime: 5 * SECOND,
     gcTime: 5 * MINUTE,
   },
 
-  /** Regular data - 2min fresh, 10min cache */
+  /** Regular data - 30s fresh, 10min cache
+   * Reduced from 2min to 30s to keep project/feature lists reasonably up to date.
+   */
   STANDARD: {
-    staleTime: 2 * MINUTE,
+    staleTime: 30 * SECOND,
     gcTime: 10 * MINUTE,
   },
 

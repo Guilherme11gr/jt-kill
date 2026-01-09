@@ -2,6 +2,7 @@
  * React Query Hooks for Comments
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateDashboardQueries } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
@@ -99,6 +100,7 @@ export function useAddComment() {
 
       // 2. Invalidate
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(variables.taskId) });
+      invalidateDashboardQueries(queryClient);
 
       toast.success('Comentário adicionado');
     },
@@ -165,6 +167,7 @@ export function useDeleteComment(taskId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(taskId) });
+      invalidateDashboardQueries(queryClient);
       toast.success('Comentário excluído');
     },
     onError: (_, __, context) => {

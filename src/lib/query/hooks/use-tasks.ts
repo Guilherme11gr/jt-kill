@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { invalidateDashboardQueries } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
@@ -124,20 +125,11 @@ export function useCreateTask() {
       // Since filtering is complex, we'll try to add it to the 'all' list or just invalidate if filtering is strict.
       // But for the main board, adding it to the list is usually enough.
 
-      queryClient.setQueriesData<TasksResponse>(
-        { queryKey: queryKeys.tasks.lists() },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            items: [newTask, ...old.items],
-            total: old.total + 1,
-          };
-        }
-      );
-
-      // 2. Invalidate to ensure consistency and correct sorting/filtering
+      // 2. Invalidate to ensure consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+
+      // 3. Invalidate Dashboard using helper
+      invalidateDashboardQueries(queryClient);
 
       toast.success('Task criada com sucesso!');
     },
@@ -185,6 +177,9 @@ export function useUpdateTask() {
       // 3. Invalidate all task lists to ensure consistency
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
 
+      // 4. Invalidate Dashboard using helper
+      invalidateDashboardQueries(queryClient);
+
       toast.success('Task atualizada');
     },
     onError: (error) => {
@@ -205,6 +200,10 @@ export function useDeleteTask() {
     mutationFn: deleteTask,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+
+      // Invalidate Dashboard using helper
+      invalidateDashboardQueries(queryClient);
+
       toast.success('Task excluída');
     },
     onError: (error) => {
@@ -272,6 +271,9 @@ export function useMoveTask() {
     onSettled: () => {
       // Refetch after mutation settles
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+
+      // Invalidate Dashboard using helper
+      invalidateDashboardQueries(queryClient);
     },
   });
 }

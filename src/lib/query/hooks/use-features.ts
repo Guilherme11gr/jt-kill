@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { smartInvalidate } from '../helpers';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -291,13 +292,16 @@ export function useDeleteFeature() {
       queryClient.removeQueries({ queryKey: queryKeys.features.detail(deletedFeatureId) });
       queryClient.removeQueries({ queryKey: queryKeys.tasks.list({ featureId: deletedFeatureId }) });
 
-      // Force refetch all feature lists to ensure consistency
-      queryClient.refetchQueries({ queryKey: queryKeys.features.lists() });
-      queryClient.refetchQueries({ queryKey: queryKeys.features.allList() });
+      // Invalidate all feature lists (smartInvalidate handles active vs inactive)
+      smartInvalidate(queryClient, queryKeys.features.lists());
+      smartInvalidate(queryClient, queryKeys.features.allList());
 
       // Invalidate epic detail to update counters
       if (context?.epicId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(context.epicId) });
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.epics.detail(context.epicId),
+          refetchType: 'active'
+        });
       }
 
       toast.success('Feature excluída');

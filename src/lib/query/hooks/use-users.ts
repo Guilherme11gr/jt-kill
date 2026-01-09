@@ -87,9 +87,15 @@ export function useUpdateProfile() {
         return old.map((u) => (u.id === updatedUser.id ? updatedUser : u));
       });
 
-      // 3. Invalidate for consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.users.current() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.users.list() });
+      // 3. Invalidate for consistency with immediate refetch
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.users.current(),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.users.list(),
+        refetchType: 'active'
+      });
       toast.success('Perfil atualizado');
     },
     onError: () => {

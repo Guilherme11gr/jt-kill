@@ -131,8 +131,11 @@ export function useCreateTag(projectId: string) {
                 }
             );
 
-            // 2. Invalidate for consistency
-            queryClient.invalidateQueries({ queryKey: queryKeys.docTags.list(projectId) });
+            // 2. Invalidate for consistency with force refetch
+            queryClient.invalidateQueries({ 
+                queryKey: queryKeys.docTags.list(projectId),
+                refetchType: 'active'
+            });
             toast.success('Tag criada');
         },
         onError: (error: Error) => {
@@ -169,8 +172,14 @@ export function useDeleteTag(projectId: string) {
             return { previousTags };
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: queryKeys.docTags.list(projectId) });
-            queryClient.invalidateQueries({ queryKey: queryKeys.docTags.all });
+            queryClient.invalidateQueries({ 
+                queryKey: queryKeys.docTags.list(projectId),
+                refetchType: 'active'
+            });
+            queryClient.invalidateQueries({ 
+                queryKey: queryKeys.docTags.all,
+                refetchType: 'active'
+            });
             toast.success('Tag excluída');
         },
         onError: (_, __, context) => {
@@ -205,7 +214,10 @@ export function useAssignTags(projectId: string) {
         onSuccess: (newTags, variables) => {
             // Update cache with server response
             queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), newTags);
-            queryClient.invalidateQueries({ queryKey: queryKeys.docTags.list(projectId) });
+            queryClient.invalidateQueries({ 
+                queryKey: queryKeys.docTags.list(projectId),
+                refetchType: 'active'
+            });
             toast.success('Tag adicionada');
         },
         onError: (_, variables, context) => {
@@ -243,7 +255,10 @@ export function useUnassignTag(projectId: string) {
         onSuccess: (newTags, variables) => {
             // Update cache with server response
             queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), newTags);
-            queryClient.invalidateQueries({ queryKey: queryKeys.docTags.list(projectId) });
+            queryClient.invalidateQueries({ 
+                queryKey: queryKeys.docTags.list(projectId),
+                refetchType: 'active'
+            });
             toast.success('Tag removida');
         },
         onError: (_, variables, context) => {

@@ -147,8 +147,9 @@ export function useTasks(options: UseTasksOptions = {}) {
     // Keep previous data visible while fetching new filter results
     // This prevents the UI from showing skeleton on every filter change
     placeholderData: keepPreviousData,
-    // Cache tasks for 30s to avoid refetch on filter toggle (e.g., project switch)
-    staleTime: 30_000, // 30 seconds
+    // Cache tasks for 5s - short to ensure UI stays fresh after mutations
+    // Trade-off: more requests vs better UX consistency
+    staleTime: 5_000, // 5 seconds (was 30s - caused stale UI issues)
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
@@ -162,15 +163,35 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: createTask,
     onSuccess: (newTask) => {
-      // 1. Update the lists (Optimistic-ish)
-      // We append to any list that might contain this task. 
-      // Since filtering is complex, we'll try to add it to the 'all' list or just invalidate if filtering is strict.
-      // But for the main board, adding it to the list is usually enough.
+      // 1. Optimistic update: add to any matching list immediately
+      queryClient.setQueriesData<TasksResponse>(
+        { queryKey: queryKeys.tasks.lists() },
+        (old) => {
+          if (!old) return old;
+          // Add to beginning of list (newest first)
+          return {
+            ...old,
+            items: [newTask, ...old.items],
+            total: old.total + 1,
+          };
+        }
+      );
 
-      // 2. Invalidate to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+      // 2. Force immediate refetch to ensure consistency
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.tasks.lists(),
+        refetchType: 'active'
+      });
 
-      // 3. Invalidate Dashboard using helper
+      // 3. Invalidate feature detail to update task count
+      if (newTask.featureId) {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.features.detail(newTask.featureId),
+          refetchType: 'active'
+        });
+      }
+
+      // 4. Invalidate Dashboard using helper
       invalidateDashboardQueries(queryClient);
 
       toast.success('Task criada com sucesso!');
@@ -244,15 +265,49 @@ export function useDeleteTask() {
 
   return useMutation({
     mutationFn: deleteTask,
+    onMutate: async (taskId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() });
+
+      // Snapshot previous data for rollback
+      const previousTasks = queryClient.getQueriesData<TasksResponse>({ 
+        queryKey: queryKeys.tasks.lists() 
+      });
+
+      // Optimistically remove from all lists
+      queryClient.setQueriesData<TasksResponse>(
+        { queryKey: queryKeys.tasks.lists() },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.filter(task => task.id !== taskId),
+            total: Math.max(0, old.total - 1),
+          };
+        }
+      );
+
+      return { previousTasks };
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+      // Force immediate refetch to ensure consistency
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.tasks.lists(),
+        refetchType: 'active'
+      });
 
       // Invalidate Dashboard using helper
       invalidateDashboardQueries(queryClient);
 
       toast.success('Task excluída');
     },
-    onError: (error) => {
+    onError: (error, _, context) => {
+      // Rollback on error
+      if (context?.previousTasks) {
+        context.previousTasks.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
       toast.error('Erro ao excluir task');
       console.error('Delete task error:', error);
     },
@@ -315,8 +370,11 @@ export function useMoveTask() {
     },
 
     onSettled: () => {
-      // Refetch after mutation settles
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
+      // Force immediate refetch after mutation settles
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.tasks.lists(),
+        refetchType: 'active'
+      });
 
       // Invalidate Dashboard using helper
       invalidateDashboardQueries(queryClient);

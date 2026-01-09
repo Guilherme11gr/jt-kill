@@ -121,8 +121,11 @@ export function useCreateDoc() {
         }
       );
 
-      // 2. Invalidate for consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.projectDocs.list(variables.projectId) });
+      // 2. Invalidate for consistency with force refetch
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projectDocs.list(variables.projectId),
+        refetchType: 'active'
+      });
       toast.success('Documento criado');
     },
     onError: () => {
@@ -140,8 +143,14 @@ export function useUpdateDoc(projectId: string) {
   return useMutation({
     mutationFn: updateDoc,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.projectDocs.list(projectId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.projectDocs.detail(data.id) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projectDocs.list(projectId),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projectDocs.detail(data.id),
+        refetchType: 'active'
+      });
       toast.success('Documento atualizado');
     },
     onError: () => {
@@ -159,7 +168,10 @@ export function useDeleteDoc(projectId: string) {
   return useMutation({
     mutationFn: deleteDoc,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.projectDocs.list(projectId) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projectDocs.list(projectId),
+        refetchType: 'active'
+      });
       toast.success('Documento excluído');
     },
     onError: () => {

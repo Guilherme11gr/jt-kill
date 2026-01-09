@@ -76,7 +76,10 @@ export function useCreateTaskTag(projectId: string) {
       return json.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskTagKeys.byProject(projectId) });
+      queryClient.invalidateQueries({ 
+        queryKey: taskTagKeys.byProject(projectId),
+        refetchType: 'active'
+      });
     },
   });
 }
@@ -102,7 +105,10 @@ export function useUpdateTaskTag(projectId: string) {
       return json.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskTagKeys.byProject(projectId) });
+      queryClient.invalidateQueries({ 
+        queryKey: taskTagKeys.byProject(projectId),
+        refetchType: 'active'
+      });
     },
   });
 }
@@ -124,9 +130,15 @@ export function useDeleteTaskTag(projectId: string) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskTagKeys.byProject(projectId) });
+      queryClient.invalidateQueries({ 
+        queryKey: taskTagKeys.byProject(projectId),
+        refetchType: 'active'
+      });
       // Also invalidate all task tags since they may have lost assignments
-      queryClient.invalidateQueries({ queryKey: taskTagKeys.all });
+      queryClient.invalidateQueries({ 
+        queryKey: taskTagKeys.all,
+        refetchType: 'active'
+      });
     },
   });
 }
@@ -152,9 +164,15 @@ export function useAssignTaskTags() {
       return json.data;
     },
     onSuccess: (_, { taskId }) => {
-      queryClient.invalidateQueries({ queryKey: taskTagKeys.byTask(taskId) });
+      queryClient.invalidateQueries({ 
+        queryKey: taskTagKeys.byTask(taskId),
+        refetchType: 'active'
+      });
       // Also invalidate tasks list to refresh tag counts
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ 
+        queryKey: ['tasks'],
+        refetchType: 'active'
+      });
     },
   });
 }

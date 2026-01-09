@@ -46,8 +46,9 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await searchTasks(tenantId, parsed.data, { taskRepository });
-    // Short cache (10s) - safe since filters are in query params
-    return jsonSuccess(result, { cache: 'brief' });
+    // NO cache for mutable data - ensures React Query always gets fresh data
+    // See: docs/guides/cache-invalidation-patterns.md
+    return jsonSuccess(result, { cache: 'none' });
 
   } catch (error) {
     const { status, body } = handleError(error);

@@ -11,9 +11,12 @@ docs/
 ├── architecture/          # 🏗️ Decisões arquiteturais
 │   ├── overview.md        # Visão geral da arquitetura
 │   ├── domain-model.md    # Modelo de domínio (DDD)
-│   └── workflows.md       # Fluxos e máquina de estados
+│   ├── workflows.md       # Fluxos e máquina de estados
+│   ├── cache-audit-analysis.md   # 🔍 Análise de problemas de cache
+│   └── cache-fix-implementation.md # ✅ Correções implementadas
 ├── guides/                # 📖 Guias práticos
 │   ├── date-handling.md   # Manipulação de datas (CRÍTICO)
+│   ├── cache-invalidation-patterns.md # 📚 Padrões de cache (NOVO)
 │   ├── ai-infrastructure.md # 🤖 Sistema de IA (DeepSeek)
 │   ├── ai-scribe.md       # Sistema de IA para geração de tasks
 │   └── scrum-poker.md     # Sistema de estimativa
@@ -47,6 +50,7 @@ docs/
 |-----------|-----------|
 | [AI-CONTEXT.md](./AI-CONTEXT.md) | Contexto completo em uma página |
 | [guides/date-handling.md](./guides/date-handling.md) | Manipulação de datas e timezone |
+| [guides/cache-invalidation-patterns.md](./guides/cache-invalidation-patterns.md) | **Padrões de cache React Query** |
 | [database/schema.md](./database/schema.md) | Estrutura do banco de dados |
 
 ### 🟡 Importantes
@@ -66,4 +70,4 @@ docs/
 
 ---
 
-*Última atualização: Dezembro 2025*
+*Última atualização: Janeiro 2026*

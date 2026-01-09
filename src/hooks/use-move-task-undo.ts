@@ -120,9 +120,15 @@ export function useMoveTaskWithUndo() {
                 onClick: () => {
                   // Undo the move
                   moveTask(updatedTask.id, previousStatus).then(() => {
-                    // Invalidate to refresh
-                    queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
-                    queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+                    // Invalidate to refresh with force refetch
+                    queryClient.invalidateQueries({ 
+                      queryKey: queryKeys.tasks.lists(),
+                      refetchType: 'active'
+                    });
+                    queryClient.invalidateQueries({ 
+                      queryKey: queryKeys.dashboard.all,
+                      refetchType: 'active'
+                    });
                     toast.success('Ação desfeita');
                   }).catch(() => {
                     toast.error('Erro ao desfazer');

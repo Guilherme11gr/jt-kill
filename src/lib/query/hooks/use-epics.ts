@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { smartInvalidate } from '../helpers';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -204,16 +205,22 @@ export function useUpdateEpic() {
       queryClient.setQueriesData<Epic[]>({ queryKey: queryKeys.epics.lists() }, updateInList);
       queryClient.setQueryData<Epic[]>(queryKeys.epics.allList(), updateInList);
 
-      // 3. Force refetch to ensure consistency
-      queryClient.refetchQueries({ queryKey: queryKeys.epics.lists() });
-      queryClient.refetchQueries({ queryKey: queryKeys.epics.allList() });
+      // 3. Invalidate epic lists (smartInvalidate handles active vs inactive)
+      smartInvalidate(queryClient, queryKeys.epics.lists());
+      smartInvalidate(queryClient, queryKeys.epics.allList());
 
       // 4. Invalidate features of this epic (title change may affect UI)
-      queryClient.invalidateQueries({ queryKey: queryKeys.features.list(updatedEpic.id) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.features.list(updatedEpic.id),
+        refetchType: 'active'
+      });
 
       // 5. Invalidate project detail if epic has projectId
       if (updatedEpic.projectId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(updatedEpic.projectId) });
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.projects.detail(updatedEpic.projectId),
+          refetchType: 'active'
+        });
       }
 
       toast.success('Epic atualizado');
@@ -272,13 +279,16 @@ export function useDeleteEpic() {
       queryClient.removeQueries({ queryKey: queryKeys.epics.detail(deletedEpicId) });
       queryClient.removeQueries({ queryKey: queryKeys.features.list(deletedEpicId) });
 
-      // Force refetch all epic lists to ensure consistency
-      queryClient.refetchQueries({ queryKey: queryKeys.epics.lists() });
-      queryClient.refetchQueries({ queryKey: queryKeys.epics.allList() });
+      // Invalidate all epic lists (smartInvalidate handles active vs inactive)
+      smartInvalidate(queryClient, queryKeys.epics.lists());
+      smartInvalidate(queryClient, queryKeys.epics.allList());
 
       // Invalidate project detail to update counters
       if (context?.projectId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(context.projectId) });
+        queryClient.invalidateQueries({ 
+          queryKey: queryKeys.projects.detail(context.projectId),
+          refetchType: 'active'
+        });
       }
 
       toast.success('Epic excluído');

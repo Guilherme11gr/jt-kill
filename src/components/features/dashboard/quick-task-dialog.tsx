@@ -114,9 +114,15 @@ export function QuickTaskDialog({
   const mutation = useMutation({
     mutationFn: createQuickTask,
     onSuccess: () => {
-      // Invalidar queries relacionadas
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      // Invalidar queries relacionadas com refetch forçado
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.tasks.lists(),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.dashboard.all,
+        refetchType: 'active'
+      });
 
       toast.success('Task criada!', {
         description: title,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Search, X, FolderOpen, Layers, Box, ChevronRight } from 'lucide-react';
+import { Search, X, FolderOpen, Layers, Box, ChevronRight, User, Users } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectSeparator,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import type { TaskStatus, TaskPriority } from '@/shared/types';
@@ -23,6 +24,7 @@ export interface TaskFiltersState {
   projectId: string | 'all';
   epicId: string | 'all';
   featureId: string | 'all';
+  assigneeId: string | 'all' | 'me'; // 'me' = minhas tasks
 }
 
 interface ProjectOption {
@@ -42,6 +44,12 @@ interface FeatureOption {
   epicId: string;
 }
 
+interface MemberOption {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
 interface TaskFiltersProps {
   filters: TaskFiltersState;
   onChange: (filters: TaskFiltersState) => void;
@@ -49,6 +57,8 @@ interface TaskFiltersProps {
   projects?: ProjectOption[];
   epics?: EpicOption[];
   features?: FeatureOption[];
+  members?: MemberOption[];
+  currentUserId?: string;
   className?: string;
 }
 
@@ -77,6 +87,8 @@ export function TaskFilters({
   projects = [],
   epics = [],
   features = [],
+  members = [],
+  currentUserId,
   className
 }: TaskFiltersProps) {
   // Filter epics based on selected project
@@ -100,9 +112,18 @@ export function TaskFilters({
       filters.status !== 'all' ||
       filters.priority !== 'all' ||
       filters.module !== 'all' ||
+      filters.assigneeId !== 'all' ||
       hasHierarchyFilter
     );
   }, [filters, hasHierarchyFilter]);
+
+  // Get assignee display name for badge
+  const getAssigneeLabel = () => {
+    if (filters.assigneeId === 'me') return 'Minhas Tasks';
+    if (filters.assigneeId === 'all') return null;
+    const member = members.find(m => m.id === filters.assigneeId);
+    return member?.displayName || 'Membro';
+  };
 
   const clearFilters = () => {
     onChange({
@@ -113,6 +134,7 @@ export function TaskFilters({
       projectId: 'all',
       epicId: 'all',
       featureId: 'all',
+      assigneeId: 'all',
     });
   };
 
@@ -309,6 +331,55 @@ export function TaskFilters({
           </SelectContent>
         </Select>
 
+        {/* Assignee Filter */}
+        {members.length > 0 && (
+          <Select
+            value={filters.assigneeId}
+            onValueChange={(value) =>
+              onChange({ ...filters, assigneeId: value as string | 'all' | 'me' })
+            }
+          >
+            <SelectTrigger className={cn(
+              "w-[180px]",
+              filters.assigneeId === 'me' && "border-primary bg-primary/10 text-primary font-medium"
+            )}>
+              <div className="flex items-center gap-2">
+                {filters.assigneeId === 'me' ? (
+                  <User className="w-4 h-4" />
+                ) : (
+                  <Users className="w-4 h-4 opacity-50" />
+                )}
+                <SelectValue />
+              </div>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="me" className="font-medium text-primary">
+                Minhas Tasks
+              </SelectItem>
+              {members.length > 0 && <SelectSeparator />}
+              {members.map((member) => (
+                <SelectItem key={member.id} value={member.id}>
+                  <span className="flex items-center gap-2">
+                    {member.avatarUrl ? (
+                      <img
+                        src={member.avatarUrl}
+                        alt=""
+                        className="w-4 h-4 rounded-full"
+                      />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium">
+                        {(member.displayName || '?')[0].toUpperCase()}
+                      </div>
+                    )}
+                    {member.displayName || 'Sem nome'}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
         {/* Module (if available) */}
         {modules.length > 0 && (
           <Select
@@ -339,7 +410,7 @@ export function TaskFilters({
       </div>
 
       {/* Active non-hierarchy filters badges */}
-      {(filters.search || filters.status !== 'all' || filters.priority !== 'all' || filters.module !== 'all') && (
+      {(filters.search || filters.status !== 'all' || filters.priority !== 'all' || filters.module !== 'all' || filters.assigneeId !== 'all') && (
         <div className="flex flex-wrap items-center gap-2 mt-3">
           {filters.search && (
             <Badge variant="outline" className="gap-1">
@@ -379,6 +450,24 @@ export function TaskFilters({
               Módulo: {filters.module}
               <button
                 onClick={() => onChange({ ...filters, module: 'all' })}
+                className="ml-1 hover:text-destructive"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </Badge>
+          )}
+          {filters.assigneeId !== 'all' && (
+            <Badge 
+              variant={filters.assigneeId === 'me' ? 'default' : 'outline'} 
+              className="gap-1"
+            >
+              {filters.assigneeId === 'me' ? (
+                <><User className="w-3 h-3" /> Minhas Tasks</>
+              ) : (
+                <>Responsável: {getAssigneeLabel()}</>
+              )}
+              <button
+                onClick={() => onChange({ ...filters, assigneeId: 'all' })}
                 className="ml-1 hover:text-destructive"
               >
                 <X className="w-3 h-3" />

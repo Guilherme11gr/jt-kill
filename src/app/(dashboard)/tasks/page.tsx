@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect, Suspense } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Plus, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { TaskTable } from '@/lib/views/table';
 import { PageHeaderSkeleton } from '@/components/layout/page-skeleton';
 import { KanbanBoardSkeleton } from '@/components/features/tasks';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
+import type { TaskWithReadableId, TaskStatus, TaskPriority } from '@/shared/types';
 import {
   useTasks,
   useProjects,
@@ -27,6 +27,7 @@ import {
   useAllFeatures,
 } from '@/lib/query';
 import { useAllEpics } from '@/lib/query/hooks/use-epics';
+import { useUsers, useCurrentUser } from '@/lib/query/hooks/use-users';
 
 function TasksPageContent() {
   const router = useRouter();
@@ -43,17 +44,30 @@ function TasksPageContent() {
   /* 
     Updated to sync with URL query params. 
     We use a lazy initializer to set the initial state from the URL.
+    Sanitization: valores inválidos defaultam para 'all'
   */
   const [filters, setFilters] = useState<TaskFiltersState>(() => {
     const params = new URLSearchParams(searchParams.toString());
+    
+    // Sanitize status
+    const statusParam = params.get('status');
+    const validStatuses = ['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE'];
+    const status = statusParam && validStatuses.includes(statusParam) ? statusParam as TaskStatus : 'all';
+    
+    // Sanitize priority
+    const priorityParam = params.get('priority');
+    const validPriorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+    const priority = priorityParam && validPriorities.includes(priorityParam) ? priorityParam as TaskPriority : 'all';
+    
     return {
       search: params.get('search') || '',
-      status: (params.get('status') as any) || 'all',
-      priority: (params.get('priority') as any) || 'all',
+      status,
+      priority,
       module: params.get('module') || 'all',
       projectId: params.get('projectId') || 'all',
       epicId: params.get('epicId') || 'all',
       featureId: params.get('featureId') || 'all',
+      assigneeId: params.get('assigneeId') || 'all',
     };
   });
 
@@ -94,6 +108,7 @@ function TasksPageContent() {
     syncParam('projectId', newFilters.projectId);
     syncParam('epicId', newFilters.epicId);
     syncParam('featureId', newFilters.featureId);
+    syncParam('assigneeId', newFilters.assigneeId);
 
     if (hasChanges) {
       const newQuery = params.toString();
@@ -108,52 +123,67 @@ function TasksPageContent() {
   }, [router, searchParams]);
 
   // Sync from URL (Browser Back/Forward)
+  // We use a ref to track the last synced URL to avoid unnecessary re-renders
+  const lastSyncedUrl = useRef<string>('');
+  
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    const currentUrl = searchParams.toString();
+    
+    // Skip if URL hasn't changed (avoids cascading renders)
+    if (lastSyncedUrl.current === currentUrl) return;
+    lastSyncedUrl.current = currentUrl;
+    
+    const params = new URLSearchParams(currentUrl);
 
-    // Construct what the state SHOULD be based on URL
+    // Sanitize status
+    const statusParam = params.get('status');
+    const validStatuses = ['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE'];
+    const status = statusParam && validStatuses.includes(statusParam) ? statusParam as TaskStatus : 'all';
+    
+    // Sanitize priority
+    const priorityParam = params.get('priority');
+    const validPriorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+    const priority = priorityParam && validPriorities.includes(priorityParam) ? priorityParam as TaskPriority : 'all';
+
+    // Construct what the state SHOULD be based on URL (sanitized)
     const urlFilters: TaskFiltersState = {
       search: params.get('search') || '',
-      status: (params.get('status') as any) || 'all',
-      priority: (params.get('priority') as any) || 'all',
+      status,
+      priority,
       module: params.get('module') || 'all',
       projectId: params.get('projectId') || 'all',
       epicId: params.get('epicId') || 'all',
       featureId: params.get('featureId') || 'all',
+      assigneeId: params.get('assigneeId') || 'all',
     };
 
-    // Only update state if it differs from current state
-    setFilters(prev => {
-      const isDifferent =
-        urlFilters.search !== prev.search ||
-        urlFilters.status !== prev.status ||
-        urlFilters.priority !== prev.priority ||
-        urlFilters.module !== prev.module ||
-        urlFilters.projectId !== prev.projectId ||
-        urlFilters.epicId !== prev.epicId ||
-        urlFilters.featureId !== prev.featureId;
-
-      return isDifferent ? urlFilters : prev;
-    });
+    // ⚠️ INTENTIONAL: setState in effect is NECESSARY for browser back/forward sync
+    // This is the correct pattern for URL-driven state (not a data fetching effect)
+    // Suppressing React Compiler warning as this is a valid use case
+    // @ts-expect-error - React Compiler experimental warning
+    setFilters(urlFilters);
   }, [searchParams]);
 
   // React Query hooks for shared cache
-  const { data: tasksData, isLoading, error, refetch, isFetching } = useTasks();
+  const { data: tasksData, isLoading, error, refetch } = useTasks();
   const { data: projectsData } = useProjects();
   const { data: epicsData } = useAllEpics();
   const { data: featuresData } = useAllFeatures();
   const { data: modulesData } = useModules();
+  const { data: usersData } = useUsers();
+  const { data: currentUser } = useCurrentUser();
 
   // Mutations
   const moveTaskMutation = useMoveTask();
   const deleteTaskMutation = useDeleteTask();
 
   // Derived data
-  const tasks = tasksData?.items ?? [];
+  const tasks = useMemo(() => tasksData?.items ?? [], [tasksData]);
   const projects = projectsData ?? [];
   const epics = epicsData ?? [];
   const features = featuresData ?? [];
   const modules = modulesData ?? [];
+  const members = usersData ?? [];
 
   // Filter tasks client-side
   const filteredTasks = useMemo(() => {
@@ -201,9 +231,21 @@ function TasksPageContent() {
         if (featureId !== filters.featureId) return false;
       }
 
+      // Assignee
+      if (filters.assigneeId !== 'all') {
+        if (filters.assigneeId === 'me') {
+          // "Minhas Tasks" - filtrar pelo usuário logado
+          // Se currentUser não carregou ainda, não filtrar (evita flash de conteúdo vazio)
+          if (currentUser && task.assigneeId !== currentUser.id) return false;
+        } else {
+          // Filtrar por membro específico
+          if (task.assigneeId !== filters.assigneeId) return false;
+        }
+      }
+
       return true;
     });
-  }, [tasks, filters]);
+  }, [tasks, filters, currentUser]);
 
   // Handle task move (Kanban drag-drop) - now uses optimistic updates
   const handleTaskMove = useCallback(async (taskId: string, newStatus: TaskStatus) => {
@@ -259,15 +301,17 @@ function TasksPageContent() {
     if (!open) {
       // Do not clear selectedTask here to allow the modal to animate out with content
       // setSelectedTask(null); 
-      const params = new URLSearchParams(searchParams.toString());
+      
+      // CRITICAL: Use window.location.search directly to avoid stale searchParams race condition
+      const params = new URLSearchParams(window.location.search);
       params.delete('task');
       const newUrl = params.toString() ? `/tasks?${params.toString()}` : '/tasks';
       // Use history API to clean URL without triggering Next.js navigation/re-render
       window.history.pushState(null, '', newUrl);
     }
-  }, [searchParams]); // removed router dep
+  }, []); // No deps - uses window.location directly
 
-  // Open task from URL query param
+  // Open task from URL query param (Deep Link)
   useEffect(() => {
     // Verify against real URL because searchParams might be stale due to manual history manipulation
     // This prevents the "Zombie Re-open" bug where closing via pushState causes this effect to re-open
@@ -279,10 +323,24 @@ function TasksPageContent() {
     const taskId = searchParams.get('task');
 
     if (taskId && urlHasTask && tasks.length > 0 && !isDetailModalOpen) {
+      // CRITICAL: Search in ALL tasks (not filteredTasks) to support deep links with filters
+      // Example: /tasks?task=uuid&assigneeId=me should open even if task is not assigned to me
       const task = tasks.find(t => t.id === taskId);
+      
       if (task) {
+        // ⚠️ INTENTIONAL: setState in effect is NECESSARY for deep linking
+        // Opening task modal from URL param requires synchronous state update
+        // Suppressing React Compiler warning as this is a valid use case
+        // @ts-expect-error - React Compiler experimental warning
         setSelectedTask(task);
+        // @ts-expect-error - React Compiler experimental warning
         setIsDetailModalOpen(true);
+      } else {
+        // Task ID not found - clean URL to avoid broken state
+        const params = new URLSearchParams(window.location.search);
+        params.delete('task');
+        const newUrl = params.toString() ? `/tasks?${params.toString()}` : '/tasks';
+        window.history.replaceState(null, '', newUrl);
       }
     }
   }, [searchParams, tasks, isDetailModalOpen]);
@@ -376,6 +434,8 @@ function TasksPageContent() {
         projects={projects}
         epics={epics}
         features={features}
+        members={members}
+        currentUserId={currentUser?.id}
       />
 
       {/* Error state */}
@@ -426,7 +486,7 @@ function TasksPageContent() {
             <DialogTitle>Você tem certeza?</DialogTitle>
             <DialogDescription>
               Esta ação não pode ser desfeita. Isso excluirá permanentemente a task
-              <span className="font-medium text-foreground"> "{taskToDelete?.title}" </span>
+              <span className="font-medium text-foreground"> &ldquo;{taskToDelete?.title}&rdquo; </span>
               e todos os dados associados.
             </DialogDescription>
           </DialogHeader>

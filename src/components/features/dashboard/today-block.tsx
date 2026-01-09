@@ -85,7 +85,7 @@ export function TodayBlock({ tasks, isLoading }: TodayBlockProps) {
       <CardContent className="pt-0">
         <div className="space-y-1">
           {todayTasks.map((task) => (
-            <TaskRow key={task.id} task={task} />
+            <TaskRow key={task.id} task={task} showProject />
           ))}
         </div>
       </CardContent>

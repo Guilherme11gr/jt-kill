@@ -61,45 +61,31 @@ export function TaskRow({ task, showProject = false, showAssignee = false }: Tas
 
       {/* ID + Título */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-hidden">
           <Badge variant="outline" className="font-mono text-[10px] px-1.5 shrink-0">
             {task.readableId}
           </Badge>
           <span className="text-sm font-medium truncate group-hover:text-primary transition-colors">
             {task.title}
           </span>
+          {showProject && task.feature?.epic?.project?.name && (
+            <span className="text-xs text-muted-foreground shrink-0">
+              • {task.feature.epic.project.name}
+            </span>
+          )}
+          {showAssignee && task.assigneeId && (
+            <>
+              <span className="text-xs text-muted-foreground shrink-0">•</span>
+              <UserAvatar 
+                userId={task.assigneeId}
+                displayName={task.assignee?.displayName}
+                avatarUrl={task.assignee?.avatarUrl}
+                size="sm"
+                showTooltip
+              />
+            </>
+          )}
         </div>
-        
-        {showProject && (
-          <span className="text-xs text-muted-foreground truncate">
-            {task.feature?.epic?.project?.name}
-          </span>
-        )}
-
-        {showAssignee && (
-          <div className="flex items-center gap-1.5 mt-1">
-            {task.assigneeId ? (
-              <div className="flex items-center gap-1.5">
-                <UserAvatar 
-                  userId={task.assigneeId}
-                  displayName={task.assignee?.displayName}
-                  avatarUrl={task.assignee?.avatarUrl}
-                  size="sm" 
-                />
-                {task.assignee?.displayName && (
-                  <span className="text-xs text-muted-foreground">
-                    {task.assignee.displayName.split(' ')[0]}
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-1">
-                <User className="h-3 w-3 text-muted-foreground/50" />
-                <span className="text-xs text-muted-foreground/70">Sem responsável</span>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Status */}

@@ -45,7 +45,7 @@ export function BlockedBlock({ tasks, teamView = false }: BlockedBlockProps) {
       <CardContent className="pt-0">
         <div className="space-y-1">
           {blockedTasks.map((task) => (
-            <TaskRow key={task.id} task={task} showAssignee={teamView} />
+            <TaskRow key={task.id} task={task} showProject showAssignee={teamView} />
           ))}
         </div>
       </CardContent>

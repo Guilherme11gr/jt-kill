@@ -28,6 +28,8 @@ interface ActivityItem {
  * 
  * Retorna atividades recentes dos PROJETOS onde o usuário participa.
  * Mostra consciência de equipe - não apenas ações nas tasks do usuário.
+ * 
+ * OPTIMIZED: Uses single raw SQL query with JOINs instead of multiple Prisma queries
  */
 export async function GET(request: NextRequest) {
   try {
@@ -50,84 +52,80 @@ export async function GET(request: NextRequest) {
       return jsonSuccess({ items: [], total: 0 });
     }
 
-    // 4. Buscar TODAS as tasks desses projetos (não só as do usuário)
-    const projectTasks = await prisma.task.findMany({
-      where: {
-        orgId: tenantId,
-        projectId: { in: projectIds },
-      },
-      select: { id: true },
-    });
+    // 4. OPTIMIZED: Single raw SQL query with JOINs
+    // Gets audit logs + user names + task details in one query
+    interface AuditLogRow {
+      id: string;
+      user_id: string;
+      action: string;
+      target_type: string | null;
+      target_id: string | null;
+      metadata: Record<string, unknown> | null;
+      created_at: Date;
+      display_name: string | null;
+      task_title: string | null;
+      task_local_id: number | null;
+      project_key: string | null;
+    }
 
-    const taskIds = projectTasks.map((t) => t.id);
+    const logs = await prisma.$queryRaw<AuditLogRow[]>`
+      SELECT 
+        a.id,
+        a.user_id,
+        a.action,
+        a.target_type,
+        a.target_id,
+        a.metadata,
+        a.created_at,
+        u.display_name,
+        t.title as task_title,
+        t.local_id as task_local_id,
+        p.key as project_key
+      FROM public.audit_logs a
+      LEFT JOIN public.user_profiles u ON a.user_id = u.id AND u.org_id = ${tenantId}::uuid
+      LEFT JOIN public.tasks t ON a.target_id = t.id
+      LEFT JOIN public.projects p ON t.project_id = p.id
+      WHERE a.org_id = ${tenantId}::uuid
+        AND a.created_at >= ${since}
+        AND a.target_type = 'task'
+        AND a.target_id IN (
+          SELECT id FROM public.tasks 
+          WHERE org_id = ${tenantId}::uuid 
+            AND project_id = ANY(${projectIds}::uuid[])
+        )
+      ORDER BY a.created_at DESC
+      LIMIT ${limit}
+    `;
 
-    if (taskIds.length === 0) {
+    if (logs.length === 0) {
       return jsonSuccess({ items: [], total: 0 });
     }
 
-    // 5. Buscar audit logs recentes de TODAS as tasks dos projetos
-    // Mostra atividade de equipe, não apenas das minhas tasks
-    const logs = await prisma.auditLog.findMany({
-      where: {
-        orgId: tenantId,
-        createdAt: { gte: since },
-        targetType: 'task',
-        targetId: { in: taskIds },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-    });
-
-    // 6. Buscar nomes dos usuários e títulos das tasks
-    const userIds = [...new Set(logs.map((l) => l.userId))];
-    const logTaskIds = [...new Set(logs.filter((l) => l.targetId).map((l) => l.targetId!))];
-
-    const [users, tasks] = await Promise.all([
-      prisma.userProfile.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, displayName: true },
-      }),
-      prisma.task.findMany({
-        where: { id: { in: taskIds } },
-        select: {
-          id: true,
-          title: true,
-          localId: true,
-          project: { select: { key: true } },
-        },
-      }),
-    ]);
-
-    const userMap = new Map(users.map((u) => [u.id, u.displayName]));
-    const taskMap = new Map(tasks.map((t) => [t.id, {
-      title: t.title,
-      readableId: `${t.project.key}-${t.localId}`,
-    }]));
-
-    // 6. Formatar atividades com mensagem humana
+    // 5. Format activities with human messages
     const items: ActivityItem[] = logs.map((log) => {
-      const actorName = userMap.get(log.userId) || 'Alguém';
-      const taskInfo = log.targetId ? taskMap.get(log.targetId) : null;
-      const metadata = log.metadata as Record<string, unknown> | null;
+      const actorName = log.display_name || 'Alguém';
+      const readableId = log.project_key && log.task_local_id
+        ? `${log.project_key}-${log.task_local_id}`
+        : null;
 
       const humanMessage = formatHumanMessage(
         log.action,
         actorName,
-        taskInfo?.readableId || null,
-        metadata
+        readableId,
+        log.metadata
       );
 
       return {
         id: log.id,
         action: log.action,
-        actorId: log.userId,
+        actorId: log.user_id,
         actorName,
-        targetType: log.targetType,
-        targetId: log.targetId,
-        targetTitle: taskInfo?.title || null,
-        targetReadableId: taskInfo?.readableId || null,
-        metadata,
-        createdAt: log.createdAt,
+        targetType: log.target_type,
+        targetId: log.target_id,
+        targetTitle: log.task_title || null,
+        targetReadableId: readableId,
+        metadata: log.metadata,
+        createdAt: log.created_at,
         humanMessage,
       };
     });

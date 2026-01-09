@@ -58,17 +58,25 @@ export class CommentRepository {
         userId: data.userId,
         content: data.content,
       },
+      include: {
+        users: {
+          include: {
+            user_profiles: true
+          }
+        }
+      }
     });
 
-    // Fetch user profile in parallel-ready format (usually cached by Prisma)
-    const profile = await this.prisma.userProfile.findUnique({
-      where: { id: data.userId },
-      select: { displayName: true, avatarUrl: true },
-    });
-
+    // Transform to expected format - user_profiles is 1:1 with users
+    const profile = comment.users?.user_profiles;
     return {
-      ...comment,
-      user: profile || undefined,
+      id: comment.id,
+      taskId: comment.taskId,
+      userId: comment.userId,
+      content: comment.content,
+      createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt,
+      user: profile ? { displayName: profile.displayName, avatarUrl: profile.avatarUrl } : undefined,
     };
   }
 

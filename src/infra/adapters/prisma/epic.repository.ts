@@ -70,7 +70,9 @@ export class EpicRepository {
     return await this.prisma.epic.findFirst({
       where: { id, orgId },
       include: {
-        project: true,
+        project: {
+          select: { id: true, name: true, key: true }
+        },
       }
     });
   }
@@ -98,25 +100,27 @@ export class EpicRepository {
     orgId: string,
     input: UpdateEpicInput
   ): Promise<Epic> {
-    // Validate epic belongs to org before update
-    const existing = await this.prisma.epic.findFirst({
-      where: { id, project: { orgId } },
+    // OPTIMIZED: Use updateMany with nested orgId filter, then verify count
+    const result = await this.prisma.epic.updateMany({
+      where: { id, orgId },
+      data: input,
     });
 
-    if (!existing) {
+    if (result.count === 0) {
       throw new Error('Epic not found');
     }
 
-    return await this.prisma.epic.update({
-      where: { id },
-      data: input,
-    });
+    // Re-fetch to return the updated object
+    const updated = await this.findById(id, orgId);
+    if (!updated) throw new Error('Epic not found');
+    return updated;
   }
 
   async delete(id: string, orgId: string): Promise<boolean> {
-    // Protect system epics from deletion
+    // OPTIMIZED: Only fetch isSystem field to check protection
     const epic = await this.prisma.epic.findFirst({
-      where: { id, project: { orgId } },
+      where: { id, orgId },
+      select: { isSystem: true },
     });
 
     if (epic?.isSystem) {
@@ -124,10 +128,7 @@ export class EpicRepository {
     }
 
     const result = await this.prisma.epic.deleteMany({
-      where: {
-        id,
-        project: { orgId },
-      },
+      where: { id, orgId },
     });
     return result.count > 0;
   }

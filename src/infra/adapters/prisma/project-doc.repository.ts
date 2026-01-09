@@ -92,9 +92,11 @@ export class ProjectDocRepository {
       where: { id, orgId },
       include: {
         tags: {
-          include: {
-            tag: true,
-          },
+          select: {
+            tag: {
+              select: { id: true, name: true }
+            }
+          }
         },
       },
     });

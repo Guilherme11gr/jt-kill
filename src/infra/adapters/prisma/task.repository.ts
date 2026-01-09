@@ -353,40 +353,45 @@ export class TaskRepository {
     orgId: string,
     input: UpdateTaskInput
   ): Promise<Task> {
-    // Validate task belongs to org before update
-    const existing = await this.findById(id, orgId);
-    if (!existing) {
+    // OPTIMIZED: Use updateMany with orgId filter, then re-fetch if needed
+    const result = await this.prisma.task.updateMany({
+      where: { id, orgId },
+      data: input,
+    });
+
+    if (result.count === 0) {
       throw new Error('Task not found');
     }
 
-    const result = await this.prisma.task.update({
-      where: { id },
-      data: input,
-    });
-    // Cast points to StoryPoints type (Prisma returns number | null)
-    return result as Task;
+    // Re-fetch to return the updated object (updateMany doesn't return the object)
+    const updated = await this.findById(id, orgId);
+    if (!updated) throw new Error('Task not found');
+    return updated;
   }
 
   /**
    * Update only status (common operation)
+   * OPTIMIZED & SECURE: Uses updateMany with orgId filter
    */
   async updateStatus(
     id: string,
     orgId: string,
     status: TaskStatus
   ): Promise<Task> {
-    // Validate task belongs to org before update
-    const existing = await this.findById(id, orgId);
-    if (!existing) {
+    // Use updateMany with orgId filter for tenant isolation
+    const result = await this.prisma.task.updateMany({
+      where: { id, orgId },
+      data: { status },
+    });
+
+    if (result.count === 0) {
       throw new Error('Task not found');
     }
 
-    const result = await this.prisma.task.update({
-      where: { id },
-      data: { status },
-    });
-    // Cast points to StoryPoints type (Prisma returns number | null)
-    return result as Task;
+    // Re-fetch to return the updated object
+    const updated = await this.findById(id, orgId);
+    if (!updated) throw new Error('Task not found');
+    return updated;
   }
 
   async delete(id: string, orgId: string): Promise<boolean> {

@@ -195,19 +195,20 @@ export class FeatureRepository {
     orgId: string,
     input: UpdateFeatureInput
   ): Promise<Feature> {
-    // Validate feature belongs to org before update
-    const existing = await this.prisma.feature.findFirst({
-      where: { id, epic: { project: { orgId } } },
+    // OPTIMIZED: Use updateMany with nested orgId filter, then verify count
+    const result = await this.prisma.feature.updateMany({
+      where: { id, orgId },
+      data: input,
     });
 
-    if (!existing) {
+    if (result.count === 0) {
       throw new Error('Feature not found');
     }
 
-    return await this.prisma.feature.update({
-      where: { id },
-      data: input,
-    });
+    // Re-fetch to return the updated object
+    const updated = await this.findById(id, orgId);
+    if (!updated) throw new Error('Feature not found');
+    return updated;
   }
 
   async delete(id: string, orgId: string): Promise<boolean> {

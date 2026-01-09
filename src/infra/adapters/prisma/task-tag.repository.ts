@@ -116,35 +116,36 @@ export class TaskTagRepository {
   // ==================== Task Assignments ====================
 
   async assignToTask(taskId: string, tagIds: string[], orgId: string): Promise<void> {
-    // Validate task exists
-    const task = await this.prisma.task.findFirst({
-      where: { id: taskId, orgId },
-      select: { id: true, projectId: true },
-    });
-    if (!task) {
-      throw new NotFoundError('Tarefa não encontrada');
-    }
+    // OPTIMIZED: Single transaction for validation + assignment
+    await this.prisma.$transaction(async (tx) => {
+      // Validate task exists and get projectId
+      const task = await tx.task.findFirst({
+        where: { id: taskId, orgId },
+        select: { projectId: true },
+      });
+      if (!task) {
+        throw new NotFoundError('Tarefa não encontrada');
+      }
 
-    // Validate all tags belong to the same project
-    const tags = await this.prisma.taskTag.findMany({
-      where: { id: { in: tagIds }, projectId: task.projectId, orgId },
-    });
-    if (tags.length !== tagIds.length) {
-      const foundIds = new Set(tags.map(t => t.id));
-      const invalidIds = tagIds.filter(id => !foundIds.has(id));
-      throw new ValidationError(`Tags inválidas: ${invalidIds.join(', ')}`);
-    }
+      // Validate tags in same query (if provided)
+      if (tagIds.length > 0) {
+        const validTagCount = await tx.taskTag.count({
+          where: { id: { in: tagIds }, projectId: task.projectId, orgId },
+        });
+        if (validTagCount !== tagIds.length) {
+          throw new ValidationError('Uma ou mais tags são inválidas ou não pertencem a este projeto');
+        }
+      }
 
-    // Remove existing assignments and recreate (replace strategy)
-    await this.prisma.$transaction([
-      this.prisma.taskTagAssignment.deleteMany({
-        where: { taskId },
-      }),
-      this.prisma.taskTagAssignment.createMany({
-        data: tagIds.map((tagId) => ({ taskId, tagId })),
-        skipDuplicates: true,
-      }),
-    ]);
+      // Atomic delete + create
+      await tx.taskTagAssignment.deleteMany({ where: { taskId } });
+      if (tagIds.length > 0) {
+        await tx.taskTagAssignment.createMany({
+          data: tagIds.map((tagId) => ({ taskId, tagId })),
+          skipDuplicates: true,
+        });
+      }
+    });
   }
 
   async unassignFromTask(taskId: string, tagId: string, orgId: string): Promise<void> {
@@ -164,7 +165,7 @@ export class TaskTagRepository {
   async getTagsForTask(taskId: string): Promise<TagInfo[]> {
     const assignments = await this.prisma.taskTagAssignment.findMany({
       where: { taskId },
-      include: {
+      select: {
         tag: {
           select: { id: true, name: true, color: true },
         },
@@ -176,37 +177,38 @@ export class TaskTagRepository {
   // ==================== Feature Assignments ====================
 
   async assignToFeature(featureId: string, tagIds: string[], orgId: string): Promise<void> {
-    // Validate feature exists and get project
-    const feature = await this.prisma.feature.findFirst({
-      where: { id: featureId, orgId },
-      include: { epic: { select: { projectId: true } } },
+    // OPTIMIZED: Single transaction for validation + assignment
+    await this.prisma.$transaction(async (tx) => {
+      // Validate feature exists and get projectId
+      const feature = await tx.feature.findFirst({
+        where: { id: featureId, orgId },
+        select: { epic: { select: { projectId: true } } },
+      });
+      if (!feature) {
+        throw new NotFoundError('Feature não encontrada');
+      }
+
+      const projectId = feature.epic.projectId;
+
+      // Validate tags in same transaction (if provided)
+      if (tagIds.length > 0) {
+        const validTagCount = await tx.taskTag.count({
+          where: { id: { in: tagIds }, projectId, orgId },
+        });
+        if (validTagCount !== tagIds.length) {
+          throw new ValidationError('Uma ou mais tags são inválidas ou não pertencem a este projeto');
+        }
+      }
+
+      // Atomic delete + create
+      await tx.featureTagAssignment.deleteMany({ where: { featureId } });
+      if (tagIds.length > 0) {
+        await tx.featureTagAssignment.createMany({
+          data: tagIds.map((tagId) => ({ featureId, tagId })),
+          skipDuplicates: true,
+        });
+      }
     });
-    if (!feature) {
-      throw new NotFoundError('Feature não encontrada');
-    }
-
-    const projectId = feature.epic.projectId;
-
-    // Validate all tags belong to the same project
-    const tags = await this.prisma.taskTag.findMany({
-      where: { id: { in: tagIds }, projectId, orgId },
-    });
-    if (tags.length !== tagIds.length) {
-      const foundIds = new Set(tags.map(t => t.id));
-      const invalidIds = tagIds.filter(id => !foundIds.has(id));
-      throw new ValidationError(`Tags inválidas: ${invalidIds.join(', ')}`);
-    }
-
-    // Remove existing assignments and recreate
-    await this.prisma.$transaction([
-      this.prisma.featureTagAssignment.deleteMany({
-        where: { featureId },
-      }),
-      this.prisma.featureTagAssignment.createMany({
-        data: tagIds.map((tagId) => ({ featureId, tagId })),
-        skipDuplicates: true,
-      }),
-    ]);
   }
 
   async unassignFromFeature(featureId: string, tagId: string, orgId: string): Promise<void> {
@@ -225,7 +227,7 @@ export class TaskTagRepository {
   async getTagsForFeature(featureId: string): Promise<TagInfo[]> {
     const assignments = await this.prisma.featureTagAssignment.findMany({
       where: { featureId },
-      include: {
+      select: {
         tag: {
           select: { id: true, name: true, color: true },
         },

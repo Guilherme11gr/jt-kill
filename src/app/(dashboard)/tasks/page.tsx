@@ -163,15 +163,25 @@ function TasksPageContent() {
     setFilters(urlFilters);
   }, [searchParams]);
 
-  // Debounce ALL filter changes to avoid excessive API calls
-  // 200ms is fast enough to feel instant but prevents request spam
-  const debouncedFilters = useDebounce(filters, 200);
+// Smart debounce: 100ms for filters (project, status), 300ms for search text
+// Filters like projectId should feel instant, but search needs more delay
+const searchDebounced = useDebounce(filters.search, 300);
+const filtersWithoutSearch = useMemo(() => {
+  const { search, ...rest } = filters;
+  return rest;
+}, [filters]);
+const filtersDebounced = useDebounce(filtersWithoutSearch, 100);
 
-  // Build filters for API
-  const apiFilters = useMemo(() => debouncedFilters, [debouncedFilters]);
+const debouncedFilters = useMemo(() => ({
+  ...filtersDebounced,
+  search: searchDebounced,
+}), [filtersDebounced, searchDebounced]);
 
-  // Get current user first (needed for 'me' filter resolution)
-  const { data: currentUser } = useCurrentUser();
+// Build filters for API
+const apiFilters = useMemo(() => debouncedFilters, [debouncedFilters]);
+
+// Get current user first (needed for 'me' filter resolution)
+const { data: currentUser } = useCurrentUser();
 
   // React Query hooks for shared cache
   // IMPORTANT: Filters are sent to server - no client-side filtering!

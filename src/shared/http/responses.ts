@@ -9,7 +9,7 @@ export function jsonSuccess<T>(
   data: T,
   options?: {
     status?: number;
-    cache?: 'none' | 'short' | 'medium' | 'long';
+    cache?: 'none' | 'brief' | 'short' | 'medium' | 'long';
     private?: boolean;
   }
 ): NextResponse<ApiResponse<T>> {

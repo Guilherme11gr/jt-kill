@@ -147,7 +147,9 @@ export function useTasks(options: UseTasksOptions = {}) {
     // Keep previous data visible while fetching new filter results
     // This prevents the UI from showing skeleton on every filter change
     placeholderData: keepPreviousData,
-    ...CACHE_TIMES.FRESH,
+    // Cache tasks for 30s to avoid refetch on filter toggle (e.g., project switch)
+    staleTime: 30_000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

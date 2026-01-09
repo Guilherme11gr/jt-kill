@@ -46,7 +46,8 @@ export async function GET(request: NextRequest) {
     }
 
     const result = await searchTasks(tenantId, parsed.data, { taskRepository });
-    return jsonSuccess(result, { cache: 'none' });
+    // Short cache (10s) - safe since filters are in query params
+    return jsonSuccess(result, { cache: 'brief' });
 
   } catch (error) {
     const { status, body } = handleError(error);

@@ -61,14 +61,42 @@ export function StatusBadge({ status, size = 'sm', className }: StatusBadgeProps
   );
 }
 
-// Column header variant with count
+// Column header variant with count and collapse option
 interface StatusColumnHeaderProps {
   status: TaskStatus;
   count: number;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function StatusColumnHeader({ status, count }: StatusColumnHeaderProps) {
+export function StatusColumnHeader({ status, count, isCollapsed, onToggleCollapse }: StatusColumnHeaderProps) {
   const style = STATUS_STYLES[status];
+  const showCollapseButton = status === 'DONE' && onToggleCollapse;
+
+  // Collapsed layout - vertical and compact
+  if (isCollapsed) {
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <button
+          onClick={onToggleCollapse}
+          className="text-xs text-muted-foreground hover:text-foreground p-1 rounded hover:bg-background/50 transition-colors"
+          title="Expandir coluna"
+        >
+          ▶
+        </button>
+        <div className={cn(
+          "flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold",
+          style.bg.replace('/20', '/30'),
+          style.text,
+        )}>
+          <div className="w-2 h-2 rounded-full bg-current" />
+        </div>
+        <span className="text-xs font-medium text-muted-foreground">
+          {count}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-between">
@@ -81,9 +109,20 @@ export function StatusColumnHeader({ status, count }: StatusColumnHeaderProps) {
         <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
         {style.label}
       </div>
-      <span className="text-xs font-medium text-muted-foreground bg-background/50 px-2 py-0.5 rounded-md border shadow-sm h-6 min-w-[1.5rem] flex items-center justify-center">
-        {count}
-      </span>
+      <div className="flex items-center gap-1">
+        <span className="text-xs font-medium text-muted-foreground bg-background/50 px-2 py-0.5 rounded-md border shadow-sm h-6 min-w-[1.5rem] flex items-center justify-center">
+          {count}
+        </span>
+        {showCollapseButton && (
+          <button
+            onClick={onToggleCollapse}
+            className="text-xs text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-background/50 transition-colors"
+            title="Colapsar coluna"
+          >
+            ◀
+          </button>
+        )}
+      </div>
     </div>
   );
 }

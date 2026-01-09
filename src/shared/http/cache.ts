@@ -2,10 +2,11 @@
  * @fileoverview Configuração de cache headers para rotas HTTP
  */
 
-type CacheDuration = 'none' | 'short' | 'medium' | 'long' | 'immutable';
+type CacheDuration = 'none' | 'brief' | 'short' | 'medium' | 'long' | 'immutable';
 
 const CACHE_CONFIG: Record<CacheDuration, string> = {
   none: 'no-store, no-cache, must-revalidate',
+  brief: 'public, max-age=10, s-maxage=10, stale-while-revalidate=30', // 10 sec (tasks, kanban)
   short: 'public, max-age=60, stale-while-revalidate=30', // 1 min
   medium: 'public, max-age=300, stale-while-revalidate=60', // 5 min
   long: 'public, max-age=3600, stale-while-revalidate=300', // 1 hora

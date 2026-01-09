@@ -135,9 +135,8 @@ export function useModulesByProject(projectId: string | undefined) {
 
 /**
  * Create a new project
- */
-/**
- * Create a new project
+ * 
+ * Strategy: Optimistic update + force refetch
  */
 export function useCreateProject() {
   const queryClient = useQueryClient();
@@ -145,14 +144,16 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: createProject,
     onSuccess: (newProject) => {
-      // 1. Update the list
+      // 1. Optimistic update the list
       queryClient.setQueryData<Project[]>(queryKeys.projects.list(), (old) => {
         if (!old) return [newProject];
+        // Avoid duplicates
+        if (old.some(p => p.id === newProject.id)) return old;
         return [...old, newProject];
       });
 
-      // 2. Invalidate to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      // 2. Force refetch to ensure consistency
+      queryClient.refetchQueries({ queryKey: queryKeys.projects.list() });
 
       // 3. Invalidate Dashboard Active Projects (new project might be active soon)
       invalidateDashboardQueries(queryClient);
@@ -167,6 +168,8 @@ export function useCreateProject() {
 
 /**
  * Update a project
+ * 
+ * Strategy: Optimistic update + targeted refetch
  */
 export function useUpdateProject() {
   const queryClient = useQueryClient();
@@ -183,11 +186,12 @@ export function useUpdateProject() {
       // 2. Update in list immediately
       queryClient.setQueryData<Project[]>(queryKeys.projects.list(), (old) => {
         if (!old) return old;
-        return old.map((p) => (p.id === variables.id ? updatedProject : p));
+        return old.map((p) => (p.id === variables.id ? { ...p, ...updatedProject } : p));
       });
 
-      // 3. Invalidate for consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+      // 3. Force refetch for consistency
+      queryClient.refetchQueries({ queryKey: queryKeys.projects.list() });
+      queryClient.refetchQueries({ queryKey: queryKeys.projects.detail(variables.id) });
 
       // 4. Invalidate Dashboard
       invalidateDashboardQueries(queryClient);
@@ -201,18 +205,47 @@ export function useUpdateProject() {
 
 /**
  * Delete a project
+ * 
+ * Strategy: Optimistic removal + force refetch
  */
 export function useDeleteProject() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: deleteProject,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects.all });
+    onMutate: async (projectId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.projects.all });
+
+      // Snapshot previous data for rollback
+      const previousProjects = queryClient.getQueryData<Project[]>(queryKeys.projects.list());
+
+      // Optimistically remove from list
+      if (previousProjects) {
+        queryClient.setQueryData<Project[]>(
+          queryKeys.projects.list(),
+          previousProjects.filter(p => p.id !== projectId)
+        );
+      }
+
+      return { previousProjects, projectId };
+    },
+    onSuccess: (_, deletedProjectId) => {
+      // Remove detail query
+      queryClient.removeQueries({ queryKey: queryKeys.projects.detail(deletedProjectId) });
+      
+      // Force refetch list
+      queryClient.refetchQueries({ queryKey: queryKeys.projects.list() });
+      
+      // Invalidate dashboard
       invalidateDashboardQueries(queryClient);
       toast.success('Projeto excluído');
     },
-    onError: () => {
+    onError: (_err, _projectId, context) => {
+      // Rollback on error
+      if (context?.previousProjects) {
+        queryClient.setQueryData(queryKeys.projects.list(), context.previousProjects);
+      }
       toast.error('Erro ao excluir projeto');
     },
   });

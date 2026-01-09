@@ -450,10 +450,39 @@ export class TaskRepository {
     if (search) {
       // Escape caracteres especiais do LIKE (%, _) para evitar wildcard injection
       const escapedSearch = this.escapeLike(search);
-      where.OR = [
-        { title: { contains: escapedSearch, mode: 'insensitive' } },
-        { description: { contains: escapedSearch, mode: 'insensitive' } },
-      ];
+      
+      // Detectar se é busca por readableId (formato: KEY-123 ou apenas 123)
+      const readableIdPattern = /^([A-Z0-9]{2,10}-)?\d+$/i;
+      if (readableIdPattern.test(search.trim())) {
+        // Busca por localId (suporta "36" ou "agq-36")
+        const localIdMatch = search.trim().match(/(\d+)$/);
+        if (localIdMatch) {
+          const localId = parseInt(localIdMatch[1], 10);
+          
+          // Se tem projeto-prefix, busca por projeto também
+          const projectKeyMatch = search.trim().match(/^([A-Z0-9]{2,10})-/i);
+          if (projectKeyMatch) {
+            where.AND = [
+              { localId },
+              { project: { key: { equals: projectKeyMatch[1].toUpperCase(), mode: 'insensitive' } } },
+            ];
+          } else {
+            // Busca apenas por localId (qualquer projeto)
+            where.localId = localId;
+          }
+        }
+      } else {
+        // Busca textual em title e description
+        // NOTA: Para buscas com múltiplas palavras (>2 termos), considere usar:
+        // Prisma.$queryRaw com to_tsvector/plainto_tsquery (idx_tasks_fulltext_search)
+        // Exemplo: SELECT * FROM tasks WHERE to_tsvector('portuguese', title || ' ' || COALESCE(description, '')) 
+        //          @@ plainto_tsquery('portuguese', ${search}) AND org_id = ${orgId};
+        // Benefício: ~10x mais rápido para buscas textuais complexas
+        where.OR = [
+          { title: { contains: escapedSearch, mode: 'insensitive' } },
+          { description: { contains: escapedSearch, mode: 'insensitive' } },
+        ];
+      }
     }
 
     // Filter by epic (requires JOIN)

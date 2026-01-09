@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { invalidateDashboardQueries } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
@@ -49,14 +49,26 @@ interface UpdateTaskInput {
 
 // ============ Fetch Functions ============
 
+/**
+ * Fetch tasks from API with server-side filtering
+ * 
+ * IMPORTANT: All filtering happens on the server for accuracy.
+ * The 'me' assigneeId must be resolved to actual userId before calling.
+ */
 async function fetchTasks(filters?: Partial<TaskFiltersState>): Promise<TasksResponse> {
   const params = new URLSearchParams();
+  
+  // Optimized for Kanban: fetch enough tasks, skip expensive count
   params.set('pageSize', '100');
+  params.set('sortBy', 'createdAt');
+  params.set('sortOrder', 'desc');
+  params.set('skipCount', 'true'); // Signal to API to skip count query
 
-  // Add filters to params (skip 'all' values)
+  // Add filters to params (skip 'all' and empty values)
   if (filters) {
     Object.entries(filters).forEach(([key, value]) => {
-      if (value && value !== 'all' && value !== '') {
+      // Skip 'all', 'me' (handled by caller), empty strings, and undefined
+      if (value && value !== 'all' && value !== 'me' && value !== '') {
         params.set(key, String(value));
       }
     });
@@ -97,16 +109,44 @@ async function deleteTask(id: string): Promise<void> {
 
 // ============ Hooks ============
 
+interface UseTasksOptions {
+  filters?: Partial<TaskFiltersState>;
+  /** Current user ID - required to resolve 'me' filter */
+  currentUserId?: string;
+}
+
 /**
- * Fetch tasks with filters
+ * Fetch tasks with server-side filtering
+ * 
+ * IMPORTANT: Filters are sent to the API, not applied client-side.
+ * This ensures accurate results even with >100 tasks.
  * 
  * @example
- * const { data, isLoading } = useTasks({ status: 'DOING' });
+ * const { data, isLoading } = useTasks({ 
+ *   filters: { status: 'DOING', assigneeId: 'me' },
+ *   currentUserId: user.id 
+ * });
  */
-export function useTasks(filters?: Partial<TaskFiltersState>) {
+export function useTasks(options: UseTasksOptions = {}) {
+  const { filters, currentUserId } = options;
+  
+  // Resolve 'me' to actual userId for server-side filtering
+  const resolvedFilters = filters ? {
+    ...filters,
+    // Convert 'me' to actual UUID, or undefined if user not loaded
+    assigneeId: filters.assigneeId === 'me' 
+      ? currentUserId 
+      : filters.assigneeId,
+  } : undefined;
+
   return useQuery({
-    queryKey: queryKeys.tasks.list(filters),
-    queryFn: () => fetchTasks(filters),
+    queryKey: queryKeys.tasks.list(resolvedFilters),
+    queryFn: () => fetchTasks(resolvedFilters),
+    // Don't fetch if 'me' filter is set but user isn't loaded yet
+    enabled: !(filters?.assigneeId === 'me' && !currentUserId),
+    // Keep previous data visible while fetching new filter results
+    // This prevents the UI from showing skeleton on every filter change
+    placeholderData: keepPreviousData,
     ...CACHE_TIMES.FRESH,
   });
 }

@@ -131,6 +131,9 @@ export function useAllEpics() {
 
 /**
  * Create a new epic
+ * 
+ * Strategy: Optimistic update + background refetch
+ * We add the epic immediately to cache, then refetch to ensure consistency.
  */
 export function useCreateEpic() {
   const queryClient = useQueryClient();
@@ -138,21 +141,25 @@ export function useCreateEpic() {
   return useMutation({
     mutationFn: createEpic,
     onSuccess: (newEpic, variables) => {
-      // 1. Optimistic update: add to project list
+      // 1. Optimistic update: add to project-specific list
       queryClient.setQueryData<Epic[]>(queryKeys.epics.list(variables.projectId), (old) => {
         if (!old) return [newEpic];
+        // Avoid duplicates
+        if (old.some(e => e.id === newEpic.id)) return old;
         return [...old, newEpic];
       });
 
       // 2. Optimistic update: add to all-list if cached
       queryClient.setQueryData<Epic[]>(queryKeys.epics.allList(), (old) => {
-        if (!old) return old;
+        if (!old) return undefined; // Don't create if not cached
+        if (old.some(e => e.id === newEpic.id)) return old;
         return [...old, newEpic];
       });
 
-      // 3. Invalidate specific queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.list(variables.projectId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.allList() });
+      // 3. Force refetch to ensure server consistency
+      // Using refetchQueries instead of invalidateQueries to force immediate refetch
+      queryClient.refetchQueries({ queryKey: queryKeys.epics.list(variables.projectId) });
+      queryClient.refetchQueries({ queryKey: queryKeys.epics.allList() });
 
       // 4. Invalidate project detail to update counters (e.g., epic count)
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(variables.projectId) });
@@ -167,6 +174,8 @@ export function useCreateEpic() {
 
 /**
  * Update an epic
+ * 
+ * Strategy: Optimistic update + targeted refetch
  */
 export function useUpdateEpic() {
   const queryClient = useQueryClient();
@@ -174,15 +183,22 @@ export function useUpdateEpic() {
   return useMutation({
     mutationFn: updateEpic,
     onSuccess: (updatedEpic, variables) => {
-      // 1. Optimistic update: update the specific epic in cache
+      // 1. Optimistic update: update the specific epic detail in cache
       queryClient.setQueryData<Epic>(queryKeys.epics.detail(variables.id), updatedEpic);
 
-      // 2. Invalidate specific queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(variables.id) });
+      // 2. Update in lists (project-specific and all-list)
+      const updateInList = (old: Epic[] | undefined) => {
+        if (!old) return old;
+        return old.map(e => e.id === updatedEpic.id ? { ...e, ...updatedEpic } : e);
+      };
 
-      // 3. Invalidate lists that contain this epic
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.allList() });
+      // Update in all cached lists
+      queryClient.setQueriesData<Epic[]>({ queryKey: queryKeys.epics.lists() }, updateInList);
+      queryClient.setQueryData<Epic[]>(queryKeys.epics.allList(), updateInList);
+
+      // 3. Force refetch to ensure consistency
+      queryClient.refetchQueries({ queryKey: queryKeys.epics.lists() });
+      queryClient.refetchQueries({ queryKey: queryKeys.epics.allList() });
 
       // 4. Invalidate features of this epic (title change may affect UI)
       queryClient.invalidateQueries({ queryKey: queryKeys.features.list(updatedEpic.id) });
@@ -202,23 +218,68 @@ export function useUpdateEpic() {
 
 /**
  * Delete an epic
+ * 
+ * Strategy: Optimistic removal + force refetch
+ * We need to know projectId to properly update the list cache.
  */
 export function useDeleteEpic() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: deleteEpic,
-    onSuccess: (_, deletedEpicId) => {
-      // 1. Invalidate all epic queries (epic no longer exists)
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.all });
+    onMutate: async (epicId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.epics.all });
 
-      // 2. Remove from cache to avoid stale data
+      // Snapshot previous data for potential rollback
+      const previousAllEpics = queryClient.getQueryData<Epic[]>(queryKeys.epics.allList());
+      
+      // Find the epic to get its projectId before deletion
+      const epicToDelete = previousAllEpics?.find(e => e.id === epicId);
+      const projectId = epicToDelete?.projectId;
+
+      // Optimistically remove from all-list
+      if (previousAllEpics) {
+        queryClient.setQueryData<Epic[]>(
+          queryKeys.epics.allList(),
+          previousAllEpics.filter(e => e.id !== epicId)
+        );
+      }
+
+      // Optimistically remove from project-specific list
+      if (projectId) {
+        const previousProjectEpics = queryClient.getQueryData<Epic[]>(queryKeys.epics.list(projectId));
+        if (previousProjectEpics) {
+          queryClient.setQueryData<Epic[]>(
+            queryKeys.epics.list(projectId),
+            previousProjectEpics.filter(e => e.id !== epicId)
+          );
+        }
+      }
+
+      return { previousAllEpics, projectId, epicId };
+    },
+    onSuccess: (_, deletedEpicId, context) => {
+      // Remove detail and feature queries
       queryClient.removeQueries({ queryKey: queryKeys.epics.detail(deletedEpicId) });
       queryClient.removeQueries({ queryKey: queryKeys.features.list(deletedEpicId) });
 
+      // Force refetch all epic lists to ensure consistency
+      queryClient.refetchQueries({ queryKey: queryKeys.epics.lists() });
+      queryClient.refetchQueries({ queryKey: queryKeys.epics.allList() });
+
+      // Invalidate project detail to update counters
+      if (context?.projectId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(context.projectId) });
+      }
+
       toast.success('Epic excluído');
     },
-    onError: () => {
+    onError: (_err, _epicId, context) => {
+      // Rollback on error
+      if (context?.previousAllEpics) {
+        queryClient.setQueryData(queryKeys.epics.allList(), context.previousAllEpics);
+      }
       toast.error('Erro ao excluir epic');
     },
   });

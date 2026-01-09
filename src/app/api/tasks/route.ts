@@ -26,6 +26,8 @@ const searchTasksSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   sortBy: z.string().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
+  // Performance optimization: skip count query for Kanban view
+  skipCount: z.coerce.boolean().optional().default(false),
 });
 
 export async function GET(request: NextRequest) {

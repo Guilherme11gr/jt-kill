@@ -143,6 +143,8 @@ export function useFeaturesByEpic(epicId: string) {
 
 /**
  * Create a new feature
+ * 
+ * Strategy: Optimistic update + force refetch
  */
 export function useCreateFeature() {
   const queryClient = useQueryClient();
@@ -153,18 +155,21 @@ export function useCreateFeature() {
       // 1. Optimistic update: add to epic's features list
       queryClient.setQueryData<Feature[]>(queryKeys.features.list(variables.epicId), (old) => {
         if (!old) return [newFeature];
+        // Avoid duplicates
+        if (old.some(f => f.id === newFeature.id)) return old;
         return [...old, newFeature];
       });
 
       // 2. Optimistic update: add to all-list if cached
-      queryClient.setQueryData<Feature[]>(queryKeys.features.list(), (old) => {
-        if (!old) return old; // Don't create if not cached
+      queryClient.setQueryData<Feature[]>(queryKeys.features.allList(), (old) => {
+        if (!old) return undefined; // Don't create if not cached
+        if (old.some(f => f.id === newFeature.id)) return old;
         return [...old, newFeature];
       });
 
-      // 3. Invalidate specific queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.features.list(variables.epicId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.features.list() });
+      // 3. Force refetch to ensure server consistency
+      queryClient.refetchQueries({ queryKey: queryKeys.features.list(variables.epicId) });
+      queryClient.refetchQueries({ queryKey: queryKeys.features.allList() });
 
       // 4. Invalidate epic detail to update counters (e.g., features count)
       queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(variables.epicId) });
@@ -179,6 +184,8 @@ export function useCreateFeature() {
 
 /**
  * Update a feature
+ * 
+ * Strategy: Optimistic update + targeted refetch
  */
 export function useUpdateFeature() {
   const queryClient = useQueryClient();
@@ -189,11 +196,18 @@ export function useUpdateFeature() {
       // 1. Optimistic update: update the specific feature in cache
       queryClient.setQueryData<Feature>(queryKeys.features.detail(variables.id), updatedFeature);
 
-      // 2. Invalidate specific queries to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.features.detail(variables.id) });
+      // 2. Update in lists
+      const updateInList = (old: Feature[] | undefined) => {
+        if (!old) return old;
+        return old.map(f => f.id === updatedFeature.id ? { ...f, ...updatedFeature } : f);
+      };
 
-      // 3. Invalidate lists that contain this feature
-      queryClient.invalidateQueries({ queryKey: queryKeys.features.lists() });
+      queryClient.setQueriesData<Feature[]>({ queryKey: queryKeys.features.lists() }, updateInList);
+      queryClient.setQueryData<Feature[]>(queryKeys.features.allList(), updateInList);
+
+      // 3. Force refetch to ensure consistency
+      queryClient.refetchQueries({ queryKey: queryKeys.features.lists() });
+      queryClient.refetchQueries({ queryKey: queryKeys.features.allList() });
 
       // 4. Invalidate epic detail (status/title changes may affect UI)
       queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(updatedFeature.epicId) });
@@ -211,26 +225,67 @@ export function useUpdateFeature() {
 
 /**
  * Delete a feature
+ * 
+ * Strategy: Optimistic removal + force refetch
  */
 export function useDeleteFeature() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: deleteFeature,
-    onSuccess: (_, deletedFeatureId) => {
-      // 1. Invalidate all feature queries (feature no longer exists)
-      queryClient.invalidateQueries({ queryKey: queryKeys.features.all });
+    onMutate: async (featureId) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.features.all });
 
-      // 2. Remove from cache to avoid stale data
+      // Snapshot previous data for potential rollback
+      const previousAllFeatures = queryClient.getQueryData<Feature[]>(queryKeys.features.allList());
+
+      // Find the feature to get its epicId before deletion
+      const featureToDelete = previousAllFeatures?.find(f => f.id === featureId);
+      const epicId = featureToDelete?.epicId;
+
+      // Optimistically remove from all-list
+      if (previousAllFeatures) {
+        queryClient.setQueryData<Feature[]>(
+          queryKeys.features.allList(),
+          previousAllFeatures.filter(f => f.id !== featureId)
+        );
+      }
+
+      // Optimistically remove from epic-specific list
+      if (epicId) {
+        const previousEpicFeatures = queryClient.getQueryData<Feature[]>(queryKeys.features.list(epicId));
+        if (previousEpicFeatures) {
+          queryClient.setQueryData<Feature[]>(
+            queryKeys.features.list(epicId),
+            previousEpicFeatures.filter(f => f.id !== featureId)
+          );
+        }
+      }
+
+      return { previousAllFeatures, epicId, featureId };
+    },
+    onSuccess: (_, deletedFeatureId, context) => {
+      // Remove detail and task queries
       queryClient.removeQueries({ queryKey: queryKeys.features.detail(deletedFeatureId) });
       queryClient.removeQueries({ queryKey: queryKeys.tasks.list({ featureId: deletedFeatureId }) });
 
-      // 3. Invalidate epic detail to update counters
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.all });
+      // Force refetch all feature lists to ensure consistency
+      queryClient.refetchQueries({ queryKey: queryKeys.features.lists() });
+      queryClient.refetchQueries({ queryKey: queryKeys.features.allList() });
+
+      // Invalidate epic detail to update counters
+      if (context?.epicId) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(context.epicId) });
+      }
 
       toast.success('Feature excluída');
     },
-    onError: () => {
+    onError: (_err, _featureId, context) => {
+      // Rollback on error
+      if (context?.previousAllFeatures) {
+        queryClient.setQueryData(queryKeys.features.allList(), context.previousAllFeatures);
+      }
       toast.error('Erro ao excluir feature');
     },
   });

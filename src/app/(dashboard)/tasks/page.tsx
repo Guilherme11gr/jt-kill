@@ -28,6 +28,7 @@ import {
 } from '@/lib/query';
 import { useAllEpics } from '@/lib/query/hooks/use-epics';
 import { useUsers, useCurrentUser } from '@/lib/query/hooks/use-users';
+import { useDebounce } from '@/hooks/use-debounce';
 
 function TasksPageContent() {
   const router = useRouter();
@@ -162,88 +163,48 @@ function TasksPageContent() {
     setFilters(urlFilters);
   }, [searchParams]);
 
+  // Debounce ALL filter changes to avoid excessive API calls
+  // 200ms is fast enough to feel instant but prevents request spam
+  const debouncedFilters = useDebounce(filters, 200);
+
+  // Build filters for API
+  const apiFilters = useMemo(() => debouncedFilters, [debouncedFilters]);
+
+  // Get current user first (needed for 'me' filter resolution)
+  const { data: currentUser } = useCurrentUser();
+
   // React Query hooks for shared cache
-  const { data: tasksData, isLoading, error, refetch } = useTasks();
+  // IMPORTANT: Filters are sent to server - no client-side filtering!
+  const { 
+    data: tasksData, 
+    isLoading, 
+    isFetching, 
+    isPlaceholderData,
+    error, 
+    refetch 
+  } = useTasks({
+    filters: apiFilters,
+    currentUserId: currentUser?.id,
+  });
   const { data: projectsData } = useProjects();
   const { data: epicsData } = useAllEpics();
   const { data: featuresData } = useAllFeatures();
   const { data: modulesData } = useModules();
   const { data: usersData } = useUsers();
-  const { data: currentUser } = useCurrentUser();
 
   // Mutations
   const moveTaskMutation = useMoveTask();
   const deleteTaskMutation = useDeleteTask();
 
-  // Derived data
+  // Derived data - tasks come pre-filtered from server
   const tasks = useMemo(() => tasksData?.items ?? [], [tasksData]);
+  // When skipCount=true, total comes as -1. Show actual items count instead.
+  const totalTasks = (tasksData?.total ?? 0) === -1 ? tasks.length : (tasksData?.total ?? 0);
   const projects = projectsData ?? [];
   const epics = epicsData ?? [];
   const features = featuresData ?? [];
   const modules = modulesData ?? [];
   const members = usersData ?? [];
-
-  // Filter tasks client-side
-  const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
-      // Search
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        const matchesTitle = task.title.toLowerCase().includes(searchLower);
-        const matchesId = task.readableId.toLowerCase().includes(searchLower);
-        if (!matchesTitle && !matchesId) return false;
-      }
-
-      // Status
-      if (filters.status !== 'all' && task.status !== filters.status) {
-        return false;
-      }
-
-      // Priority
-      if (filters.priority !== 'all' && task.priority !== filters.priority) {
-        return false;
-      }
-
-      // Module (check if task has this module in its array)
-      if (filters.module !== 'all') {
-        if (!task.modules || !task.modules.includes(filters.module)) {
-          return false;
-        }
-      }
-
-      // Project (via feature.epic.project)
-      if (filters.projectId !== 'all') {
-        const projectId = task.feature?.epic?.project?.id;
-        if (projectId !== filters.projectId) return false;
-      }
-
-      // Epic (via feature.epic)
-      if (filters.epicId !== 'all') {
-        const epicId = task.feature?.epic?.id;
-        if (epicId !== filters.epicId) return false;
-      }
-
-      // Feature
-      if (filters.featureId !== 'all') {
-        const featureId = task.feature?.id || task.featureId;
-        if (featureId !== filters.featureId) return false;
-      }
-
-      // Assignee
-      if (filters.assigneeId !== 'all') {
-        if (filters.assigneeId === 'me') {
-          // "Minhas Tasks" - filtrar pelo usuário logado
-          // Se currentUser não carregou ainda, não filtrar (evita flash de conteúdo vazio)
-          if (currentUser && task.assigneeId !== currentUser.id) return false;
-        } else {
-          // Filtrar por membro específico
-          if (task.assigneeId !== filters.assigneeId) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [tasks, filters, currentUser]);
 
   // Handle task move (Kanban drag-drop) - now uses optimistic updates
   const handleTaskMove = useCallback(async (taskId: string, newStatus: TaskStatus) => {
@@ -355,9 +316,11 @@ function TasksPageContent() {
     tags: editingTask.tags,
   } : null;
 
-  // Only show skeleton on initial load (no cached data yet)
-  // During refetch (isFetching), keep UI mounted to preserve modal state
-  if (isLoading && tasks.length === 0) {
+  // Only show full-page skeleton on FIRST load ever (no data at all)
+  // When changing filters, we keep showing previous data (placeholderData)
+  const isFirstLoad = isLoading && !tasksData;
+
+  if (isFirstLoad) {
     return (
       <div className="space-y-6">
         <PageHeaderSkeleton />
@@ -381,8 +344,11 @@ function TasksPageContent() {
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             Minhas Tasks
           </h1>
-          <p className="text-muted-foreground">
-            {filteredTasks.length} tasks encontradas
+          <p className="text-muted-foreground flex items-center gap-2">
+            {totalTasks} tasks encontradas
+            {isFetching && !isLoading && (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            )}
           </p>
         </div>
 
@@ -391,7 +357,7 @@ function TasksPageContent() {
             variant="outline"
             size="icon"
             onClick={() => refetch()}
-            disabled={isLoading}
+            disabled={isLoading || isFetching}
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -447,23 +413,34 @@ function TasksPageContent() {
 
       {/* View */}
       {!error && (
-        <div className="animate-in fade-in-50 duration-200">
-          {view === 'kanban' ? (
-            <KanbanBoard
-              tasks={filteredTasks}
-              onTaskMove={handleTaskMove}
-              onTaskClick={handleTaskClick}
-              onEdit={handleEditTask}
-              onDelete={handleDeleteTaskClick}
-              isLoading={isLoading}
-            />
-          ) : (
-            <TaskTable
-              tasks={filteredTasks}
-              onTaskClick={handleTaskClick}
-              isLoading={isLoading}
-            />
+        <div className="relative">
+          {/* Subtle loading indicator - just a spinner, no text */}
+          {isFetching && isPlaceholderData && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10">
+              <div className="bg-background/95 p-2 rounded-full shadow-md border">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+              </div>
+            </div>
           )}
+          
+          <div className={isFetching && isPlaceholderData ? "opacity-50 transition-opacity duration-150" : "transition-opacity duration-150"}>
+            {view === 'kanban' ? (
+              <KanbanBoard
+                tasks={tasks}
+                onTaskMove={handleTaskMove}
+                onTaskClick={handleTaskClick}
+                onEdit={handleEditTask}
+                onDelete={handleDeleteTaskClick}
+                isLoading={false}
+              />
+            ) : (
+              <TaskTable
+                tasks={tasks}
+                onTaskClick={handleTaskClick}
+                isLoading={false}
+              />
+            )}
+          </div>
         </div>
       )}
 

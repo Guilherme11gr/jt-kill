@@ -285,6 +285,9 @@ model Task {
   @@index([assigneeId, status], map: "idx_tasks_assignee_status")
   @@index([featureId], map: "idx_tasks_feature")
   @@index([orgId], map: "idx_tasks_org")
+  @@index([orgId, createdAt(sort: Desc)], map: "idx_tasks_org_created")  // Optimizes default sort
+  @@index([orgId, status], map: "idx_tasks_org_status")                  // Optimizes status filter
+  @@index([orgId, priority], map: "idx_tasks_org_priority")              // Optimizes priority filter
   @@index([projectId], map: "idx_tasks_project")
   @@index([projectId, localId], map: "idx_tasks_project_local_id")
   @@index([createdBy], map: "idx_tasks_created_by")

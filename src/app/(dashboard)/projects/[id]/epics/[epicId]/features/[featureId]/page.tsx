@@ -29,7 +29,9 @@ export default function FeatureDetailPage({
 
   // React Query hooks
   const { data: feature, isLoading: featureLoading } = useFeature(resolvedParams.featureId);
-  const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks, isFetching } = useTasks({ featureId: resolvedParams.featureId });
+  const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks, isFetching } = useTasks({ 
+    filters: { featureId: resolvedParams.featureId } 
+  });
   const { data: modules = [] } = useModules();
 
   // Mutations

@@ -41,6 +41,7 @@ export interface TaskFilterParams extends PaginationParams, SortParams {
   epicId?: string;
   featureId?: string;
   search?: string;
+  skipCount?: boolean; // Performance: skip count query when not needed
 }
 
 // Common list response

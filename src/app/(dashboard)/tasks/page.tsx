@@ -48,17 +48,17 @@ function TasksPageContent() {
   */
   const [filters, setFilters] = useState<TaskFiltersState>(() => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     // Sanitize status
     const statusParam = params.get('status');
     const validStatuses = ['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE'];
     const status = statusParam && validStatuses.includes(statusParam) ? statusParam as TaskStatus : 'all';
-    
+
     // Sanitize priority
     const priorityParam = params.get('priority');
     const validPriorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
     const priority = priorityParam && validPriorities.includes(priorityParam) ? priorityParam as TaskPriority : 'all';
-    
+
     return {
       search: params.get('search') || '',
       status,
@@ -125,21 +125,21 @@ function TasksPageContent() {
   // Sync from URL (Browser Back/Forward)
   // We use a ref to track the last synced URL to avoid unnecessary re-renders
   const lastSyncedUrl = useRef<string>('');
-  
+
   useEffect(() => {
     const currentUrl = searchParams.toString();
-    
+
     // Skip if URL hasn't changed (avoids cascading renders)
     if (lastSyncedUrl.current === currentUrl) return;
     lastSyncedUrl.current = currentUrl;
-    
+
     const params = new URLSearchParams(currentUrl);
 
     // Sanitize status
     const statusParam = params.get('status');
     const validStatuses = ['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE'];
     const status = statusParam && validStatuses.includes(statusParam) ? statusParam as TaskStatus : 'all';
-    
+
     // Sanitize priority
     const priorityParam = params.get('priority');
     const validPriorities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
@@ -159,8 +159,6 @@ function TasksPageContent() {
 
     // ⚠️ INTENTIONAL: setState in effect is NECESSARY for browser back/forward sync
     // This is the correct pattern for URL-driven state (not a data fetching effect)
-    // Suppressing React Compiler warning as this is a valid use case
-    // @ts-expect-error - React Compiler experimental warning
     setFilters(urlFilters);
   }, [searchParams]);
 
@@ -301,7 +299,7 @@ function TasksPageContent() {
     if (!open) {
       // Do not clear selectedTask here to allow the modal to animate out with content
       // setSelectedTask(null); 
-      
+
       // CRITICAL: Use window.location.search directly to avoid stale searchParams race condition
       const params = new URLSearchParams(window.location.search);
       params.delete('task');
@@ -326,14 +324,11 @@ function TasksPageContent() {
       // CRITICAL: Search in ALL tasks (not filteredTasks) to support deep links with filters
       // Example: /tasks?task=uuid&assigneeId=me should open even if task is not assigned to me
       const task = tasks.find(t => t.id === taskId);
-      
+
       if (task) {
         // ⚠️ INTENTIONAL: setState in effect is NECESSARY for deep linking
         // Opening task modal from URL param requires synchronous state update
-        // Suppressing React Compiler warning as this is a valid use case
-        // @ts-expect-error - React Compiler experimental warning
         setSelectedTask(task);
-        // @ts-expect-error - React Compiler experimental warning
         setIsDetailModalOpen(true);
       } else {
         // Task ID not found - clean URL to avoid broken state

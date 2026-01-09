@@ -223,8 +223,15 @@ export function TaskDetailModal({
             <Separator orientation="vertical" className="h-4" />
 
             <div className="flex items-center gap-2" title="Responsável">
-              <UserAvatar userId={task.assigneeId || undefined} size="sm" />
-              <span className="text-xs text-muted-foreground">{task.assigneeId ? 'Atribuído' : 'Sem responsável'}</span>
+              <UserAvatar 
+                userId={task.assigneeId || undefined}
+                displayName={task.assignee?.displayName}
+                avatarUrl={task.assignee?.avatarUrl}
+                size="sm" 
+              />
+              <span className="text-xs text-muted-foreground">
+                {task.assignee?.displayName || 'Sem responsável'}
+              </span>
             </div>
 
             {/* Blocked status - apenas se não estiver DONE */}

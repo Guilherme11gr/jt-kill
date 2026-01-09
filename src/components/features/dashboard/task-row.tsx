@@ -79,7 +79,19 @@ export function TaskRow({ task, showProject = false, showAssignee = false }: Tas
         {showAssignee && (
           <div className="flex items-center gap-1.5 mt-1">
             {task.assigneeId ? (
-              <UserAvatar userId={task.assigneeId} size="sm" showName />
+              <div className="flex items-center gap-1.5">
+                <UserAvatar 
+                  userId={task.assigneeId}
+                  displayName={task.assignee?.displayName}
+                  avatarUrl={task.assignee?.avatarUrl}
+                  size="sm" 
+                />
+                {task.assignee?.displayName && (
+                  <span className="text-xs text-muted-foreground">
+                    {task.assignee.displayName.split(' ')[0]}
+                  </span>
+                )}
+              </div>
             ) : (
               <div className="flex items-center gap-1">
                 <User className="h-3 w-3 text-muted-foreground/50" />

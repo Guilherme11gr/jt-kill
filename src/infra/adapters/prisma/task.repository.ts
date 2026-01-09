@@ -280,6 +280,16 @@ export class TaskRepository {
     const task = await this.prisma.task.findFirst({
       where: { id, orgId },
       include: {
+        assignee: {
+          select: {
+            user_profiles: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
         feature: {
           select: {
             id: true,
@@ -321,6 +331,10 @@ export class TaskRepository {
         task.feature.epic.project.key,
         task.localId
       ),
+      assignee: task.assignee?.user_profiles ? {
+        displayName: task.assignee.user_profiles.displayName,
+        avatarUrl: task.assignee.user_profiles.avatarUrl,
+      } : undefined,
     } as TaskWithReadableId;
   }
 

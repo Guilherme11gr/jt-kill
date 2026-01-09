@@ -78,6 +78,16 @@ export async function GET(request: NextRequest) {
         statusChangedAt: true,
         createdAt: true,
         updatedAt: true,
+        assignee: {
+          select: {
+            user_profiles: {
+              select: {
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
         project: {
           select: {
             id: true,
@@ -140,6 +150,10 @@ export async function GET(request: NextRequest) {
       ...task,
       points: task.points as StoryPoints,
       readableId: buildReadableId(task.project.key, task.localId),
+      assignee: task.assignee?.user_profiles ? {
+        displayName: task.assignee.user_profiles.displayName,
+        avatarUrl: task.assignee.user_profiles.avatarUrl,
+      } : undefined,
       feature: {
         ...task.feature,
         epic: {

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Textarea } from "@/components/ui/textarea";
+import { AIImproveButton } from "@/components/ui/ai-improve-button";
 import { cn } from "@/lib/utils";
 
 interface MarkdownEditorProps {
@@ -12,6 +13,13 @@ interface MarkdownEditorProps {
   placeholder?: string;
   minHeight?: string;
   id?: string;
+  /** Handlers opcionais para AI - se fornecidos, botões aparecem automaticamente */
+  onImprove?: () => void | Promise<void>;
+  onGenerate?: () => void | Promise<void>;
+  isImproving?: boolean;
+  isGenerating?: boolean;
+  /** Desabilita botão Melhorar se não houver conteúdo */
+  disableImproveWhenEmpty?: boolean;
 }
 
 export function MarkdownEditor({
@@ -20,6 +28,11 @@ export function MarkdownEditor({
   placeholder = "Escreva em Markdown...",
   minHeight = "200px",
   id,
+  onImprove,
+  onGenerate,
+  isImproving = false,
+  isGenerating = false,
+  disableImproveWhenEmpty = true,
 }: MarkdownEditorProps) {
   // Inicializa como edição apenas se estiver vazio
   const [isEditing, setIsEditing] = useState(!value?.trim());
@@ -51,32 +64,61 @@ export function MarkdownEditor({
 
   return (
     <div className="space-y-2 group" ref={containerRef}>
-      <div className="flex gap-2 text-xs opacity-50 group-hover:opacity-100 transition-opacity justify-end">
-        <button
-          type="button"
-          onClick={() => setIsEditing(true)}
-          className={cn(
-            "px-3 py-1.5 rounded-md transition-colors font-medium border border-transparent",
-            isEditing
-              ? "bg-primary/10 text-primary border-primary/20"
-              : "hover:bg-muted text-muted-foreground"
-          )}
-        >
-          Editar
-        </button>
-        <button
-          type="button"
-          onClick={() => setIsEditing(false)}
-          className={cn(
-            "px-3 py-1.5 rounded-md transition-colors font-medium border border-transparent",
-            !isEditing
-              ? "bg-primary/10 text-primary border-primary/20"
-              : "hover:bg-muted text-muted-foreground"
-          )}
-          disabled={!localValue.trim()}
-        >
-          Preview
-        </button>
+      <div className="flex gap-2 items-center justify-between">
+        {/* AI Buttons (se handlers fornecidos) */}
+        {(onImprove || onGenerate) && (
+          <div className="flex gap-2">
+            {onImprove && (
+              <AIImproveButton
+                onClick={onImprove}
+                isLoading={isImproving}
+                disabled={disableImproveWhenEmpty && !localValue.trim()}
+                label="Melhorar"
+                title="Melhorar descrição existente (gramática, markdown, clareza)"
+                size="sm"
+              />
+            )}
+            {onGenerate && (
+              <AIImproveButton
+                onClick={onGenerate}
+                isLoading={isGenerating}
+                label="Gerar"
+                title="Gerar descrição completa com IA (considera conteúdo atual se houver)"
+                variant="outline"
+                size="sm"
+              />
+            )}
+          </div>
+        )}
+        
+        {/* Mode Toggle */}
+        <div className="flex gap-2 text-xs opacity-50 group-hover:opacity-100 transition-opacity ml-auto">
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            className={cn(
+              "px-3 py-1.5 rounded-md transition-colors font-medium border border-transparent",
+              isEditing
+                ? "bg-primary/10 text-primary border-primary/20"
+                : "hover:bg-muted text-muted-foreground"
+            )}
+          >
+            Editar
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsEditing(false)}
+            className={cn(
+              "px-3 py-1.5 rounded-md transition-colors font-medium border border-transparent",
+              !isEditing
+                ? "bg-primary/10 text-primary border-primary/20"
+                : "hover:bg-muted text-muted-foreground"
+            )}
+            disabled={!localValue.trim()}
+          >
+            Preview
+          </button>
+        </div>
       </div>
 
       {isEditing ? (

@@ -262,9 +262,27 @@ export function useDeleteFeature() {
       // Snapshot previous data for potential rollback
       const previousAllFeatures = queryClient.getQueryData<Feature[]>(queryKeys.features.allList());
 
-      // Find the feature to get its epicId before deletion
-      const featureToDelete = previousAllFeatures?.find(f => f.id === featureId);
-      const epicId = featureToDelete?.epicId;
+      // Try to find the feature in allList first
+      let featureToDelete = previousAllFeatures?.find(f => f.id === featureId);
+      let epicId = featureToDelete?.epicId;
+
+      // If not found in allList, search in all epic-specific lists
+      if (!epicId) {
+        const allQueries = queryClient.getQueriesData<Feature[]>({ queryKey: queryKeys.features.lists() });
+        for (const [queryKey, features] of allQueries) {
+          const found = features?.find(f => f.id === featureId);
+          if (found) {
+            featureToDelete = found;
+            epicId = found.epicId;
+            break;
+          }
+        }
+      }
+
+      // Snapshot epic-specific list BEFORE modifying it (for rollback)
+      const previousEpicFeatures = epicId 
+        ? queryClient.getQueryData<Feature[]>(queryKeys.features.list(epicId))
+        : undefined;
 
       // Optimistically remove from all-list
       if (previousAllFeatures) {
@@ -275,17 +293,14 @@ export function useDeleteFeature() {
       }
 
       // Optimistically remove from epic-specific list
-      if (epicId) {
-        const previousEpicFeatures = queryClient.getQueryData<Feature[]>(queryKeys.features.list(epicId));
-        if (previousEpicFeatures) {
-          queryClient.setQueryData<Feature[]>(
-            queryKeys.features.list(epicId),
-            previousEpicFeatures.filter(f => f.id !== featureId)
-          );
-        }
+      if (epicId && previousEpicFeatures) {
+        queryClient.setQueryData<Feature[]>(
+          queryKeys.features.list(epicId),
+          previousEpicFeatures.filter(f => f.id !== featureId)
+        );
       }
 
-      return { previousAllFeatures, epicId, featureId };
+      return { previousAllFeatures, previousEpicFeatures, epicId, featureId };
     },
     onSuccess: (_, deletedFeatureId, context) => {
       // Remove detail and task queries
@@ -307,9 +322,12 @@ export function useDeleteFeature() {
       toast.success('Feature excluída');
     },
     onError: (_err, _featureId, context) => {
-      // Rollback on error
+      // Rollback on error: restore BOTH caches
       if (context?.previousAllFeatures) {
         queryClient.setQueryData(queryKeys.features.allList(), context.previousAllFeatures);
+      }
+      if (context?.epicId && context?.previousEpicFeatures) {
+        queryClient.setQueryData(queryKeys.features.list(context.epicId), context.previousEpicFeatures);
       }
       toast.error('Erro ao excluir feature');
     },

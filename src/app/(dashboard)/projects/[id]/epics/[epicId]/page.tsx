@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, use, useMemo } from "react";
+import { useState, useCallback, use, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -14,13 +14,17 @@ import { ArrowLeft, Plus, Box, Loader2, MoreVertical, MoreHorizontal, Pencil, Tr
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
-import { AIImproveButton } from "@/components/ui/ai-improve-button";
 import { TagSelector } from "@/components/features/tags";
 import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature, useImproveFeatureDescription } from "@/lib/query";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { toast } from "sonner";
 import type { FeatureHealth } from "@/shared/types/project.types";
 import type { TagInfo } from "@/shared/types/tag.types";
+import { 
+  API_ROUTES, 
+  AI_REFINE_TIMEOUT_MS, 
+  AI_COOLDOWN_MS 
+} from "@/config/ai.config";
 
 interface Feature {
   id: string;
@@ -61,6 +65,7 @@ export default function EpicDetailPage({
   const loading = epicLoading || featuresLoading;
   const saving = createFeatureMutation.isPending || updateFeatureMutation.isPending;
   const isGeneratingAI = improveDescriptionMutation.isPending;
+  const [isRefiningDescription, setIsRefiningDescription] = useState(false);
 
   // Create Feature State
   const [isFeatureDialogOpen, setIsFeatureDialogOpen] = useState(false);
@@ -80,15 +85,110 @@ export default function EpicDetailPage({
 
   // AI Summary State
 
+  // AI Refs for race condition prevention and cooldown
+  const isImprovingRef = useRef(false);
+  const isGeneratingRef = useRef(false);
+  const lastAICallRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  // AI handler for improving description
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isImprovingRef.current = false;
+      isGeneratingRef.current = false;
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  // AI handler for IMPROVING description (simple refinement)
   const handleImproveDescription = useCallback(async () => {
-    if (isGeneratingAI) return;
+    // Prevent concurrent AI operations (fixes race condition)
+    if (isImprovingRef.current || isGeneratingRef.current || isGeneratingAI) return;
+
+    // Cooldown check (prevents spam)
+    const now = Date.now();
+    if (now - lastAICallRef.current < AI_COOLDOWN_MS) {
+      toast.error('Aguarde alguns segundos antes de tentar novamente');
+      return;
+    }
+
+    if (!featureFormData.description?.trim()) {
+      toast.error('Adicione uma descrição primeiro');
+      return;
+    }
+
+    isImprovingRef.current = true;
+    lastAICallRef.current = now;
+    setIsRefiningDescription(true);
+
+    // Timeout controller to prevent hanging requests
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), AI_REFINE_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(API_ROUTES.AI.REFINE_TEXT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: featureFormData.description,
+          context: 'descrição de feature',
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Erro ao refinar texto');
+      }
+
+      const result = await response.json();
+      setFeatureFormData(prev => ({ ...prev, description: result.data.refinedText }));
+      
+      toast.success('Descrição melhorada', {
+        description: `${result.data.originalLength} → ${result.data.refinedLength} caracteres`,
+      });
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('[AI] Improve error:', error);
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('Tempo esgotado', {
+          description: 'A requisição demorou muito. Tente novamente.',
+        });
+      } else {
+        toast.error('Erro ao melhorar', {
+          description: error instanceof Error ? error.message : 'Erro desconhecido',
+        });
+      }
+    } finally {
+      isImprovingRef.current = false;
+      abortControllerRef.current = null;
+      setIsRefiningDescription(false);
+    }
+  }, [featureFormData.description, isGeneratingAI]);
+
+  // AI handler for GENERATING description (intelligent with context)
+  const handleGenerateDescription = useCallback(async () => {
+    // Prevent concurrent AI operations (fixes race condition)
+    if (isGeneratingRef.current || isImprovingRef.current || isGeneratingAI) return;
+
+    // Cooldown check (prevents spam)
+    const now = Date.now();
+    if (now - lastAICallRef.current < AI_COOLDOWN_MS) {
+      toast.error('Aguarde alguns segundos antes de tentar novamente');
+      return;
+    }
 
     if (!featureFormData.title.trim()) {
       toast.error('Preencha o título primeiro');
       return;
     }
+
+    isGeneratingRef.current = true;
+    lastAICallRef.current = now;
 
     try {
       const result = await improveDescriptionMutation.mutateAsync({
@@ -101,6 +201,8 @@ export default function EpicDetailPage({
       toast.success('Descrição gerada com sucesso!');
     } catch {
       // Error handled by hook
+    } finally {
+      isGeneratingRef.current = false;
     }
   }, [isGeneratingAI, featureFormData.title, featureFormData.description, resolvedParams.epicId, editingFeature?.id, improveDescriptionMutation]);
 
@@ -291,16 +393,7 @@ export default function EpicDetailPage({
                   />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <Label htmlFor="feature-description">Descrição</Label>
-                    <AIImproveButton
-                      onClick={handleImproveDescription}
-                      isLoading={isGeneratingAI}
-                      disabled={!featureFormData.title.trim()}
-                      label={featureFormData.description?.trim() ? 'Melhorar' : 'Gerar'}
-                      title={featureFormData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
-                    />
-                  </div>
+                  <Label htmlFor="feature-description">Descrição</Label>
                   <MarkdownEditor
                     id="feature-description"
                     value={featureFormData.description}
@@ -309,6 +402,10 @@ export default function EpicDetailPage({
                     }
                     placeholder="Detalhes técnicos da feature...&#10;&#10;## Critérios de Aceite&#10;- [ ] Critério 1"
                     minHeight="250px"
+                    onImprove={handleImproveDescription}
+                    onGenerate={handleGenerateDescription}
+                    isImproving={isRefiningDescription}
+                    isGenerating={isGeneratingAI}
                   />
                 </div>
                 <div>
@@ -496,16 +593,7 @@ export default function EpicDetailPage({
               />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label htmlFor="edit-feature-description">Descrição</Label>
-                <AIImproveButton
-                  onClick={handleImproveDescription}
-                  isLoading={isGeneratingAI}
-                  disabled={!featureFormData.title.trim()}
-                  label={featureFormData.description?.trim() ? 'Melhorar' : 'Gerar'}
-                  title={featureFormData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
-                />
-              </div>
+              <Label htmlFor="edit-feature-description">Descrição</Label>
               <MarkdownEditor
                 id="edit-feature-description"
                 value={featureFormData.description}
@@ -514,6 +602,10 @@ export default function EpicDetailPage({
                 }
                 placeholder="Detalhes técnicos da feature...&#10;&#10;## Critérios de Aceite&#10;- [ ] Critério 1"
                 minHeight="250px"
+                onImprove={handleImproveDescription}
+                onGenerate={handleGenerateDescription}
+                isImproving={isRefiningDescription}
+                isGenerating={isGeneratingAI}
               />
             </div>
             <div>

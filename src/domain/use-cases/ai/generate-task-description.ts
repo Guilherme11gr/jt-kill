@@ -1,6 +1,9 @@
 import type { TaskType, TaskPriority } from '@/shared/types';
 import type { AIAdapter } from '@/infra/adapters/ai';
 import type { Feature } from '@/shared/types';
+import { filterRelevantContext } from './filter-relevant-context';
+import { stripMarkdown } from '@/shared/utils/markdown-cleaner';
+import { AI_TEMPERATURE_CREATIVE, AI_MAX_TOKENS_DESCRIPTION } from '@/config/ai.config';
 
 export interface GenerateTaskDescriptionInput {
     title: string;
@@ -70,17 +73,13 @@ Prioridade: ${priority}`;
 }
 
 /**
- * Generate Task Description Use Case
- * 
- * Generates a new description for a task based on title and feature context.
- * Can also improve existing descriptions.
+ * V1: Original single-stage approach (legacy)
  */
-export async function generateTaskDescription(
+async function generateTaskDescriptionV1(
     input: GenerateTaskDescriptionInput,
     deps: GenerateTaskDescriptionDeps
 ): Promise<string> {
     const { aiAdapter } = deps;
-
     const userPrompt = buildPrompt(input);
 
     const result = await aiAdapter.chatCompletion({
@@ -93,4 +92,81 @@ export async function generateTaskDescription(
     });
 
     return result.content.trim();
+}
+
+/**
+ * V2: Two-stage approach (Chat filter → Reasoner generate)
+ */
+async function generateTaskDescriptionV2(
+    input: GenerateTaskDescriptionInput,
+    deps: GenerateTaskDescriptionDeps
+): Promise<string> {
+    const { aiAdapter } = deps;
+    const type = TYPE_LABELS[input.type || 'TASK'] || 'Tarefa';
+    const priority = PRIORITY_LABELS[input.priority || 'MEDIUM'] || 'Média';
+
+    // FASE 1: Filter relevant docs (if any)
+    let relevantContext = '';
+    if (input.projectDocs?.length) {
+        const featureContextClean = stripMarkdown(`
+            Feature: ${input.feature.title}
+            ${input.feature.description || ''}
+        `);
+
+        const objective = `Gerar descrição para tarefa "${input.title}" (Tipo: ${type}, Prioridade: ${priority})`;
+
+        const filtered = await filterRelevantContext(
+            {
+                objective,
+                allDocs: input.projectDocs,
+                featureContext: featureContextClean,
+            },
+            { aiAdapter }
+        );
+
+        relevantContext = filtered.cleanedContext;
+    }
+
+    // FASE 2: Generate with Reasoner using filtered context
+    const cleanFeature = stripMarkdown(input.feature.description || '');
+    const cleanCurrentDesc = input.currentDescription ? stripMarkdown(input.currentDescription) : '';
+
+    const reasonerInput = `
+Gere descrição de tarefa:
+
+TAREFA:
+Título: ${input.title}
+Tipo: ${type}
+Prioridade: ${priority}
+${cleanCurrentDesc ? `Descrição atual: ${cleanCurrentDesc}` : ''}
+
+FEATURE:
+${input.feature.title}
+${cleanFeature}
+`.trim();
+
+    const result = await aiAdapter.reasonerCompletion({
+        objective: reasonerInput,
+        context: relevantContext,
+        systemPrompt: SYSTEM_PROMPT,
+        temperature: AI_TEMPERATURE_CREATIVE,
+        maxTokens: AI_MAX_TOKENS_DESCRIPTION,
+    });
+
+    return result.content.trim();
+}
+
+/**
+ * Generate Task Description Use Case
+ * 
+ * Generates a new description for a task based on title and feature context.
+ * Can also improve existing descriptions.
+ * 
+ * Supports two-stage AI pipeline (filter → reasoner) when NEXT_PUBLIC_USE_TWO_STAGE_AI=true
+ */
+export async function generateTaskDescription(
+    input: GenerateTaskDescriptionInput,
+    deps: GenerateTaskDescriptionDeps
+): Promise<string> {
+    return generateTaskDescriptionV2(input, deps);
 }

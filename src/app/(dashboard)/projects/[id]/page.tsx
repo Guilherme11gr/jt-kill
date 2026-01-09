@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, use, useRef } from "react";
+import { useState, useCallback, use, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { AIImproveButton } from "@/components/ui/ai-improve-button";
 import { Plus, Loader2, ArrowLeft, Layers, MoreHorizontal, Pencil, Trash2, Lightbulb } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -21,6 +20,12 @@ import { FileText } from "lucide-react";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { useTabQuery } from "@/hooks/use-tab-query";
 import { toast } from "sonner";
+import { 
+  API_ROUTES, 
+  AI_REFINE_TIMEOUT_MS, 
+  AI_GENERATE_TIMEOUT_MS,
+  AI_COOLDOWN_MS 
+} from "@/config/ai.config";
 
 interface Epic {
   id: string;
@@ -54,6 +59,7 @@ export default function ProjectDetailPage({
 
   // AI State
   const [isRefiningDescription, setIsRefiningDescription] = useState(false);
+  const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
   // Tab State
   const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "docs", "ideas"]);
@@ -73,27 +79,49 @@ export default function ProjectDetailPage({
   // Delete Epic State
   const [epicToDelete, setEpicToDelete] = useState<Epic | null>(null);
 
-  // AI handler for refining description
-  const isRefiningRef = useRef(false);
+  // AI Refs for race condition prevention and cooldown
+  const isImprovingRef = useRef(false);
+  const isGeneratingRef = useRef(false);
+  const lastAICallRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isImprovingRef.current = false;
+      isGeneratingRef.current = false;
+      abortControllerRef.current?.abort();
+    };
+  }, []);
   
-  const handleRefineDescription = useCallback(async () => {
-    // Prevent double-clicks with ref (fixes race condition)
-    if (isRefiningRef.current) return;
+  // AI handler for IMPROVING description (simple refinement)
+  const handleImproveDescription = useCallback(async () => {
+    // Prevent concurrent AI operations (fixes race condition)
+    if (isImprovingRef.current || isGeneratingRef.current) return;
+
+    // Cooldown check (prevents spam)
+    const now = Date.now();
+    if (now - lastAICallRef.current < AI_COOLDOWN_MS) {
+      toast.error('Aguarde alguns segundos antes de tentar novamente');
+      return;
+    }
 
     if (!epicFormData.description?.trim()) {
       toast.error('Adicione uma descrição primeiro');
       return;
     }
 
-    isRefiningRef.current = true;
+    isImprovingRef.current = true;
+    lastAICallRef.current = now;
     setIsRefiningDescription(true);
 
     // Timeout controller to prevent hanging requests
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    abortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), AI_REFINE_TIMEOUT_MS);
 
     try {
-      const response = await fetch('/api/ai/refine-text', {
+      const response = await fetch(API_ROUTES.AI.REFINE_TEXT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -113,27 +141,97 @@ export default function ProjectDetailPage({
       const result = await response.json();
       setEpicFormData(prev => ({ ...prev, description: result.data.refinedText }));
       
-      toast.success('Descrição refinada', {
+      toast.success('Descrição melhorada', {
         description: `${result.data.originalLength} → ${result.data.refinedLength} caracteres`,
       });
     } catch (error) {
       clearTimeout(timeoutId);
-      console.error('[AI] Refine error:', error);
+      console.error('[AI] Improve error:', error);
       
       if (error instanceof Error && error.name === 'AbortError') {
         toast.error('Tempo esgotado', {
           description: 'A requisição demorou muito. Tente novamente.',
         });
       } else {
-        toast.error('Erro ao refinar', {
+        toast.error('Erro ao melhorar', {
           description: error instanceof Error ? error.message : 'Erro desconhecido',
         });
       }
     } finally {
-      isRefiningRef.current = false;
+      isImprovingRef.current = false;
+      abortControllerRef.current = null;
       setIsRefiningDescription(false);
     }
   }, [epicFormData.description]);
+
+  // AI handler for GENERATING description (intelligent with context)
+  const handleGenerateDescription = useCallback(async () => {
+    // Prevent concurrent AI operations (fixes race condition)
+    if (isGeneratingRef.current || isImprovingRef.current) return;
+
+    // Cooldown check (prevents spam)
+    const now = Date.now();
+    if (now - lastAICallRef.current < AI_COOLDOWN_MS) {
+      toast.error('Aguarde alguns segundos antes de tentar novamente');
+      return;
+    }
+
+    if (!epicFormData.title.trim()) {
+      toast.error('Adicione um título primeiro');
+      return;
+    }
+
+    isGeneratingRef.current = true;
+    lastAICallRef.current = now;
+    setIsGeneratingDescription(true);
+
+    // Timeout controller to prevent hanging requests
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), AI_GENERATE_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(API_ROUTES.AI.IMPROVE_EPIC_DESCRIPTION, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: epicFormData.title,
+          description: epicFormData.description || undefined,
+          projectId: resolvedParams.id,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error?.message || 'Erro ao gerar descrição');
+      }
+
+      const result = await response.json();
+      setEpicFormData(prev => ({ ...prev, description: result.data.description }));
+      
+      toast.success('Descrição gerada com sucesso!');
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error('[AI] Generate error:', error);
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('Tempo esgotado', {
+          description: 'A requisição demorou muito. Tente novamente.',
+        });
+      } else {
+        toast.error('Erro ao gerar', {
+          description: error instanceof Error ? error.message : 'Erro desconhecido',
+        });
+      }
+    } finally {
+      isGeneratingRef.current = false;
+      abortControllerRef.current = null;
+      setIsGeneratingDescription(false);
+    }
+  }, [epicFormData.title, epicFormData.description, resolvedParams.id]);
 
   const handleCreateEpic = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,16 +425,7 @@ export default function ProjectDetailPage({
                     />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <Label htmlFor="epic-description">Descrição</Label>
-                      <AIImproveButton
-                        onClick={handleRefineDescription}
-                        isLoading={isRefiningDescription}
-                        disabled={!epicFormData.description?.trim()}
-                        label={isRefiningDescription ? 'Refinando...' : 'Refinar'}
-                        title="Refinar descrição com IA (gramática, markdown, clareza)"
-                      />
-                    </div>
+                    <Label htmlFor="epic-description">Descrição</Label>
                     <MarkdownEditor
                       id="epic-description"
                       value={epicFormData.description}
@@ -345,6 +434,10 @@ export default function ProjectDetailPage({
                       }
                       placeholder="Descrição da epic...&#10;&#10;## Objetivo&#10;Descreva o objetivo geral&#10;&#10;## Escopo&#10;- [ ] Item 1"
                       minHeight="200px"
+                      onImprove={handleImproveDescription}
+                      onGenerate={handleGenerateDescription}
+                      isImproving={isRefiningDescription}
+                      isGenerating={isGeneratingDescription}
                     />
                   </div>
                   <div>
@@ -491,16 +584,7 @@ export default function ProjectDetailPage({
               />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label htmlFor="edit-epic-description">Descrição</Label>
-                <AIImproveButton
-                  onClick={handleRefineDescription}
-                  isLoading={isRefiningDescription}
-                  disabled={!epicFormData.description?.trim()}
-                  label={isRefiningDescription ? 'Refinando...' : 'Refinar'}
-                  title="Refinar descrição com IA (gramática, markdown, clareza)"
-                />
-              </div>
+              <Label htmlFor="edit-epic-description">Descrição</Label>
               <MarkdownEditor
                 id="edit-epic-description"
                 value={epicFormData.description}
@@ -509,6 +593,10 @@ export default function ProjectDetailPage({
                 }
                 placeholder="Descrição da epic...&#10;&#10;## Objetivo&#10;Descreva o objetivo geral&#10;&#10;## Escopo&#10;- [ ] Item 1"
                 minHeight="200px"
+                onImprove={handleImproveDescription}
+                onGenerate={handleGenerateDescription}
+                isImproving={isRefiningDescription}
+                isGenerating={isGeneratingDescription}
               />
             </div>
             <div>

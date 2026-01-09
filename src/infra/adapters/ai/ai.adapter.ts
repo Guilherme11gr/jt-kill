@@ -1,5 +1,10 @@
 import OpenAI from 'openai';
 import type { ChatCompletionInput, ChatCompletionResult, AIMessage } from './types';
+import { 
+    AI_MODEL_CHAT, 
+    AI_MODEL_REASONER, 
+    AI_TEMPERATURE_CREATIVE 
+} from '@/config/ai.config';
 
 /**
  * AI Adapter
@@ -13,9 +18,9 @@ export class AIAdapter {
      */
     async chatCompletion(input: ChatCompletionInput): Promise<ChatCompletionResult> {
         const response = await this.client.chat.completions.create({
-            model: input.model ?? 'deepseek-chat',
+            model: input.model ?? AI_MODEL_CHAT,
             messages: input.messages,
-            temperature: input.temperature ?? 0.7,
+            temperature: input.temperature ?? AI_TEMPERATURE_CREATIVE,
             max_tokens: input.maxTokens,
             stream: false,
         });
@@ -40,9 +45,9 @@ export class AIAdapter {
      */
     async *chatCompletionStream(input: ChatCompletionInput): AsyncGenerator<string> {
         const stream = await this.client.chat.completions.create({
-            model: input.model ?? 'deepseek-chat',
+            model: input.model ?? AI_MODEL_CHAT,
             messages: input.messages,
-            temperature: input.temperature ?? 0.7,
+            temperature: input.temperature ?? AI_TEMPERATURE_CREATIVE,
             max_tokens: input.maxTokens,
             stream: true,
         });
@@ -53,6 +58,52 @@ export class AIAdapter {
                 yield content;
             }
         }
+    }
+
+    /**
+     * FASE 2 do Two-Stage Pipeline
+     * 
+     * Uses DeepSeek Reasoner (R1) for deep reasoning tasks
+     * More expensive but produces higher quality structured outputs
+     * 
+     * Best for: generating specs, complex descriptions, strategic planning
+     */
+    async reasonerCompletion(input: {
+        objective: string;
+        context: string;
+        systemPrompt: string;
+        temperature?: number;
+        maxTokens?: number;
+    }): Promise<ChatCompletionResult> {
+        const userPrompt = `${input.context}
+
+---
+
+Objetivo: ${input.objective}`;
+
+        const response = await this.client.chat.completions.create({
+            model: AI_MODEL_REASONER,
+            messages: [
+                { role: 'system', content: input.systemPrompt },
+                { role: 'user', content: userPrompt },
+            ],
+            temperature: input.temperature ?? AI_TEMPERATURE_CREATIVE,
+            max_tokens: input.maxTokens ?? 2000,
+            stream: false,
+        });
+
+        const choice = response.choices[0];
+
+        return {
+            content: choice.message.content ?? '',
+            role: choice.message.role as ChatCompletionResult['role'],
+            finishReason: choice.finish_reason,
+            usage: response.usage ? {
+                promptTokens: response.usage.prompt_tokens,
+                completionTokens: response.usage.completion_tokens,
+                totalTokens: response.usage.total_tokens,
+            } : undefined,
+        };
     }
 
     /**

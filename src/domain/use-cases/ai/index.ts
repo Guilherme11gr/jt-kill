@@ -3,6 +3,8 @@ export * from './improve-task-description';
 export * from './generate-task-description';
 export * from './suggest-tasks-for-feature';
 export * from './improve-feature-description';
+export * from './improve-epic-description';
 export * from './refine-text';
+export * from './filter-relevant-context';
 export * from './context';
 export * from './prompts';

@@ -1,4 +1,7 @@
 import type { AIAdapter } from '@/infra/adapters/ai';
+import { filterRelevantContext } from './filter-relevant-context';
+import { stripMarkdown } from '@/shared/utils/markdown-cleaner';
+import { AI_TEMPERATURE_CREATIVE } from '@/config/ai.config';
 
 // ============================================
 // Types
@@ -95,43 +98,10 @@ Retorne APENAS o JSON válido conforme o formato especificado.`;
 }
 
 // ============================================
-// Use Case
+// Parsing Logic
 // ============================================
 
-/**
- * Suggest Tasks for Feature Use Case
- * 
- * Uses AI to analyze a Feature and generate suggested child Tasks.
- * Returns structured task suggestions for user review.
- * 
- * @example
- * ```typescript
- * const suggestions = await suggestTasksForFeature(
- *   { feature: { title, description, status }, epic },
- *   { aiAdapter }
- * );
- * ```
- */
-export async function suggestTasksForFeature(
-    input: SuggestTasksInput,
-    deps: SuggestTasksDeps
-): Promise<SuggestedTask[]> {
-    const { aiAdapter } = deps;
-
-    const userPrompt = buildUserPrompt(input);
-
-    const result = await aiAdapter.chatCompletion({
-        messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.7,
-        maxTokens: 3000, // Higher limit for multiple tasks
-    });
-
-    // Parse JSON response
-    const content = result.content.trim();
-
+function parseAIResponse(content: string): SuggestedTask[] {
     try {
         // Try to extract JSON if wrapped in code blocks
         const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -169,4 +139,122 @@ export async function suggestTasksForFeature(
         }
         throw error;
     }
+}
+
+// ============================================
+// Use Case Implementations
+// ============================================
+
+/**
+ * V1: Original single-stage approach (legacy)
+ */
+async function suggestTasksForFeatureV1(
+    input: SuggestTasksInput,
+    deps: SuggestTasksDeps
+): Promise<SuggestedTask[]> {
+    const { aiAdapter } = deps;
+    const userPrompt = buildUserPrompt(input);
+
+    const result = await aiAdapter.chatCompletion({
+        messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        maxTokens: 3000, // Higher limit for multiple tasks
+    });
+
+    return parseAIResponse(result.content.trim());
+}
+
+/**
+ * V2: Two-stage approach (Chat filter → Reasoner generate)
+ */
+async function suggestTasksForFeatureV2(
+    input: SuggestTasksInput,
+    deps: SuggestTasksDeps
+): Promise<SuggestedTask[]> {
+    const { aiAdapter } = deps;
+
+    // FASE 1: Filter relevant docs (if any)
+    let relevantContext = '';
+    if (input.projectDocs?.length) {
+        const featureContextClean = stripMarkdown(`
+            Feature: ${input.feature.title}
+            Status: ${input.feature.status}
+            ${input.feature.description || ''}
+        `);
+
+        const epicContextClean = input.epic
+            ? stripMarkdown(`Epic: ${input.epic.title}\n${input.epic.description || ''}`)
+            : '';
+
+        const objective = `Sugerir tasks para feature "${input.feature.title}"`;
+
+        const filtered = await filterRelevantContext(
+            {
+                objective,
+                allDocs: input.projectDocs,
+                featureContext: `${featureContextClean}\n${epicContextClean}`,
+            },
+            { aiAdapter }
+        );
+
+        relevantContext = filtered.cleanedContext;
+    }
+
+    // FASE 2: Generate with Reasoner using filtered context
+    const cleanFeature = stripMarkdown(input.feature.description || '');
+    const cleanEpic = input.epic ? stripMarkdown(input.epic.description || '') : '';
+
+    const reasonerInput = `
+Sugira tasks para a feature:
+
+FEATURE:
+Título: ${input.feature.title}
+Status: ${input.feature.status}
+${cleanFeature}
+
+${cleanEpic ? `EPIC PAI:\n${input.epic!.title}\n${cleanEpic}` : ''}
+
+Analise e sugira entre 3 e 8 Tasks filhas acionáveis.
+Retorne JSON: {"tasks": [{"title": "...", "description": "...", "complexity": "LOW|MEDIUM|HIGH"}]}
+`.trim();
+
+    const result = await aiAdapter.reasonerCompletion({
+        objective: reasonerInput,
+        context: relevantContext,
+        systemPrompt: SYSTEM_PROMPT,
+        temperature: AI_TEMPERATURE_CREATIVE,
+        maxTokens: 3000, // Higher for task suggestions
+    });
+
+    return parseAIResponse(result.content.trim());
+}
+
+// ============================================
+// Main Use Case
+// ============================================
+
+/**
+ * Suggest Tasks for Feature Use Case
+ * 
+ * Uses AI to analyze a Feature and generate suggested child Tasks.
+ * Returns structured task suggestions for user review.
+ * 
+ * Supports two-stage AI pipeline (filter → reasoner) when NEXT_PUBLIC_USE_TWO_STAGE_AI=true
+ * 
+ * @example
+ * ```typescript
+ * const suggestions = await suggestTasksForFeature(
+ *   { feature: { title, description, status }, epic },
+ *   { aiAdapter }
+ * );
+ * ```
+ */
+export async function suggestTasksForFeature(
+    input: SuggestTasksInput,
+    deps: SuggestTasksDeps
+): Promise<SuggestedTask[]> {
+    return suggestTasksForFeatureV2(input, deps);
 }

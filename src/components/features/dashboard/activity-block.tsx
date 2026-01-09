@@ -60,7 +60,7 @@ export function ActivityBlock({ activities, isLoading }: ActivityBlockProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        <div className="space-y-3">
+        <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
           {activities.map((activity) => (
             <ActivityRow key={activity.id} activity={activity} />
           ))}

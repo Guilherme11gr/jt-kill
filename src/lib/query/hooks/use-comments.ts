@@ -99,7 +99,10 @@ export function useAddComment() {
       });
 
       // 2. Invalidate
-      queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(variables.taskId) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.comments.list(variables.taskId),
+        refetchType: 'active'
+      });
       invalidateDashboardQueries(queryClient);
 
       toast.success('Comentário adicionado');
@@ -129,7 +132,10 @@ export function useUpdateComment(taskId: string) {
       );
 
       // 2. Invalidate for consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(taskId) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.comments.list(taskId),
+        refetchType: 'active'
+      });
       toast.success('Comentário atualizado');
     },
     onError: () => {
@@ -166,7 +172,10 @@ export function useDeleteComment(taskId: string) {
       return { previousComments };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.comments.list(taskId) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.comments.list(taskId),
+        refetchType: 'active'
+      });
       invalidateDashboardQueries(queryClient);
       toast.success('Comentário excluído');
     },

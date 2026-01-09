@@ -62,10 +62,19 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
         onSuccess: () => {
           toast.success(blocked ? 'Task bloqueada' : 'Task desbloqueada');
 
-          // 5. Invalidate features cache to refresh health status
-          // The database trigger recalculates health, we just need to refetch
-          queryClient.invalidateQueries({ queryKey: queryKeys.features.lists() });
-          queryClient.invalidateQueries({ queryKey: queryKeys.epics.lists() });
+          // Invalidate with immediate refetch for active queries
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.tasks.lists(),
+            refetchType: 'active'
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.features.lists(),
+            refetchType: 'active'
+          });
+          queryClient.invalidateQueries({ 
+            queryKey: queryKeys.epics.lists(),
+            refetchType: 'active'
+          });
 
           options?.onSuccess?.(blocked);
         },

@@ -167,12 +167,21 @@ export function useCreateFeature() {
         return [...old, newFeature];
       });
 
-      // 3. Force refetch to ensure server consistency
-      queryClient.refetchQueries({ queryKey: queryKeys.features.list(variables.epicId) });
-      queryClient.refetchQueries({ queryKey: queryKeys.features.allList() });
+      // 3. Invalidate with immediate refetch for active queries
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.features.list(variables.epicId),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.features.allList(),
+        refetchType: 'active'
+      });
 
       // 4. Invalidate epic detail to update counters (e.g., features count)
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(variables.epicId) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.epics.detail(variables.epicId),
+        refetchType: 'active'
+      });
 
       toast.success('Feature criada');
     },
@@ -205,15 +214,27 @@ export function useUpdateFeature() {
       queryClient.setQueriesData<Feature[]>({ queryKey: queryKeys.features.lists() }, updateInList);
       queryClient.setQueryData<Feature[]>(queryKeys.features.allList(), updateInList);
 
-      // 3. Force refetch to ensure consistency
-      queryClient.refetchQueries({ queryKey: queryKeys.features.lists() });
-      queryClient.refetchQueries({ queryKey: queryKeys.features.allList() });
+      // 3. Invalidate with immediate refetch for active queries
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.features.lists(),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.features.allList(),
+        refetchType: 'active'
+      });
 
       // 4. Invalidate epic detail (status/title changes may affect UI)
-      queryClient.invalidateQueries({ queryKey: queryKeys.epics.detail(updatedFeature.epicId) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.epics.detail(updatedFeature.epicId),
+        refetchType: 'active'
+      });
 
       // 5. Invalidate tasks for this feature (tasks depend on feature.status)
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.list({ featureId: variables.id }) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.tasks.list({ featureId: variables.id }),
+        refetchType: 'active'
+      });
 
       toast.success('Feature atualizada');
     },

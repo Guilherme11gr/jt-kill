@@ -111,7 +111,7 @@ export function TaskDetailModal({
 
   const handleStatusChange = (newStatus: TaskStatus) => {
     if (!task) return;
-    moveWithUndo(task.id, newStatus);
+    moveWithUndo(task.id, newStatus, task.readableId);
   };
 
   // Early return APÓS todos os hooks (Rules of Hooks)

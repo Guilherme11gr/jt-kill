@@ -38,12 +38,12 @@ export function useMoveTaskWithUndo() {
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const mutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: TaskStatus }) => {
+    mutationFn: async ({ id, status }: { id: string; status: TaskStatus; readableId?: string }) => {
       return moveTask(id, status);
     },
 
     // Optimistic update
-    onMutate: async ({ id, status }) => {
+    onMutate: async ({ id, status, readableId: providedReadableId }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() });
       await queryClient.cancelQueries({ queryKey: queryKeys.dashboard.all });
@@ -58,13 +58,13 @@ export function useMoveTaskWithUndo() {
 
       // Find the task to get previous status
       let previousStatus: TaskStatus | undefined;
-      let taskReadableId: string | undefined;
+      let taskReadableId: string | undefined = providedReadableId;
 
       previousTasks.forEach(([, data]) => {
         const task = data?.items?.find((t) => t.id === id);
         if (task) {
           previousStatus = task.status;
-          taskReadableId = task.readableId;
+          if (!taskReadableId) taskReadableId = task.readableId;
         }
       });
 
@@ -140,15 +140,21 @@ export function useMoveTaskWithUndo() {
     },
 
     onSettled: () => {
-      // Refetch after mutation settles
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+      // Invalidate and refetch active queries immediately
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.tasks.lists(),
+        refetchType: 'active' // Only refetch queries that are currently being used
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.dashboard.all,
+        refetchType: 'active'
+      });
     },
   });
 
   const moveWithUndo = useCallback(
-    (id: string, newStatus: TaskStatus) => {
-      mutation.mutate({ id, status: newStatus });
+    (id: string, newStatus: TaskStatus, readableId?: string) => {
+      mutation.mutate({ id, status: newStatus, readableId });
     },
     [mutation]
   );

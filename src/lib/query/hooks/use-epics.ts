@@ -156,13 +156,21 @@ export function useCreateEpic() {
         return [...old, newEpic];
       });
 
-      // 3. Force refetch to ensure server consistency
-      // Using refetchQueries instead of invalidateQueries to force immediate refetch
-      queryClient.refetchQueries({ queryKey: queryKeys.epics.list(variables.projectId) });
-      queryClient.refetchQueries({ queryKey: queryKeys.epics.allList() });
+      // 3. Invalidate with immediate refetch for active queries
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.epics.list(variables.projectId),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.epics.allList(),
+        refetchType: 'active'
+      });
 
       // 4. Invalidate project detail to update counters (e.g., epic count)
-      queryClient.invalidateQueries({ queryKey: queryKeys.projects.detail(variables.projectId) });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projects.detail(variables.projectId),
+        refetchType: 'active'
+      });
 
       toast.success('Epic criado');
     },

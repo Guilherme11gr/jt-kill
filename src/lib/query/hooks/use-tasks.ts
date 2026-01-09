@@ -209,17 +209,21 @@ export function useUpdateTask() {
         }
       );
 
-      // 2. Update feature detail if task belongs to a feature (for count updates)
+      // 2. Invalidate with immediate refetch for active queries
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.tasks.lists(),
+        refetchType: 'active'
+      });
+
+      // 3. Update feature detail if task belongs to a feature (for count updates)
       if (updatedTask.featureId) {
         queryClient.invalidateQueries({
           queryKey: queryKeys.features.detail(updatedTask.featureId),
+          refetchType: 'active'
         });
       }
 
-      // 3. Invalidate all task lists to ensure consistency
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.lists() });
-
-      // 4. Invalidate Dashboard using helper
+      // 4. Invalidate Dashboard
       invalidateDashboardQueries(queryClient);
 
       toast.success('Task atualizada');

@@ -152,8 +152,11 @@ export function useCreateProject() {
         return [...old, newProject];
       });
 
-      // 2. Force refetch to ensure consistency
-      queryClient.refetchQueries({ queryKey: queryKeys.projects.list() });
+      // 2. Invalidate with immediate refetch for active queries
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projects.list(),
+        refetchType: 'active'
+      });
 
       // 3. Invalidate Dashboard Active Projects (new project might be active soon)
       invalidateDashboardQueries(queryClient);
@@ -189,9 +192,15 @@ export function useUpdateProject() {
         return old.map((p) => (p.id === variables.id ? { ...p, ...updatedProject } : p));
       });
 
-      // 3. Force refetch for consistency
-      queryClient.refetchQueries({ queryKey: queryKeys.projects.list() });
-      queryClient.refetchQueries({ queryKey: queryKeys.projects.detail(variables.id) });
+      // 3. Invalidate with immediate refetch for active queries
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projects.list(),
+        refetchType: 'active'
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projects.detail(variables.id),
+        refetchType: 'active'
+      });
 
       // 4. Invalidate Dashboard
       invalidateDashboardQueries(queryClient);
@@ -234,8 +243,11 @@ export function useDeleteProject() {
       // Remove detail query
       queryClient.removeQueries({ queryKey: queryKeys.projects.detail(deletedProjectId) });
       
-      // Force refetch list
-      queryClient.refetchQueries({ queryKey: queryKeys.projects.list() });
+      // Invalidate with immediate refetch for active queries
+      queryClient.invalidateQueries({ 
+        queryKey: queryKeys.projects.list(),
+        refetchType: 'active'
+      });
       
       // Invalidate dashboard
       invalidateDashboardQueries(queryClient);

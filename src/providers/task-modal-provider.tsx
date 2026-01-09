@@ -1,9 +1,12 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo, Suspense } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useEffect, Suspense } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { TaskDetailModal } from '@/components/features/tasks/task-detail-modal';
 import type { TaskWithReadableId } from '@/shared/types';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { queryKeys } from '@/lib/query/query-keys';
+import type { TasksResponse } from '@/lib/query/hooks/use-tasks';
 
 interface TaskModalContextValue {
   /** Abre a modal com uma task */
@@ -41,6 +44,29 @@ function TaskModalProviderInner({ children }: TaskModalProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+
+  // 🔄 Subscribe to specific task list cache changes to keep modal in sync
+  useEffect(() => {
+    if (!currentTask?.id || !isOpen) return;
+
+    const taskId = currentTask.id;
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      // Only react to updates on tasks queries
+      if (event.type !== 'updated' || event.query.queryKey[0] !== 'tasks') return;
+
+      // Efficiently find the updated task in the specific query that changed
+      const data = event.query.state.data as TasksResponse | undefined;
+      const updatedTask = data?.items?.find((t) => t.id === taskId);
+      
+      if (updatedTask) {
+        // Update modal with fresh data from cache
+        setCurrentTask(updatedTask);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [currentTask?.id, isOpen, queryClient]);
 
   // Abre modal com task já carregada
   const openTask = useCallback((task: TaskWithReadableId) => {

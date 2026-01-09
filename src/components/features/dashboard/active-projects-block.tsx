@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { FolderKanban, Bug, AlertTriangle, ChevronRight } from 'lucide-react';
+import { FolderKanban, Bug, AlertTriangle, ChevronRight, Activity } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { ActiveProject } from '@/lib/query/hooks/use-dashboard';
 
@@ -73,6 +74,25 @@ interface ProjectCardProps {
 function ProjectCard({ project }: ProjectCardProps) {
   const hasBugs = project.bugCount > 0;
   const hasBlocked = project.blockedCount > 0;
+  const healthStatus = project.health.status;
+
+  const healthConfig = {
+    healthy: {
+      color: 'text-green-500 bg-green-500/10',
+      label: 'Saudável',
+    },
+    attention: {
+      color: 'text-yellow-500 bg-yellow-500/10',
+      label: 'Atenção',
+    },
+    critical: {
+      color: 'text-red-500 bg-red-500/10',
+      label: 'Crítico',
+    },
+  };
+
+  const config = healthConfig[healthStatus];
+  const hasHealthIssues = healthStatus !== 'healthy';
 
   return (
     <Link href={`/tasks?projectId=${project.id}`}>
@@ -84,10 +104,47 @@ function ProjectCard({ project }: ProjectCardProps) {
         )}
       >
         <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="min-w-0">
-            <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-              {project.name}
-            </h3>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                {project.name}
+              </h3>
+              
+              {/* Health Badge */}
+              <TooltipProvider delayDuration={200}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className={cn(
+                      'p-1 rounded-full transition-colors',
+                      config.color
+                    )}>
+                      <Activity className="h-3 w-3" />
+                    </div>
+                  </TooltipTrigger>
+                  {hasHealthIssues && (
+                    <TooltipContent side="top" className="text-xs max-w-[200px]">
+                      <div className="space-y-1">
+                        <p className="font-medium">{config.label}</p>
+                        {project.health.stagnatedTasks > 0 && (
+                          <p>• {project.health.stagnatedTasks} task{project.health.stagnatedTasks > 1 ? 's' : ''} estagnada{project.health.stagnatedTasks > 1 ? 's' : ''}</p>
+                        )}
+                        {project.health.oldBlockedTasks > 0 && (
+                          <p>• {project.health.oldBlockedTasks} bloqueio{project.health.oldBlockedTasks > 1 ? 's' : ''} antigo{project.health.oldBlockedTasks > 1 ? 's' : ''}</p>
+                        )}
+                        {project.health.unassignedCritical > 0 && (
+                          <p>• {project.health.unassignedCritical} crítica{project.health.unassignedCritical > 1 ? 's' : ''} sem responsável</p>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  )}
+                  {!hasHealthIssues && (
+                    <TooltipContent side="top" className="text-xs">
+                      <p>Projeto saudável</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            </div>
             <Badge variant="outline" className="font-mono text-[10px] px-1.5 mt-1">
               {project.key}
             </Badge>

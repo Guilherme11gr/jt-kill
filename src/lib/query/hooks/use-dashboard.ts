@@ -26,6 +26,12 @@ export interface ActiveProject {
   taskCount: number;
   bugCount: number;
   blockedCount: number;
+  health: {
+    status: 'healthy' | 'attention' | 'critical';
+    stagnatedTasks: number;
+    oldBlockedTasks: number;
+    unassignedCritical: number;
+  };
 }
 
 export interface ActiveProjectsResponse {

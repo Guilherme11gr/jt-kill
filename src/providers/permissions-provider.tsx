@@ -13,7 +13,7 @@ const PermissionsContext = createContext<PermissionsContextType | undefined>(und
 
 export function PermissionsProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth();
-  const role = profile?.role as UserRole | undefined;
+  const role = profile?.currentRole as UserRole | undefined;
 
   const can = useCallback((permission: Permission) => {
     if (!role) return false;

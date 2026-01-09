@@ -29,6 +29,7 @@ model Organization {
   tasks         Task[]
   taskTags      TaskTag[]
   userProfiles  UserProfile[]
+  memberships   OrgMembership[]
 
   @@index([slug], map: "idx_organizations_slug")
   @@map("organizations")
@@ -40,6 +41,9 @@ model UserProfile {
   orgId        String       @map("org_id") @db.Uuid
   displayName  String       @map("display_name")
   avatarUrl    String?      @map("avatar_url")
+  // role field DEPRECATED - Use OrgMembership.role instead
+  // Kept only for backward compatibility during migration period
+  // TODO: Remove after all code migrated to OrgMembership
   role         UserRole     @default(MEMBER)
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -48,6 +52,25 @@ model UserProfile {
 
   @@index([orgId], map: "idx_user_profiles_org")
   @@map("user_profiles")
+  @@schema("public")
+}
+
+model OrgMembership {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String       @map("user_id") @db.Uuid
+  orgId        String       @map("org_id") @db.Uuid
+  role         UserRole     @default(MEMBER)
+  isDefault    Boolean      @default(false) @map("is_default")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         users        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([userId, orgId])
+  @@index([userId], map: "idx_org_memberships_user")
+  @@index([orgId], map: "idx_org_memberships_org")
+  @@map("org_memberships")
   @@schema("public")
 }
 
@@ -809,6 +832,7 @@ model users {
   epicsCreated                Epic[]                 @relation("EpicCreator")
   featuresCreated             Feature[]              @relation("FeatureCreator")
   user_profiles               UserProfile?
+  orgMemberships              OrgMembership[]
 
   @@index([instance_id])
   @@index([is_anonymous])

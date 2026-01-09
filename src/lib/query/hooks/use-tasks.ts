@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { invalidateDashboardQueries } from '../helpers';
+import { invalidateDashboardQueries, smartInvalidate } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
@@ -178,17 +178,11 @@ export function useCreateTask() {
       );
 
       // 2. Force immediate refetch to ensure consistency
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.lists(),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.tasks.lists());
 
       // 3. Invalidate feature detail to update task count
       if (newTask.featureId) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.features.detail(newTask.featureId),
-          refetchType: 'active'
-        });
+        smartInvalidate(queryClient, queryKeys.features.detail(newTask.featureId));
       }
 
       // 4. Invalidate Dashboard using helper
@@ -231,17 +225,11 @@ export function useUpdateTask() {
       );
 
       // 2. Invalidate with immediate refetch for active queries
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.lists(),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.tasks.lists());
 
       // 3. Update feature detail if task belongs to a feature (for count updates)
       if (updatedTask.featureId) {
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.features.detail(updatedTask.featureId),
-          refetchType: 'active'
-        });
+        smartInvalidate(queryClient, queryKeys.features.detail(updatedTask.featureId));
       }
 
       // 4. Invalidate Dashboard
@@ -291,10 +279,7 @@ export function useDeleteTask() {
     },
     onSuccess: () => {
       // Force immediate refetch to ensure consistency
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.lists(),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.tasks.lists());
 
       // Invalidate Dashboard using helper
       invalidateDashboardQueries(queryClient);
@@ -371,10 +356,7 @@ export function useMoveTask() {
 
     onSettled: () => {
       // Force immediate refetch after mutation settles
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.lists(),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.tasks.lists());
 
       // Invalidate Dashboard using helper
       invalidateDashboardQueries(queryClient);

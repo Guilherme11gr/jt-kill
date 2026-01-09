@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError, NotFoundError, BadRequestError, UnauthorizedError } from '@/shared/errors';
-import { inviteRepository, userProfileRepository, auditLogRepository, prisma, AUDIT_ACTIONS } from '@/infra/adapters/prisma';
+import { inviteRepository, auditLogRepository, prisma, AUDIT_ACTIONS } from '@/infra/adapters/prisma';
 import { z } from 'zod';
 
 const acceptInviteSchema = z.object({
@@ -11,6 +11,7 @@ const acceptInviteSchema = z.object({
 
 /**
  * POST /api/invites/accept - Accept an invite and join organization
+ * Now supports multi-org: users can join multiple organizations
  * Requires: Authenticated user
  */
 export async function POST(request: NextRequest) {
@@ -49,35 +50,55 @@ export async function POST(request: NextRequest) {
       throw new BadRequestError('Este convite expirou');
     }
 
-    // Check if user already has a profile in ANY organization (single-org model)
+    // Check if user is already a member of THIS organization
+    const existingMembership = await prisma.orgMembership.findUnique({
+      where: {
+        userId_orgId: {
+          userId: user.id,
+          orgId: invite.orgId,
+        }
+      }
+    });
+
+    if (existingMembership) {
+      throw new BadRequestError('Você já faz parte desta organização');
+    }
+
+    // Check if user has a profile (for display info)
     const existingProfile = await prisma.userProfile.findUnique({
       where: { id: user.id },
     });
 
-    if (existingProfile) {
-      if (existingProfile.orgId === invite.orgId) {
-        throw new BadRequestError('Você já faz parte desta organização');
-      } else {
-        throw new BadRequestError('Você já faz parte de outra organização. Saia primeiro para entrar em uma nova.');
-      }
-    }
-
-    // Accept invite and create user profile
-    // Note: Using sequential operations instead of transaction to avoid Prisma type issues
-    // with newly added models. The operations are idempotent.
+    // Check if this is the user's first org (to set as default)
+    const membershipCount = await prisma.orgMembership.count({
+      where: { userId: user.id }
+    });
+    const isFirstOrg = membershipCount === 0;
 
     // Mark invite as accepted
     await inviteRepository.accept(invite.token, user.id);
 
-    // Create user profile in the organization
-    await prisma.userProfile.create({
+    // Create org membership
+    await prisma.orgMembership.create({
       data: {
-        id: user.id,
+        userId: user.id,
         orgId: invite.orgId,
-        displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Usuário',
         role: invite.role,
+        isDefault: isFirstOrg, // Only set as default if it's the first org
       },
     });
+
+    // Create user profile if doesn't exist (for display name/avatar)
+    if (!existingProfile) {
+      await prisma.userProfile.create({
+        data: {
+          id: user.id,
+          orgId: invite.orgId,
+          displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || 'Usuário',
+          role: invite.role,
+        },
+      });
+    }
 
     // Log the action
     await auditLogRepository.log({
@@ -86,7 +107,12 @@ export async function POST(request: NextRequest) {
       action: AUDIT_ACTIONS.USER_JOINED,
       targetType: 'user',
       targetId: user.id,
-      metadata: { via: 'invite', inviteId: invite.id, role: invite.role },
+      metadata: {
+        via: 'invite',
+        inviteId: invite.id,
+        role: invite.role,
+        isAdditionalOrg: !isFirstOrg,
+      },
     });
 
     return jsonSuccess({
@@ -99,3 +125,4 @@ export async function POST(request: NextRequest) {
     return jsonError(body.error.code, body.error.message, status);
   }
 }
+

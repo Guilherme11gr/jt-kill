@@ -17,20 +17,20 @@ export async function GET(request: Request) {
     if (!error && data.user) {
       console.log('[Auth Callback] User:', data.user.id, 'Metadata:', data.user.user_metadata);
 
-      // Check if user has a profile
-      const existingProfile = await prisma.userProfile.findUnique({
-        where: { id: data.user.id },
+      // Check if user has any memberships (supports multi-org)
+      const existingMembership = await prisma.orgMembership.findFirst({
+        where: { userId: data.user.id },
       });
 
-      console.log('[Auth Callback] Existing profile:', existingProfile?.id ?? 'None');
+      console.log('[Auth Callback] Existing membership:', existingMembership?.id ?? 'None');
 
-      if (!existingProfile) {
+      if (!existingMembership) {
         // Check if this is an invite flow (token in URL or metadata)
         const tokenToUse = inviteToken || data.user.user_metadata?.invite_token;
         console.log('[Auth Callback] Token to use:', tokenToUse);
 
         if (tokenToUse) {
-          // INVITE FLOW: Accept invite instead of creating new org
+          // INVITE FLOW: Accept invite and create membership
           try {
             const invite = await inviteRepository.findByToken(tokenToUse);
             console.log('[Auth Callback] Invite found:', invite?.id, 'Status:', invite?.status);
@@ -40,7 +40,17 @@ export async function GET(request: Request) {
               await inviteRepository.accept(tokenToUse, data.user.id);
               console.log('[Auth Callback] Invite accepted');
 
-              // Create user profile in the organization
+              // Create org membership (first org = default)
+              await prisma.orgMembership.create({
+                data: {
+                  userId: data.user.id,
+                  orgId: invite.orgId,
+                  role: invite.role,
+                  isDefault: true,
+                },
+              });
+
+              // Create user profile for display info
               await prisma.userProfile.create({
                 data: {
                   id: data.user.id,
@@ -49,7 +59,7 @@ export async function GET(request: Request) {
                   role: invite.role,
                 },
               });
-              console.log('[Auth Callback] UserProfile created for invite');
+              console.log('[Auth Callback] Membership and UserProfile created for invite');
 
               // Log the action
               await auditLogRepository.log({
@@ -71,7 +81,7 @@ export async function GET(request: Request) {
           }
         }
 
-        // NEW ORG FLOW: Create organization and profile (only if no invite token)
+        // NEW ORG FLOW: Create organization, membership, and profile
         if (!tokenToUse) {
           const displayName = data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'Usuário';
           const orgName = data.user.user_metadata?.org_name || `Org de ${displayName}`;
@@ -97,7 +107,7 @@ export async function GET(request: Request) {
             counter++;
           }
 
-          // Create organization and user profile in transaction
+          // Create organization, membership, and user profile in transaction
           await prisma.$transaction(async (tx) => {
             const org = await tx.organization.create({
               data: {
@@ -106,16 +116,27 @@ export async function GET(request: Request) {
               },
             });
 
+            // Create org membership (owner, default)
+            await tx.orgMembership.create({
+              data: {
+                userId: data.user.id,
+                orgId: org.id,
+                role: 'OWNER',
+                isDefault: true,
+              },
+            });
+
+            // Create user profile for display info
             await tx.userProfile.create({
               data: {
                 id: data.user.id,
                 orgId: org.id,
                 displayName,
-                role: 'OWNER', // First user is always OWNER
+                role: 'OWNER',
               },
             });
           });
-          console.log('[Auth Callback] New org and profile created');
+          console.log('[Auth Callback] New org, membership, and profile created');
         }
       }
 
@@ -128,3 +149,4 @@ export async function GET(request: Request) {
   // Return to login with error
   return NextResponse.redirect(`${origin}/login?error=auth-callback-error`);
 }
+

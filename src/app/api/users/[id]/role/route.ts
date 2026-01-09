@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { extractAuthenticatedTenant, requireRole } from '@/shared/http/auth.helpers';
+import { extractAuthenticatedTenant, invalidateMembershipCache } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError, ForbiddenError, NotFoundError, BadRequestError } from '@/shared/errors';
-import { userProfileRepository, auditLogRepository, prisma, AUDIT_ACTIONS } from '@/infra/adapters/prisma';
+import { auditLogRepository, prisma, AUDIT_ACTIONS } from '@/infra/adapters/prisma';
 import { z } from 'zod';
 
 interface RouteParams {
@@ -15,17 +15,22 @@ const changeRoleSchema = z.object({
 });
 
 /**
- * PATCH /api/users/[id]/role - Change user's role
+ * PATCH /api/users/[id]/role - Change user's role in current organization
+ * Only updates role for this org, not across all orgs.
  * Requires: OWNER role only
  */
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: targetUserId } = await params;
     const supabase = await createClient();
-    const { userId, tenantId } = await extractAuthenticatedTenant(supabase);
+    const { userId, tenantId, memberships } = await extractAuthenticatedTenant(supabase);
 
-    // Only OWNER can change roles
-    await requireRole(supabase, userId, ['OWNER']);
+    // Get current user's role
+    const currentMembership = memberships.find(m => m.orgId === tenantId);
+
+    if (!currentMembership || currentMembership.role !== 'OWNER') {
+      throw new ForbiddenError('Apenas o proprietário pode alterar papéis');
+    }
 
     // Can't change your own role
     if (targetUserId === userId) {
@@ -41,25 +46,46 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { role: newRole } = parsed.data;
 
-    // Find target user
-    const targetUser = await userProfileRepository.findById(targetUserId, tenantId);
+    // Find target user's membership in this org
+    const targetMembership = await prisma.orgMembership.findUnique({
+      where: {
+        userId_orgId: { userId: targetUserId, orgId: tenantId }
+      }
+    });
 
-    if (!targetUser) {
-      throw new NotFoundError('Usuário não encontrado');
+    if (!targetMembership) {
+      throw new NotFoundError('Usuário não encontrado nesta organização');
     }
 
     // Can't change OWNER's role
-    if (targetUser.role === 'OWNER') {
+    if (targetMembership.role === 'OWNER') {
       throw new ForbiddenError('Não é possível alterar o papel do proprietário');
     }
 
-    const oldRole = targetUser.role;
+    const oldRole = targetMembership.role;
 
-    // Update role
-    await prisma.userProfile.update({
-      where: { id: targetUserId },
+    // Update role in OrgMembership (source of truth)
+    await prisma.orgMembership.update({
+      where: {
+        userId_orgId: { userId: targetUserId, orgId: tenantId }
+      },
       data: { role: newRole },
     });
+
+    // @deprecated: Sync with UserProfile.role for backward compatibility
+    // TODO: Remove after all code migrated to use OrgMembership.role
+    const userProfile = await prisma.userProfile.findUnique({
+      where: { id: targetUserId }
+    });
+    if (userProfile && userProfile.orgId === tenantId) {
+      await prisma.userProfile.update({
+        where: { id: targetUserId },
+        data: { role: newRole },
+      });
+    }
+
+    // Invalidate membership cache (critical for performance)
+    invalidateMembershipCache(targetUserId);
 
     // Log the action
     await auditLogRepository.log({
@@ -81,3 +107,4 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return jsonError(body.error.code, body.error.message, status);
   }
 }
+

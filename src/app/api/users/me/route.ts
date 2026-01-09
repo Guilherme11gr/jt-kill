@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
-import { handleError, ForbiddenError } from '@/shared/errors';
+import { handleError } from '@/shared/errors';
 import { userProfileRepository } from '@/infra/adapters/prisma';
 import { z } from 'zod';
 
@@ -12,25 +12,28 @@ const updateProfileSchema = z.object({
 });
 
 /**
- * GET /api/users/me - Get current user profile
+ * GET /api/users/me - Get current user profile with memberships
  */
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { tenantId } = await extractAuthenticatedTenant(supabase);
-    const userId = await extractUserId(supabase);
+    const { userId, tenantId, memberships } = await extractAuthenticatedTenant(supabase);
 
     const user = await userProfileRepository.findById(userId, tenantId);
     if (!user) {
       return jsonError('NOT_FOUND', 'Perfil não encontrado', 404);
     }
 
+    // Find current role from memberships
+    const currentMembership = memberships.find(m => m.orgId === tenantId);
+
     return jsonSuccess({
       id: user.id,
-      orgId: tenantId,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
-      role: user.role,
+      currentOrgId: tenantId,
+      currentRole: currentMembership?.role ?? user.role,
+      memberships,
     });
 
   } catch (error) {

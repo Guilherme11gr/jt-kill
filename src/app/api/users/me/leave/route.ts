@@ -3,29 +3,30 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError, BadRequestError } from '@/shared/errors';
-import { userProfileRepository, auditLogRepository, prisma, AUDIT_ACTIONS } from '@/infra/adapters/prisma';
+import { auditLogRepository, prisma, AUDIT_ACTIONS } from '@/infra/adapters/prisma';
 
 /**
- * POST /api/users/me/leave - Leave the organization voluntarily
- * Any authenticated user can leave their org
+ * POST /api/users/me/leave - Leave the current organization
+ * In multi-org world, this removes the membership for the current org only.
+ * If it's the user's only org, also removes their UserProfile.
  */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { userId, tenantId } = await extractAuthenticatedTenant(supabase);
+    const { userId, tenantId, memberships } = await extractAuthenticatedTenant(supabase);
 
-    // Get current user
-    const user = await userProfileRepository.findById(userId, tenantId);
+    // Get current membership for this org
+    const currentMembership = memberships.find(m => m.orgId === tenantId);
 
-    if (!user) {
-      return jsonError('NOT_FOUND', 'Perfil não encontrado', 404);
+    if (!currentMembership) {
+      return jsonError('NOT_FOUND', 'Você não é membro desta organização', 404);
     }
 
-    // Use transaction to atomically check and delete to prevent race condition
+    // Use transaction to atomically check and delete
     await prisma.$transaction(async (tx) => {
-      // If user is OWNER, check if there are other OWNERs (atomic check)
-      if (user.role === 'OWNER') {
-        const ownerCount = await tx.userProfile.count({
+      // If user is OWNER, check if there are other OWNERs
+      if (currentMembership.role === 'OWNER') {
+        const ownerCount = await tx.orgMembership.count({
           where: { orgId: tenantId, role: 'OWNER' }
         });
 
@@ -36,27 +37,62 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Remove user from org
-      await tx.userProfile.delete({
-        where: { id: userId },
+      // Remove membership from this org
+      await tx.orgMembership.delete({
+        where: {
+          userId_orgId: { userId, orgId: tenantId }
+        }
       });
+
+      // If this was the user's only org, also clean up UserProfile
+      const remainingMemberships = await tx.orgMembership.count({
+        where: { userId }
+      });
+
+      if (remainingMemberships === 0) {
+        await tx.userProfile.delete({
+          where: { id: userId }
+        });
+      } else {
+        // If user had their default org removed, set a new default
+        const hasDefault = await tx.orgMembership.findFirst({
+          where: { userId, isDefault: true }
+        });
+
+        if (!hasDefault) {
+          // Set the first remaining membership as default
+          const firstMembership = await tx.orgMembership.findFirst({
+            where: { userId }
+          });
+          if (firstMembership) {
+            await tx.orgMembership.update({
+              where: { id: firstMembership.id },
+              data: { isDefault: true }
+            });
+          }
+        }
+      }
     });
 
-    // Log the action (outside transaction - fire and forget)
+    // Log the action
     await auditLogRepository.log({
       orgId: tenantId,
       userId,
       action: AUDIT_ACTIONS.USER_LEFT,
       targetType: 'user',
       targetId: userId,
-      metadata: { userName: user.displayName, role: user.role },
+      metadata: { role: currentMembership.role },
     });
 
-    return jsonSuccess({ message: 'Você saiu da organização' });
+    return jsonSuccess({
+      message: 'Você saiu da organização',
+      remainingOrgs: memberships.length - 1
+    });
 
   } catch (error) {
     const { status, body } = handleError(error);
     return jsonError(body.error.code, body.error.message, status);
   }
 }
+
 

@@ -49,7 +49,7 @@ export default function AuditLogsPage() {
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState<string>('all');
 
-  const isOwner = profile?.role === 'OWNER';
+  const isOwner = profile?.currentRole === 'OWNER';
 
   useEffect(() => {
     if (!authLoading && isOwner) {

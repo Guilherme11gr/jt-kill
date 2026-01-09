@@ -19,6 +19,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { LogoutButton } from "@/components/layout/logout-button";
+import { OrgSwitcher } from "@/components/layout/org-switcher";
 import { TaskModalProvider } from "@/providers/task-modal-provider";
 
 export default function DashboardLayout({
@@ -48,6 +49,11 @@ export default function DashboardLayout({
           <h1 className="text-xl font-bold tracking-tight">
             Jira Killer
           </h1>
+        </div>
+
+        {/* Org Switcher */}
+        <div className="px-4 py-3 border-b border-border">
+          <OrgSwitcher />
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -90,6 +96,10 @@ export default function DashboardLayout({
               <h1 className="text-xl font-bold tracking-tight">
                 Jira Killer
               </h1>
+            </div>
+            {/* Org Switcher - Mobile */}
+            <div className="px-4 py-3 border-b border-border">
+              <OrgSwitcher />
             </div>
             <nav className="flex-1 p-4 space-y-1">
               {sidebarItems.map((item) => (

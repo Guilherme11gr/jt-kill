@@ -3,10 +3,20 @@ import type { User } from '@supabase/supabase-js';
 // User roles in organization
 export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER';
 
+// Organization membership info
+export interface OrgMembershipInfo {
+  orgId: string;
+  orgName: string;
+  orgSlug: string;
+  role: UserRole;
+  isDefault: boolean;
+}
+
 // Authenticated context extracted from session
 export interface AuthenticatedTenant {
   userId: string;
-  tenantId: string; // org_id
+  tenantId: string; // current org_id
+  memberships: OrgMembershipInfo[]; // all user's orgs
 }
 
 // User profile with organization info
@@ -26,6 +36,6 @@ export interface AuthenticatedUser extends User {
 }
 
 // Session check result
-export type SessionResult = 
+export type SessionResult =
   | { authenticated: true; user: AuthenticatedUser }
   | { authenticated: false; user: null };

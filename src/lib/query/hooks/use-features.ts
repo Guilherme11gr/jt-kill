@@ -169,20 +169,11 @@ export function useCreateFeature() {
       });
 
       // 3. Invalidate with immediate refetch for active queries
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.features.list(variables.epicId),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.features.allList(),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.features.list(variables.epicId));
+      smartInvalidate(queryClient, queryKeys.features.allList());
 
       // 4. Invalidate epic detail to update counters (e.g., features count)
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.epics.detail(variables.epicId),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.epics.detail(variables.epicId));
 
       toast.success('Feature criada');
     },
@@ -216,26 +207,14 @@ export function useUpdateFeature() {
       queryClient.setQueryData<Feature[]>(queryKeys.features.allList(), updateInList);
 
       // 3. Invalidate with immediate refetch for active queries
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.features.lists(),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.features.allList(),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.features.lists());
+      smartInvalidate(queryClient, queryKeys.features.allList());
 
       // 4. Invalidate epic detail (status/title changes may affect UI)
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.epics.detail(updatedFeature.epicId),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.epics.detail(updatedFeature.epicId));
 
       // 5. Invalidate tasks for this feature (tasks depend on feature.status)
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.list({ featureId: variables.id }),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.tasks.list({ featureId: variables.id }));
 
       toast.success('Feature atualizada');
     },
@@ -313,10 +292,7 @@ export function useDeleteFeature() {
 
       // Invalidate epic detail to update counters
       if (context?.epicId) {
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.epics.detail(context.epicId),
-          refetchType: 'active'
-        });
+        smartInvalidate(queryClient, queryKeys.epics.detail(context.epicId));
       }
 
       toast.success('Feature excluída');

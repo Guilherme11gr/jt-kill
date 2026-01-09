@@ -113,6 +113,12 @@ export function TaskDialog({
 
   const isEditing = !!taskToEdit;
 
+  // Filter features by projectId (if provided)
+  const filteredFeatures = useMemo(() => {
+    if (!projectId) return features; // No filter: show all
+    return features.filter(f => f.epic?.project?.id === projectId);
+  }, [features, projectId]);
+
   // Derive the project ID from the selected feature
   const selectedFeature = useMemo(() =>
     features.find(f => f.id === formData.featureId),
@@ -152,11 +158,11 @@ export function TaskDialog({
           priority: (defaultValues?.priority as any) || INITIAL_FORM_DATA.priority,
           modules: defaultValues?.modules || INITIAL_FORM_DATA.modules,
           tags: [],
-          featureId: defaultValues?.featureId || defaultFeatureId || features[0]?.id || "",
+          featureId: defaultValues?.featureId || defaultFeatureId || filteredFeatures[0]?.id || "",
         });
       }
     }
-  }, [open, taskToEdit, defaultFeatureId, features, defaultValues]);
+  }, [open, taskToEdit, defaultFeatureId, filteredFeatures, defaultValues]);
 
   // Memoized AI handler to prevent recreation on each render
   const handleAIGenerate = useCallback(async () => {
@@ -315,7 +321,7 @@ export function TaskDialog({
                 <SelectValue placeholder="Selecione uma feature" />
               </SelectTrigger>
               <SelectContent className="z-popover">
-                {features.map((feature) => (
+                {filteredFeatures.map((feature) => (
                   <SelectItem key={feature.id} value={feature.id}>
                     {feature.title}
                   </SelectItem>

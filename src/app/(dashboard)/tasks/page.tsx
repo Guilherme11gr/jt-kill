@@ -387,6 +387,7 @@ const { data: currentUser } = useCurrentUser();
       <TaskDialog
         open={isDialogOpen}
         onOpenChange={handleDialogChange}
+        projectId={filters.projectId !== 'all' ? filters.projectId : undefined}
         features={features}
         modules={modules} // This is fallback fallbackModules, kept for comp
         defaultValues={{

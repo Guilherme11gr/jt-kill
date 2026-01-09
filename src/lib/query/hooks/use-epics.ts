@@ -158,20 +158,11 @@ export function useCreateEpic() {
       });
 
       // 3. Invalidate with immediate refetch for active queries
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.epics.list(variables.projectId),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.epics.allList(),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.epics.list(variables.projectId));
+      smartInvalidate(queryClient, queryKeys.epics.allList());
 
       // 4. Invalidate project detail to update counters (e.g., epic count)
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.detail(variables.projectId),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.projects.detail(variables.projectId));
 
       toast.success('Epic criado');
     },
@@ -210,17 +201,11 @@ export function useUpdateEpic() {
       smartInvalidate(queryClient, queryKeys.epics.allList());
 
       // 4. Invalidate features of this epic (title change may affect UI)
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.features.list(updatedEpic.id),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.features.list(updatedEpic.id));
 
       // 5. Invalidate project detail if epic has projectId
       if (updatedEpic.projectId) {
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.projects.detail(updatedEpic.projectId),
-          refetchType: 'active'
-        });
+        smartInvalidate(queryClient, queryKeys.projects.detail(updatedEpic.projectId));
       }
 
       toast.success('Epic atualizado');
@@ -285,10 +270,7 @@ export function useDeleteEpic() {
 
       // Invalidate project detail to update counters
       if (context?.projectId) {
-        queryClient.invalidateQueries({ 
-          queryKey: queryKeys.projects.detail(context.projectId),
-          refetchType: 'active'
-        });
+        smartInvalidate(queryClient, queryKeys.projects.detail(context.projectId));
       }
 
       toast.success('Epic excluído');

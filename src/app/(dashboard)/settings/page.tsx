@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 export default function SettingsPage() {
   const { profile } = useAuth();
-  const isOwner = profile?.role === 'OWNER';
+  const isOwner = profile?.currentRole === 'OWNER';
 
   const settingsLinks = [
     {
@@ -46,9 +46,9 @@ export default function SettingsPage() {
           <div>
             <p className="font-medium">{profile?.displayName || 'Usuário'}</p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
-              {profile?.role === 'OWNER' && <Crown className="w-3 h-3" />}
-              {profile?.role === 'OWNER' ? 'Proprietário' :
-                profile?.role === 'ADMIN' ? 'Administrador' : 'Membro'}
+              {profile?.currentRole === 'OWNER' && <Crown className="w-3 h-3" />}
+              {profile?.currentRole === 'OWNER' ? 'Proprietário' :
+                profile?.currentRole === 'ADMIN' ? 'Administrador' : 'Membro'}
             </p>
           </div>
           <Button variant="outline" disabled>

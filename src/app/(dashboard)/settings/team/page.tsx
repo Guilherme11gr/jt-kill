@@ -73,9 +73,9 @@ export default function TeamSettingsPage() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const canManageTeam = profile?.role === 'OWNER' || profile?.role === 'ADMIN';
-  const canChangeRoles = profile?.role === 'OWNER';
-  const isOwner = profile?.role === 'OWNER';
+  const canManageTeam = profile?.currentRole === 'OWNER' || profile?.currentRole === 'ADMIN';
+  const canChangeRoles = profile?.currentRole === 'OWNER';
+  const isOwner = profile?.currentRole === 'OWNER';
 
   useEffect(() => {
     fetchTeamData();

@@ -9,8 +9,8 @@ import { z } from 'zod';
 const querySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(50),
   offset: z.coerce.number().min(0).default(0),
-  action: z.string().optional().transform(val => val && val.trim() !== '' ? val : undefined),
-  userId: z.string().uuid().optional(),
+  action: z.string().nullable().optional().transform(val => val && val.trim() !== '' ? val : undefined),
+  userId: z.string().uuid().nullable().optional().transform(val => val || undefined),
 });
 
 /**
@@ -26,18 +26,26 @@ export async function GET(request: NextRequest) {
     await requireRole(supabase, userId, ['OWNER']);
 
     const { searchParams } = new URL(request.url);
-    const query = querySchema.parse({
+    
+    // Parse and validate query parameters
+    const query = querySchema.safeParse({
       limit: searchParams.get('limit'),
       offset: searchParams.get('offset'),
       action: searchParams.get('action'),
       userId: searchParams.get('userId'),
     });
 
+    if (!query.success) {
+      return jsonError('VALIDATION_ERROR', 'Parâmetros inválidos', 400, {
+        errors: query.error.flatten().fieldErrors,
+      } as Record<string, unknown>);
+    }
+
     const { logs, total } = await auditLogRepository.findByOrgId(tenantId, {
-      limit: query.limit,
-      offset: query.offset,
-      action: query.action,
-      userId: query.userId,
+      limit: query.data.limit,
+      offset: query.data.offset,
+      action: query.data.action,
+      userId: query.data.userId,
     });
 
     return jsonSuccess({
@@ -52,9 +60,9 @@ export async function GET(request: NextRequest) {
       })),
       pagination: {
         total,
-        limit: query.limit,
-        offset: query.offset,
-        hasMore: query.offset + query.limit < total,
+        limit: query.data.limit,
+        offset: query.data.offset,
+        hasMore: query.data.offset + query.data.limit < total,
       },
     });
 

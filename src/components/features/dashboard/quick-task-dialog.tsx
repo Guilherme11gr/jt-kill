@@ -22,6 +22,7 @@ import {
 import { Loader2, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProjects, useAllFeatures } from '@/lib/query';
+import { AssigneeSelect } from '@/components/features/shared/assignee-select';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/query-keys';
 import { smartInvalidateImmediate } from '@/lib/query/helpers';
@@ -38,6 +39,7 @@ interface QuickTaskInput {
   projectId: string;
   featureId: string;
   type: 'TASK' | 'BUG';
+  assignedTo: string | null;
 }
 
 async function createQuickTask(data: QuickTaskInput) {
@@ -48,6 +50,7 @@ async function createQuickTask(data: QuickTaskInput) {
       title: data.title,
       projectId: data.projectId,
       featureId: data.featureId || null,
+      assignedTo: data.assignedTo,
       description: '',
       type: data.type,
       priority: 'MEDIUM',
@@ -71,6 +74,7 @@ async function createQuickTask(data: QuickTaskInput) {
  * Campos mínimos:
  * - Título (obrigatório)
  * - Projeto (seleção, auto-seleciona feature padrão)
+ * - Responsável (opcional)
  * 
  * Objetivo: criar task em menos de 5 segundos.
  */
@@ -83,6 +87,7 @@ export function QuickTaskDialog({
   const [projectId, setProjectId] = useState(defaultProjectId || '');
   const [featureId, setFeatureId] = useState('');
   const [type, setType] = useState<'TASK' | 'BUG'>('TASK');
+  const [assignedTo, setAssignedTo] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
@@ -105,6 +110,7 @@ export function QuickTaskDialog({
       setProjectId(defaultProjectId || projects?.[0]?.id || '');
       setFeatureId('');
       setType('TASK');
+      setAssignedTo(null);
     }
   }, [open, defaultProjectId, projects]);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -162,6 +168,7 @@ export function QuickTaskDialog({
       projectId,
       featureId,
       type,
+      assignedTo,
     });
   };
 
@@ -237,7 +244,17 @@ export function QuickTaskDialog({
             </Select>
           </div>
 
-          {/* Feature: mostra select se houver mais de uma, texto se uma, mensagem se nenhuma */}
+          {/* Responsável */}
+          <div className="space-y-2">
+            <Label htmlFor="quick-assignee">Responsável</Label>
+            <AssigneeSelect
+              value={assignedTo}
+              onChange={setAssignedTo}
+              disabled={isSaving}
+              placeholder="Sem responsável"
+            />
+          </div>
+
           {projectFeatures.length > 1 && (
             <div className="space-y-2">
               <Label htmlFor="quick-feature">Feature</Label>

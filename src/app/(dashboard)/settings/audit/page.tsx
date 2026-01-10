@@ -71,19 +71,35 @@ export default function AuditLogsPage() {
 
       const response = await fetch(`/api/audit-logs?${params}`);
 
-      if (response.ok) {
-        const data = await response.json();
-        if (offset === 0) {
-          setLogs(data.data.logs);
-        } else {
-          setLogs(prev => [...prev, ...data.data.logs]);
-        }
-        setPagination(data.data.pagination);
-      } else {
-        toast.error('Erro ao carregar logs');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: { message: 'Erro desconhecido' } }));
+        const errorMessage = errorData?.error?.message || 'Erro ao carregar logs de auditoria';
+        toast.error('Erro ao carregar logs', {
+          description: errorMessage,
+        });
+        return;
       }
+
+      const data = await response.json();
+      
+      if (!data?.data?.logs || !data?.data?.pagination) {
+        toast.error('Erro ao carregar logs', {
+          description: 'Resposta inválida do servidor',
+        });
+        return;
+      }
+
+      if (offset === 0) {
+        setLogs(data.data.logs);
+      } else {
+        setLogs(prev => [...prev, ...data.data.logs]);
+      }
+      setPagination(data.data.pagination);
     } catch (error) {
-      toast.error('Erro ao carregar logs');
+      const errorMessage = error instanceof Error ? error.message : 'Erro de conexão';
+      toast.error('Erro ao carregar logs', {
+        description: errorMessage,
+      });
     } finally {
       setLoading(false);
     }

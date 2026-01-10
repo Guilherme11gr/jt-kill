@@ -76,7 +76,7 @@ export async function GET() {
 
     // 3. Private cache (browser only) - org-specific data MUST NOT be cached by CDN
     // CRITICAL: Using 'public' cache caused cross-org data leakage in Vercel
-    return jsonSuccess(projects, { private: true });
+    return jsonSuccess(projects, { private: true, orgId: tenantId });
 
   } catch (error) {
     const { status, body } = handleError(error);

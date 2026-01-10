@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { TaskDetailModal } from '@/components/features/tasks/task-detail-modal';
+import { TaskDialog } from '@/components/features/tasks';
+import { useAllFeatures } from '@/lib/query';
 import type { TaskWithReadableId } from '@/shared/types';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { queryKeys } from '@/lib/query/query-keys';
@@ -15,10 +17,18 @@ interface TaskModalContextValue {
   openTaskById: (taskId: string) => void;
   /** Fecha a modal */
   closeTask: () => void;
+  /** Abre modal de edição */
+  openEditModal: (task: TaskWithReadableId) => void;
+  /** Fecha modal de edição */
+  closeEditModal: () => void;
   /** Task atualmente aberta */
   currentTask: TaskWithReadableId | null;
+  /** Task sendo editada */
+  editingTask: TaskWithReadableId | null;
   /** Se a modal está aberta */
   isOpen: boolean;
+  /** Se modal de edição está aberta */
+  isEditModalOpen: boolean;
 }
 
 const TaskModalContext = createContext<TaskModalContextValue | undefined>(undefined);
@@ -41,10 +51,15 @@ interface TaskModalProviderProps {
 function TaskModalProviderInner({ children }: TaskModalProviderProps) {
   const [currentTask, setCurrentTask] = useState<TaskWithReadableId | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskWithReadableId | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+
+  // Load features for TaskDialog
+  const { data: allFeatures = [] } = useAllFeatures();
 
   // 🔄 Subscribe to specific task list cache changes to keep modal in sync
   useEffect(() => {
@@ -109,10 +124,24 @@ function TaskModalProviderInner({ children }: TaskModalProviderProps) {
     router.replace(newUrl, { scroll: false });
   }, [pathname, router, searchParams]);
 
-  // Handler para editar (navega para página de edição)
+  // Abre modal de edição
+  const openEditModal = useCallback((task: TaskWithReadableId) => {
+    setEditingTask(task);
+    setIsEditModalOpen(true);
+    // Fecha modal de detalhes se estiver aberta
+    setIsOpen(false);
+  }, []);
+
+  // Fecha modal de edição
+  const closeEditModal = useCallback(() => {
+    setIsEditModalOpen(false);
+    setEditingTask(null);
+  }, []);
+
+  // Handler para editar (abre modal de edição)
   const handleEdit = useCallback((task: TaskWithReadableId) => {
-    router.push(`/tasks/${task.id}/edit`);
-  }, [router]);
+    openEditModal(task);
+  }, [openEditModal]);
 
   // Handler para deletar (placeholder - pode implementar depois)
   const handleDelete = useCallback((task: TaskWithReadableId) => {
@@ -124,15 +153,19 @@ function TaskModalProviderInner({ children }: TaskModalProviderProps) {
     openTask,
     openTaskById,
     closeTask,
+    openEditModal,
+    closeEditModal,
     currentTask,
+    editingTask,
     isOpen,
-  }), [openTask, openTaskById, closeTask, currentTask, isOpen]);
+    isEditModalOpen,
+  }), [openTask, openTaskById, closeTask, openEditModal, closeEditModal, currentTask, editingTask, isOpen, isEditModalOpen]);
 
   return (
     <TaskModalContext.Provider value={value}>
       {children}
       
-      {/* Modal global - renderizada uma vez, controlada pelo context */}
+      {/* Modal de detalhes - renderizada uma vez, controlada pelo context */}
       <TaskDetailModal
         task={currentTask}
         open={isOpen}
@@ -141,6 +174,38 @@ function TaskModalProviderInner({ children }: TaskModalProviderProps) {
         }}
         onEdit={handleEdit}
         onDelete={handleDelete}
+      />
+
+      {/* Modal de edição/criação - global */}
+      <TaskDialog
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        features={allFeatures}
+        taskToEdit={editingTask ? {
+          id: editingTask.id,
+          title: editingTask.title,
+          description: editingTask.description || '',
+          type: editingTask.type,
+          priority: editingTask.priority,
+          status: editingTask.status,
+          featureId: editingTask.feature?.id || '',
+          points: editingTask.points?.toString() || null,
+          modules: editingTask.modules || [],
+          assigneeId: editingTask.assigneeId || null,
+          tags: editingTask.tags || [],
+        } : null}
+        onSuccess={() => {
+          closeEditModal();
+          // Reabrir modal de detalhes se a task foi editada
+          if (editingTask) {
+            // Refetch task atualizada
+            setTimeout(() => {
+              if (editingTask.id) {
+                openTaskById(editingTask.id);
+              }
+            }, 100);
+          }
+        }}
       />
     </TaskModalContext.Provider>
   );

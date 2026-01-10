@@ -50,7 +50,7 @@ async function createQuickTask(data: QuickTaskInput) {
       title: data.title,
       projectId: data.projectId,
       featureId: data.featureId || null,
-      assignedTo: data.assignedTo,
+      assigneeId: data.assignedTo,
       description: '',
       type: data.type,
       priority: 'MEDIUM',

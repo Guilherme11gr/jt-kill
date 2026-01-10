@@ -2,6 +2,7 @@
  * React Query Hooks for Project Notes (Ideas)
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
@@ -170,11 +171,8 @@ export function useCreateNote() {
         }
       );
 
-      // Invalidate for consistency with refetch forçado
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(orgId),
-        refetchType: 'active'
-      });
+      // Invalidate for consistency (CREATE = critical)
+      smartInvalidateImmediate(queryClient, queryKeys.projectNotes.lists(orgId));
       toast.success('Ideia criada');
     },
     onError: () => {
@@ -193,14 +191,8 @@ export function useUpdateNote(projectId: string) {
   return useMutation({
     mutationFn: updateNote,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(orgId),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.detail(orgId, data.id),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.projectNotes.lists(orgId));
+      smartInvalidate(queryClient, queryKeys.projectNotes.detail(orgId, data.id));
       toast.success('Ideia atualizada');
     },
     onError: () => {
@@ -219,10 +211,7 @@ export function useDeleteNote(projectId: string) {
   return useMutation({
     mutationFn: deleteNote,
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(orgId),
-        refetchType: 'active'
-      });
+      smartInvalidateImmediate(queryClient, queryKeys.projectNotes.lists(orgId));
       toast.success('Ideia excluída');
     },
     onError: () => {
@@ -277,11 +266,8 @@ export function useArchiveNote(projectId: string) {
       toast.success(variables.unarchive ? 'Ideia restaurada' : 'Ideia arquivada');
     },
     onSettled: () => {
-      // Refetch to ensure consistency with refetch forçado
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(orgId),
-        refetchType: 'active'
-      });
+      // Refetch to ensure consistency
+      smartInvalidate(queryClient, queryKeys.projectNotes.lists(orgId));
     },
   });
 }
@@ -296,14 +282,8 @@ export function useConvertNote(projectId: string) {
   return useMutation({
     mutationFn: convertNote,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(orgId),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.features.all(orgId),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.projectNotes.lists(orgId));
+      smartInvalidate(queryClient, queryKeys.features.all(orgId));
       toast.success(`Ideia convertida em Feature "${data.feature.title}"`);
     },
     onError: (error: Error) => {

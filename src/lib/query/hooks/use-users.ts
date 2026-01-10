@@ -2,6 +2,7 @@
  * React Query Hooks for Users
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { smartInvalidate } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
@@ -93,15 +94,9 @@ export function useUpdateProfile() {
         return old.map((u) => (u.id === updatedUser.id ? updatedUser : u));
       });
 
-      // 3. Invalidate for consistency with immediate refetch
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.users.current(),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.users.list(orgId),
-        refetchType: 'active'
-      });
+      // 3. Invalidate for consistency (UPDATE)
+      smartInvalidate(queryClient, queryKeys.users.current());
+      smartInvalidate(queryClient, queryKeys.users.list(orgId));
       toast.success('Perfil atualizado');
     },
     onError: () => {

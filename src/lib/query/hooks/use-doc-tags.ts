@@ -2,6 +2,7 @@
  * React Query Hooks for Doc Tags
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
@@ -137,11 +138,8 @@ export function useCreateTag(projectId: string) {
                 }
             );
 
-            // 2. Invalidate for consistency with force refetch
-            queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.list(orgId, projectId),
-                refetchType: 'active'
-            });
+            // 2. Invalidate for consistency (CREATE = critical)
+            smartInvalidateImmediate(queryClient, queryKeys.docTags.list(orgId, projectId));
             toast.success('Tag criada');
         },
         onError: (error: Error) => {
@@ -179,14 +177,8 @@ export function useDeleteTag(projectId: string) {
             return { previousTags };
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.list(orgId, projectId),
-                refetchType: 'active'
-            });
-            queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.all(orgId),
-                refetchType: 'active'
-            });
+            smartInvalidateImmediate(queryClient, queryKeys.docTags.list(orgId, projectId));
+            smartInvalidateImmediate(queryClient, queryKeys.docTags.all(orgId));
             toast.success('Tag excluída');
         },
         onError: (_, __, context) => {
@@ -222,10 +214,7 @@ export function useAssignTags(projectId: string) {
         onSuccess: (newTags, variables) => {
             // Update cache with server response
             queryClient.setQueryData(queryKeys.docTags.forDoc(orgId, variables.docId), newTags);
-            queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.list(orgId, projectId),
-                refetchType: 'active'
-            });
+            smartInvalidate(queryClient, queryKeys.docTags.list(orgId, projectId));
             toast.success('Tag adicionada');
         },
         onError: (_, variables, context) => {
@@ -264,10 +253,7 @@ export function useUnassignTag(projectId: string) {
         onSuccess: (newTags, variables) => {
             // Update cache with server response
             queryClient.setQueryData(queryKeys.docTags.forDoc(orgId, variables.docId), newTags);
-            queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.list(orgId, projectId),
-                refetchType: 'active'
-            });
+            smartInvalidate(queryClient, queryKeys.docTags.list(orgId, projectId));
             toast.success('Tag removida');
         },
         onError: (_, variables, context) => {

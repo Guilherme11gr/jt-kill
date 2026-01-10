@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { useProjects, useAllFeatures } from '@/lib/query';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/query-keys';
+import { smartInvalidateImmediate } from '@/lib/query/helpers';
 import { useCurrentOrgId } from '@/lib/query/hooks/use-org-id';
 
 interface QuickTaskDialogProps {
@@ -116,15 +117,9 @@ export function QuickTaskDialog({
   const mutation = useMutation({
     mutationFn: createQuickTask,
     onSuccess: () => {
-      // Invalidar queries relacionadas com refetch forçado
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.lists(orgId),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.dashboard.all(orgId),
-        refetchType: 'active'
-      });
+      // CREATE operation: use smartInvalidateImmediate for aggressive invalidation
+      smartInvalidateImmediate(queryClient, queryKeys.tasks.lists(orgId));
+      smartInvalidateImmediate(queryClient, queryKeys.dashboard.all(orgId));
 
       toast.success('Task criada!', {
         description: title,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import type { TaskTag, TaskTagWithCounts, TagInfo, CreateTaskTagInput, UpdateTaskTagInput } from '@/shared/types/tag.types';
 
 // ==================== Types ====================
@@ -76,10 +77,7 @@ export function useCreateTaskTag(projectId: string) {
       return json.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: taskTagKeys.byProject(projectId),
-        refetchType: 'active'
-      });
+      smartInvalidateImmediate(queryClient, taskTagKeys.byProject(projectId));
     },
   });
 }
@@ -105,10 +103,7 @@ export function useUpdateTaskTag(projectId: string) {
       return json.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: taskTagKeys.byProject(projectId),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, taskTagKeys.byProject(projectId));
     },
   });
 }
@@ -130,15 +125,9 @@ export function useDeleteTaskTag(projectId: string) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: taskTagKeys.byProject(projectId),
-        refetchType: 'active'
-      });
+      smartInvalidateImmediate(queryClient, taskTagKeys.byProject(projectId));
       // Also invalidate all task tags since they may have lost assignments
-      queryClient.invalidateQueries({ 
-        queryKey: taskTagKeys.all,
-        refetchType: 'active'
-      });
+      smartInvalidateImmediate(queryClient, taskTagKeys.all);
     },
   });
 }
@@ -164,15 +153,9 @@ export function useAssignTaskTags() {
       return json.data;
     },
     onSuccess: (_, { taskId }) => {
-      queryClient.invalidateQueries({ 
-        queryKey: taskTagKeys.byTask(taskId),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, taskTagKeys.byTask(taskId));
       // Also invalidate tasks list to refresh tag counts
-      queryClient.invalidateQueries({ 
-        queryKey: ['tasks'],
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, ['tasks']);
     },
   });
 }

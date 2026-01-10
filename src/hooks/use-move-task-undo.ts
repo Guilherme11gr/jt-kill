@@ -8,6 +8,7 @@ import { useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '@/lib/query/query-keys';
+import { smartInvalidate } from '@/lib/query/helpers';
 import { useCurrentOrgId } from '@/lib/query/hooks/use-org-id';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import type { TasksResponse } from '@/lib/query/hooks/use-tasks';
@@ -122,15 +123,9 @@ export function useMoveTaskWithUndo() {
                 onClick: () => {
                   // Undo the move
                   moveTask(updatedTask.id, previousStatus).then(() => {
-                    // Invalidate to refresh with force refetch
-                    queryClient.invalidateQueries({ 
-                      queryKey: queryKeys.tasks.lists(orgId),
-                      refetchType: 'active'
-                    });
-                    queryClient.invalidateQueries({ 
-                      queryKey: queryKeys.dashboard.all(orgId),
-                      refetchType: 'active'
-                    });
+                    // Invalidate to refresh (MOVE = critical operation)
+                    smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+                    smartInvalidate(queryClient, queryKeys.dashboard.all(orgId));
                     toast.success('Ação desfeita');
                   }).catch(() => {
                     toast.error('Erro ao desfazer');
@@ -148,15 +143,9 @@ export function useMoveTaskWithUndo() {
     },
 
     onSettled: () => {
-      // Invalidate and refetch active queries immediately
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.lists(orgId),
-        refetchType: 'active' // Only refetch queries that are currently being used
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.dashboard.all(orgId),
-        refetchType: 'active'
-      });
+      // Invalidate and refetch active queries (MOVE = critical)
+      smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+      smartInvalidate(queryClient, queryKeys.dashboard.all(orgId));
     },
   });
 

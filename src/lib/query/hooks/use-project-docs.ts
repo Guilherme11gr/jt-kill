@@ -2,6 +2,7 @@
  * React Query Hooks for Project Docs
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
@@ -127,11 +128,8 @@ export function useCreateDoc() {
         }
       );
 
-      // 2. Invalidate for consistency with force refetch
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectDocs.list(orgId, variables.projectId),
-        refetchType: 'active'
-      });
+      // 2. Invalidate for consistency (CREATE = critical)
+      smartInvalidateImmediate(queryClient, queryKeys.projectDocs.list(orgId, variables.projectId));
       toast.success('Documento criado');
     },
     onError: () => {
@@ -150,14 +148,8 @@ export function useUpdateDoc(projectId: string) {
   return useMutation({
     mutationFn: updateDoc,
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectDocs.list(orgId, projectId),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectDocs.detail(orgId, data.id),
-        refetchType: 'active'
-      });
+      smartInvalidate(queryClient, queryKeys.projectDocs.list(orgId, projectId));
+      smartInvalidate(queryClient, queryKeys.projectDocs.detail(orgId, data.id));
       toast.success('Documento atualizado');
     },
     onError: () => {
@@ -176,10 +168,7 @@ export function useDeleteDoc(projectId: string) {
   return useMutation({
     mutationFn: deleteDoc,
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectDocs.list(orgId, projectId),
-        refetchType: 'active'
-      });
+      smartInvalidateImmediate(queryClient, queryKeys.projectDocs.list(orgId, projectId));
       toast.success('Documento excluído');
     },
     onError: () => {

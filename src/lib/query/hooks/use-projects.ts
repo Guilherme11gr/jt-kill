@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invalidateDashboardQueries } from '../helpers';
+import { invalidateDashboardQueries, smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import { useCurrentOrgId } from './use-org-id';
@@ -159,11 +159,8 @@ export function useCreateProject() {
         return [...old, newProject];
       });
 
-      // 2. Invalidate with immediate refetch for active queries
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.list(orgId),
-        refetchType: 'active'
-      });
+      // 2. Invalidate with immediate refetch (CREATE = critical)
+      smartInvalidateImmediate(queryClient, queryKeys.projects.list(orgId));
 
       // 3. Invalidate Dashboard Active Projects (new project might be active soon)
       invalidateDashboardQueries(queryClient, orgId);
@@ -200,15 +197,9 @@ export function useUpdateProject() {
         return old.map((p) => (p.id === variables.id ? { ...p, ...updatedProject } : p));
       });
 
-      // 3. Invalidate with immediate refetch for active queries
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.list(orgId),
-        refetchType: 'active'
-      });
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.detail(orgId, variables.id),
-        refetchType: 'active'
-      });
+      // 3. Invalidate for consistency (UPDATE = smartInvalidate is enough)
+      smartInvalidate(queryClient, queryKeys.projects.list(orgId));
+      smartInvalidate(queryClient, queryKeys.projects.detail(orgId, variables.id));
 
       // 4. Invalidate Dashboard
       invalidateDashboardQueries(queryClient, orgId);
@@ -252,11 +243,8 @@ export function useDeleteProject() {
       // Remove detail query
       queryClient.removeQueries({ queryKey: queryKeys.projects.detail(orgId, deletedProjectId) });
       
-      // Invalidate with immediate refetch for active queries
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.list(orgId),
-        refetchType: 'active'
-      });
+      // Invalidate with immediate refetch (DELETE = critical)
+      smartInvalidateImmediate(queryClient, queryKeys.projects.list(orgId));
       
       // Invalidate dashboard
       invalidateDashboardQueries(queryClient, orgId);

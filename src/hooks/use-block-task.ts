@@ -2,6 +2,7 @@ import { useUpdateTask } from '@/lib/query/hooks/use-tasks';
 import { useCurrentOrgId } from '@/lib/query/hooks/use-org-id';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/query-keys';
+import { smartInvalidate } from '@/lib/query/helpers';
 import { toast } from 'sonner';
 import type { TasksResponse } from '@/lib/query/hooks/use-tasks';
 
@@ -64,19 +65,10 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
         onSuccess: () => {
           toast.success(blocked ? 'Task bloqueada' : 'Task desbloqueada');
 
-          // Invalidate with immediate refetch for active queries
-          queryClient.invalidateQueries({ 
-            queryKey: queryKeys.tasks.lists(orgId),
-            refetchType: 'active'
-          });
-          queryClient.invalidateQueries({ 
-            queryKey: queryKeys.features.lists(orgId),
-            refetchType: 'active'
-          });
-          queryClient.invalidateQueries({ 
-            queryKey: queryKeys.epics.lists(orgId),
-            refetchType: 'active'
-          });
+          // Invalidate with smartInvalidate (UPDATE operation)
+          smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+          smartInvalidate(queryClient, queryKeys.features.lists(orgId));
+          smartInvalidate(queryClient, queryKeys.epics.lists(orgId));
 
           options?.onSuccess?.(blocked);
         },

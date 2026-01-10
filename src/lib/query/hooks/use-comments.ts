@@ -2,7 +2,7 @@
  * React Query Hooks for Comments
  */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { invalidateDashboardQueries } from '../helpers';
+import { invalidateDashboardQueries, smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
@@ -102,11 +102,8 @@ export function useAddComment() {
         return [...old, newComment];
       });
 
-      // 2. Invalidate
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.comments.list(orgId, variables.taskId),
-        refetchType: 'active'
-      });
+      // 2. Invalidate (CREATE = critical)
+      smartInvalidateImmediate(queryClient, queryKeys.comments.list(orgId, variables.taskId));
       invalidateDashboardQueries(queryClient, orgId);
 
       toast.success('Comentário adicionado');
@@ -136,11 +133,8 @@ export function useUpdateComment(taskId: string) {
         }
       );
 
-      // 2. Invalidate for consistency
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.comments.list(orgId, taskId),
-        refetchType: 'active'
-      });
+      // 2. Invalidate for consistency (UPDATE)
+      smartInvalidate(queryClient, queryKeys.comments.list(orgId, taskId));
       toast.success('Comentário atualizado');
     },
     onError: () => {
@@ -178,10 +172,7 @@ export function useDeleteComment(taskId: string) {
       return { previousComments };
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ 
-        queryKey: queryKeys.comments.list(orgId, taskId),
-        refetchType: 'active'
-      });
+      smartInvalidateImmediate(queryClient, queryKeys.comments.list(orgId, taskId));
       invalidateDashboardQueries(queryClient, orgId);
       toast.success('Comentário excluído');
     },

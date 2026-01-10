@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import { createClient } from '@/lib/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { clearQueryCache } from '@/lib/query';
+import { destroyQueryClient, markOrgSwitchPending } from '@/lib/query';
 
 // Cookie name (must match backend)
 const CURRENT_ORG_COOKIE = 'jt-current-org';
@@ -141,8 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout function
   const logout = useCallback(async () => {
-    // Clear React Query cache
-    clearQueryCache();
+    // Destroy React Query cache completely
+    destroyQueryClient();
     
     // Clear org cookie (simple clear - will be overwritten by server on next login)
     document.cookie = `${CURRENT_ORG_COOKIE}=; Max-Age=0; Path=/`;
@@ -172,11 +172,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isSwitchingOrg: true }));
 
     try {
-      // 1. Clear React Query cache BEFORE switching
-      // This prevents any stale data from being shown
-      clearQueryCache();
+      // 1. Mark org switch as pending FIRST (survives page reload/bfcache)
+      // This ensures cache is destroyed even if page is restored from bfcache
+      markOrgSwitchPending();
+      
+      // 2. Destroy React Query cache COMPLETELY (not just clear)
+      // This sets browserQueryClient = undefined, forcing fresh instance
+      destroyQueryClient();
 
-      // 2. Call API to set httpOnly cookie (server-side)
+      // 3. Call API to set httpOnly cookie (server-side)
       const response = await fetch('/api/org/switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -189,10 +193,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.error?.message || 'Erro ao trocar de organização');
       }
 
-      // 3. Wait a bit for cookie to propagate (important for Vercel edge)
+      // 4. Wait a bit for cookie to propagate (important for Vercel edge)
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // 4. Verify cookie was set by making a verification request
+      // 5. Verify cookie was set by making a verification request
       // This ensures the cookie is persisted before reload
       let verifyAttempts = 0;
       const maxAttempts = 3;
@@ -228,7 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Still proceed with reload, but log the issue
       }
 
-      // 5. Hard reload with cache bypass
+      // 6. Hard reload with cache bypass
       // Use timestamp to bust any potential cache
       const separator = (returnUrl || '/dashboard').includes('?') ? '&' : '?';
       const targetUrl = `${returnUrl || '/dashboard'}${separator}_t=${Date.now()}`;

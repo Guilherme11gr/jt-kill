@@ -11,7 +11,13 @@
 export { CACHE_TIMES, getCacheConfig, type CacheTier } from './cache-config';
 
 // Query client
-export { getQueryClient, clearQueryCache, invalidateAndRefetchAll } from './query-client';
+export { 
+  getQueryClient, 
+  clearQueryCache, 
+  invalidateAndRefetchAll,
+  destroyQueryClient,
+  markOrgSwitchPending,
+} from './query-client';
 
 // Provider component
 export { QueryProvider } from './query-provider';

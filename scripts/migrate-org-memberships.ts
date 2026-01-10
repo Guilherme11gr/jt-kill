@@ -1,6 +1,9 @@
 /**
  * Migration script: Populate org_memberships from existing user_profiles
  * This is a one-time migration script - safe to run multiple times (uses ON CONFLICT DO NOTHING)
+ * 
+ * NOTE: This script was used during the migration from UserProfile.orgId to OrgMembership.
+ * With orgId now nullable in UserProfile, this script handles legacy data.
  */
 import { PrismaClient } from '@prisma/client';
 
@@ -9,14 +12,24 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Starting data migration: user_profiles -> org_memberships');
 
-  // Get all existing user profiles
-  const profiles = await prisma.userProfile.findMany();
-  console.log(`Found ${profiles.length} user profiles to migrate`);
+  // Get all existing user profiles that have orgId set (legacy data)
+  const profiles = await prisma.userProfile.findMany({
+    where: {
+      orgId: { not: null }
+    }
+  });
+  console.log(`Found ${profiles.length} user profiles with orgId to migrate`);
 
   let migrated = 0;
   let skipped = 0;
 
   for (const profile of profiles) {
+    // Skip if orgId is null (shouldn't happen due to filter, but TypeScript safety)
+    if (!profile.orgId) {
+      skipped++;
+      continue;
+    }
+
     try {
       // Check if membership already exists
       const existing = await prisma.orgMembership.findUnique({
@@ -48,7 +61,7 @@ async function main() {
     }
   }
 
-  console.log(`Migration complete: ${migrated} migrated, ${skipped} already existed`);
+  console.log(`Migration complete: ${migrated} migrated, ${skipped} already existed or skipped`);
 }
 
 main()

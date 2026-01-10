@@ -1,4 +1,5 @@
 import { useUpdateTask } from '@/lib/query/hooks/use-tasks';
+import { useCurrentOrgId } from '@/lib/query/hooks/use-org-id';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/query-keys';
 import { toast } from 'sonner';
@@ -25,6 +26,7 @@ interface UseBlockTaskOptions {
 export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
   const { mutate, isPending } = useUpdateTask();
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   const toggleBlocked = async (blocked: boolean) => {
     // Guard: Previne mutação se taskId estiver vazio
@@ -34,16 +36,16 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
     }
 
     // 1. Cancel outgoing refetches
-    await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() });
+    await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists(orgId) });
 
     // 2. Snapshot previous state
     const previousTasks = queryClient.getQueriesData({
-      queryKey: queryKeys.tasks.lists()
+      queryKey: queryKeys.tasks.lists(orgId)
     });
 
     // 3. Optimistically update UI
     queryClient.setQueriesData(
-      { queryKey: queryKeys.tasks.lists() },
+      { queryKey: queryKeys.tasks.lists(orgId) },
       (old: TasksResponse | undefined) => {
         if (!old) return old;
         return {
@@ -64,15 +66,15 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
 
           // Invalidate with immediate refetch for active queries
           queryClient.invalidateQueries({ 
-            queryKey: queryKeys.tasks.lists(),
+            queryKey: queryKeys.tasks.lists(orgId),
             refetchType: 'active'
           });
           queryClient.invalidateQueries({ 
-            queryKey: queryKeys.features.lists(),
+            queryKey: queryKeys.features.lists(orgId),
             refetchType: 'active'
           });
           queryClient.invalidateQueries({ 
-            queryKey: queryKeys.epics.lists(),
+            queryKey: queryKeys.epics.lists(orgId),
             refetchType: 'active'
           });
 

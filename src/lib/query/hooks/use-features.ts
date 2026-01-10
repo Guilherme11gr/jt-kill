@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import { smartInvalidate } from '../helpers';
+import { useCurrentOrgId } from './use-org-id';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -109,10 +110,12 @@ async function deleteFeature(id: string): Promise<void> {
  * Fetch a single feature by ID
  */
 export function useFeature(id: string) {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.features.detail(id),
+    queryKey: queryKeys.features.detail(orgId, id),
     queryFn: () => fetchFeature(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -121,9 +124,12 @@ export function useFeature(id: string) {
  * Fetch all features (for dropdowns)
  */
 export function useAllFeatures() {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.features.list(),
+    queryKey: queryKeys.features.list(orgId),
     queryFn: fetchFeatures,
+    enabled: orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -132,10 +138,12 @@ export function useAllFeatures() {
  * Fetch features for a specific epic
  */
 export function useFeaturesByEpic(epicId: string) {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.features.list(epicId),
+    queryKey: queryKeys.features.list(orgId, epicId),
     queryFn: () => fetchFeaturesByEpic(epicId),
-    enabled: Boolean(epicId),
+    enabled: Boolean(epicId) && orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -149,12 +157,13 @@ export function useFeaturesByEpic(epicId: string) {
  */
 export function useCreateFeature() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: createFeature,
     onSuccess: (newFeature, variables) => {
       // 1. Optimistic update: add to epic's features list
-      queryClient.setQueryData<Feature[]>(queryKeys.features.list(variables.epicId), (old) => {
+      queryClient.setQueryData<Feature[]>(queryKeys.features.list(orgId, variables.epicId), (old) => {
         if (!old) return [newFeature];
         // Avoid duplicates
         if (old.some(f => f.id === newFeature.id)) return old;
@@ -162,18 +171,18 @@ export function useCreateFeature() {
       });
 
       // 2. Optimistic update: add to all-list if cached
-      queryClient.setQueryData<Feature[]>(queryKeys.features.allList(), (old) => {
+      queryClient.setQueryData<Feature[]>(queryKeys.features.allList(orgId), (old) => {
         if (!old) return undefined; // Don't create if not cached
         if (old.some(f => f.id === newFeature.id)) return old;
         return [...old, newFeature];
       });
 
       // 3. Invalidate with immediate refetch for active queries
-      smartInvalidate(queryClient, queryKeys.features.list(variables.epicId));
-      smartInvalidate(queryClient, queryKeys.features.allList());
+      smartInvalidate(queryClient, queryKeys.features.list(orgId, variables.epicId));
+      smartInvalidate(queryClient, queryKeys.features.allList(orgId));
 
       // 4. Invalidate epic detail to update counters (e.g., features count)
-      smartInvalidate(queryClient, queryKeys.epics.detail(variables.epicId));
+      smartInvalidate(queryClient, queryKeys.epics.detail(orgId, variables.epicId));
 
       toast.success('Feature criada');
     },
@@ -190,12 +199,13 @@ export function useCreateFeature() {
  */
 export function useUpdateFeature() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: updateFeature,
     onSuccess: (updatedFeature, variables) => {
       // 1. Optimistic update: update the specific feature in cache
-      queryClient.setQueryData<Feature>(queryKeys.features.detail(variables.id), updatedFeature);
+      queryClient.setQueryData<Feature>(queryKeys.features.detail(orgId, variables.id), updatedFeature);
 
       // 2. Update in lists
       const updateInList = (old: Feature[] | undefined) => {
@@ -203,18 +213,18 @@ export function useUpdateFeature() {
         return old.map(f => f.id === updatedFeature.id ? { ...f, ...updatedFeature } : f);
       };
 
-      queryClient.setQueriesData<Feature[]>({ queryKey: queryKeys.features.lists() }, updateInList);
-      queryClient.setQueryData<Feature[]>(queryKeys.features.allList(), updateInList);
+      queryClient.setQueriesData<Feature[]>({ queryKey: queryKeys.features.lists(orgId) }, updateInList);
+      queryClient.setQueryData<Feature[]>(queryKeys.features.allList(orgId), updateInList);
 
       // 3. Invalidate with immediate refetch for active queries
-      smartInvalidate(queryClient, queryKeys.features.lists());
-      smartInvalidate(queryClient, queryKeys.features.allList());
+      smartInvalidate(queryClient, queryKeys.features.lists(orgId));
+      smartInvalidate(queryClient, queryKeys.features.allList(orgId));
 
       // 4. Invalidate epic detail (status/title changes may affect UI)
-      smartInvalidate(queryClient, queryKeys.epics.detail(updatedFeature.epicId));
+      smartInvalidate(queryClient, queryKeys.epics.detail(orgId, updatedFeature.epicId));
 
       // 5. Invalidate tasks for this feature (tasks depend on feature.status)
-      smartInvalidate(queryClient, queryKeys.tasks.list({ featureId: variables.id }));
+      smartInvalidate(queryClient, queryKeys.tasks.list(orgId, { featureId: variables.id }));
 
       toast.success('Feature atualizada');
     },
@@ -231,15 +241,16 @@ export function useUpdateFeature() {
  */
 export function useDeleteFeature() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: deleteFeature,
     onMutate: async (featureId) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.features.all });
+      await queryClient.cancelQueries({ queryKey: queryKeys.features.all(orgId) });
 
       // Snapshot previous data for potential rollback
-      const previousAllFeatures = queryClient.getQueryData<Feature[]>(queryKeys.features.allList());
+      const previousAllFeatures = queryClient.getQueryData<Feature[]>(queryKeys.features.allList(orgId));
 
       // Try to find the feature in allList first
       let featureToDelete = previousAllFeatures?.find(f => f.id === featureId);
@@ -247,8 +258,8 @@ export function useDeleteFeature() {
 
       // If not found in allList, search in all epic-specific lists
       if (!epicId) {
-        const allQueries = queryClient.getQueriesData<Feature[]>({ queryKey: queryKeys.features.lists() });
-        for (const [queryKey, features] of allQueries) {
+        const allQueries = queryClient.getQueriesData<Feature[]>({ queryKey: queryKeys.features.lists(orgId) });
+        for (const [, features] of allQueries) {
           const found = features?.find(f => f.id === featureId);
           if (found) {
             featureToDelete = found;
@@ -260,13 +271,13 @@ export function useDeleteFeature() {
 
       // Snapshot epic-specific list BEFORE modifying it (for rollback)
       const previousEpicFeatures = epicId 
-        ? queryClient.getQueryData<Feature[]>(queryKeys.features.list(epicId))
+        ? queryClient.getQueryData<Feature[]>(queryKeys.features.list(orgId, epicId))
         : undefined;
 
       // Optimistically remove from all-list
       if (previousAllFeatures) {
         queryClient.setQueryData<Feature[]>(
-          queryKeys.features.allList(),
+          queryKeys.features.allList(orgId),
           previousAllFeatures.filter(f => f.id !== featureId)
         );
       }
@@ -274,7 +285,7 @@ export function useDeleteFeature() {
       // Optimistically remove from epic-specific list
       if (epicId && previousEpicFeatures) {
         queryClient.setQueryData<Feature[]>(
-          queryKeys.features.list(epicId),
+          queryKeys.features.list(orgId, epicId),
           previousEpicFeatures.filter(f => f.id !== featureId)
         );
       }
@@ -283,16 +294,16 @@ export function useDeleteFeature() {
     },
     onSuccess: (_, deletedFeatureId, context) => {
       // Remove detail and task queries
-      queryClient.removeQueries({ queryKey: queryKeys.features.detail(deletedFeatureId) });
-      queryClient.removeQueries({ queryKey: queryKeys.tasks.list({ featureId: deletedFeatureId }) });
+      queryClient.removeQueries({ queryKey: queryKeys.features.detail(orgId, deletedFeatureId) });
+      queryClient.removeQueries({ queryKey: queryKeys.tasks.list(orgId, { featureId: deletedFeatureId }) });
 
       // Invalidate all feature lists (smartInvalidate handles active vs inactive)
-      smartInvalidate(queryClient, queryKeys.features.lists());
-      smartInvalidate(queryClient, queryKeys.features.allList());
+      smartInvalidate(queryClient, queryKeys.features.lists(orgId));
+      smartInvalidate(queryClient, queryKeys.features.allList(orgId));
 
       // Invalidate epic detail to update counters
       if (context?.epicId) {
-        smartInvalidate(queryClient, queryKeys.epics.detail(context.epicId));
+        smartInvalidate(queryClient, queryKeys.epics.detail(orgId, context.epicId));
       }
 
       toast.success('Feature excluída');
@@ -300,10 +311,10 @@ export function useDeleteFeature() {
     onError: (_err, _featureId, context) => {
       // Rollback on error: restore BOTH caches
       if (context?.previousAllFeatures) {
-        queryClient.setQueryData(queryKeys.features.allList(), context.previousAllFeatures);
+        queryClient.setQueryData(queryKeys.features.allList(orgId), context.previousAllFeatures);
       }
       if (context?.epicId && context?.previousEpicFeatures) {
-        queryClient.setQueryData(queryKeys.features.list(context.epicId), context.previousEpicFeatures);
+        queryClient.setQueryData(queryKeys.features.list(orgId, context.epicId), context.previousEpicFeatures);
       }
       toast.error('Erro ao excluir feature');
     },

@@ -12,10 +12,8 @@ import { queryKeys } from './query-keys';
  * - Queries ATIVAS (montadas na UI) → refetch IMEDIATO
  * - Queries INATIVAS → marcadas como STALE (refetch quando montadas)
  * 
- * Isso garante:
- * 1. UI atual atualiza instantaneamente
- * 2. Navegação para outras páginas mostra dados frescos
- * 3. Sem requests desnecessários para queries não visíveis
+ * IMPORTANTE: Todos os helpers que invalidam entidades específicas
+ * precisam receber orgId para garantir isolamento de cache multi-org.
  * 
  * @see docs/guides/cache-invalidation-patterns.md
  */
@@ -27,8 +25,8 @@ import { queryKeys } from './query-keys';
  * - Queries inativas: marcadas stale (refetch ao montar)
  * 
  * @example
- * smartInvalidate(queryClient, queryKeys.tasks.lists());
- * smartInvalidate(queryClient, queryKeys.dashboard.all);
+ * smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+ * smartInvalidate(queryClient, queryKeys.dashboard.all(orgId));
  */
 export function smartInvalidate(
   queryClient: QueryClient, 
@@ -46,74 +44,101 @@ export function smartInvalidate(
  * 
  * @example
  * smartInvalidateMany(queryClient, [
- *   queryKeys.tasks.lists(),
- *   queryKeys.features.detail(featureId),
- *   queryKeys.dashboard.all
+ *   queryKeys.tasks.lists(orgId),
+ *   queryKeys.features.detail(orgId, featureId),
+ *   queryKeys.dashboard.all(orgId)
  * ]);
  */
 export function smartInvalidateMany(
   queryClient: QueryClient,
-  queryKeys: InvalidateQueryFilters['queryKey'][]
+  keys: InvalidateQueryFilters['queryKey'][]
 ) {
-  queryKeys.forEach(queryKey => smartInvalidate(queryClient, queryKey));
+  keys.forEach(queryKey => smartInvalidate(queryClient, queryKey));
 }
 
 /**
- * Invalidate all dashboard-related queries.
+ * Invalidate all dashboard-related queries for an org.
  * Use this when an entity change might affect the dashboard (tasks, projects, comments).
+ * 
+ * @param queryClient - React Query client
+ * @param orgId - Organization ID for cache isolation
  */
-export function invalidateDashboardQueries(queryClient: QueryClient) {
+export function invalidateDashboardQueries(queryClient: QueryClient, orgId: string) {
   smartInvalidateMany(queryClient, [
-    queryKeys.dashboard.myTasks(),
-    queryKeys.dashboard.activity(),
-    queryKeys.dashboard.activeProjects(),
+    queryKeys.dashboard.myTasks(orgId),
+    queryKeys.dashboard.activity(orgId),
+    queryKeys.dashboard.activeProjects(orgId),
   ]);
 }
 
 /**
- * Invalidate all task-related queries.
+ * Invalidate all task-related queries for an org.
  * Use after task mutations to ensure all views are updated.
+ * 
+ * @param queryClient - React Query client
+ * @param orgId - Organization ID for cache isolation
+ * @param featureId - Optional feature ID to also invalidate its detail
  */
-export function invalidateTaskQueries(queryClient: QueryClient, featureId?: string) {
+export function invalidateTaskQueries(
+  queryClient: QueryClient, 
+  orgId: string,
+  featureId?: string
+) {
   const keys: InvalidateQueryFilters['queryKey'][] = [
-    queryKeys.tasks.lists(),
+    queryKeys.tasks.lists(orgId),
   ];
   
   if (featureId) {
-    keys.push(queryKeys.features.detail(featureId));
+    keys.push(queryKeys.features.detail(orgId, featureId));
   }
   
   smartInvalidateMany(queryClient, keys);
-  invalidateDashboardQueries(queryClient);
+  invalidateDashboardQueries(queryClient, orgId);
 }
 
 /**
- * Invalidate all epic-related queries.
+ * Invalidate all epic-related queries for an org.
+ * 
+ * @param queryClient - React Query client
+ * @param orgId - Organization ID for cache isolation
+ * @param projectId - Optional project ID to also invalidate its detail
  */
-export function invalidateEpicQueries(queryClient: QueryClient, projectId?: string) {
+export function invalidateEpicQueries(
+  queryClient: QueryClient, 
+  orgId: string,
+  projectId?: string
+) {
   const keys: InvalidateQueryFilters['queryKey'][] = [
-    queryKeys.epics.lists(),
-    queryKeys.epics.allList(),
+    queryKeys.epics.lists(orgId),
+    queryKeys.epics.allList(orgId),
   ];
   
   if (projectId) {
-    keys.push(queryKeys.projects.detail(projectId));
+    keys.push(queryKeys.projects.detail(orgId, projectId));
   }
   
   smartInvalidateMany(queryClient, keys);
 }
 
 /**
- * Invalidate all feature-related queries.
+ * Invalidate all feature-related queries for an org.
+ * 
+ * @param queryClient - React Query client
+ * @param orgId - Organization ID for cache isolation
+ * @param epicId - Optional epic ID to also invalidate its detail
  */
-export function invalidateFeatureQueries(queryClient: QueryClient, epicId?: string) {
+export function invalidateFeatureQueries(
+  queryClient: QueryClient, 
+  orgId: string,
+  epicId?: string
+) {
   const keys: InvalidateQueryFilters['queryKey'][] = [
-    queryKeys.features.lists(),
-    queryKeys.features.allList(),
+    queryKeys.features.lists(orgId),
+    queryKeys.features.allList(orgId),
   ];
   
   if (epicId) {
-    keys.push(queryKeys.epics.detail(epicId));
+    keys.push(queryKeys.epics.detail(orgId, epicId));
   }
   
   smartInvalidateMany(queryClient, keys);

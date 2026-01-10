@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,9 +14,8 @@ function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const message = searchParams.get("message");
@@ -25,8 +24,23 @@ function LoginContent() {
     if (message === "check-email") {
       toast.info("Verifique seu email para confirmar sua conta!");
     }
+    
+    // Handle all possible callback errors
     if (error === "auth-callback-error") {
       toast.error("Erro ao confirmar conta. Tente novamente.");
+    } else if (error === "invite-accept-failed") {
+      toast.error("Erro ao aceitar convite. O convite pode ter expirado.", {
+        description: "Solicite um novo convite ao administrador.",
+        duration: 8000,
+      });
+    } else if (error === "slug-generation-failed") {
+      toast.error("Erro ao criar organização. Tente novamente.", {
+        description: "Se o problema persistir, entre em contato com o suporte.",
+        duration: 8000,
+      });
+    } else if (error) {
+      // Generic error fallback
+      toast.error("Ocorreu um erro. Tente novamente.");
     }
   }, [searchParams]);
 
@@ -46,9 +60,13 @@ function LoginContent() {
       }
 
       toast.success("Login realizado com sucesso!");
-      router.push("/dashboard");
-      router.refresh();
-    } catch (error) {
+      
+      // Check for redirect param (e.g., from invite page)
+      // Use hard reload to ensure clean state (clear any stale cache)
+      const redirect = searchParams.get("redirect");
+      const target = (redirect && redirect.startsWith('/')) ? redirect : '/dashboard';
+      window.location.href = target;
+    } catch {
       toast.error("Erro inesperado");
     } finally {
       setLoading(false);

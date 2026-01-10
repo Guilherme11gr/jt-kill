@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { useCurrentOrgId } from './use-org-id';
 
 // Types
 export interface DocTag {
@@ -93,10 +94,12 @@ async function unassignTag(input: UnassignTagInput): Promise<DocTag[]> {
  * Fetch all tags for a project
  */
 export function useProjectTags(projectId: string) {
+    const orgId = useCurrentOrgId();
+    
     return useQuery({
-        queryKey: queryKeys.docTags.list(projectId),
+        queryKey: queryKeys.docTags.list(orgId, projectId),
         queryFn: () => fetchProjectTags(projectId),
-        enabled: Boolean(projectId),
+        enabled: Boolean(projectId) && orgId !== 'unknown',
         ...CACHE_TIMES.STANDARD,
     });
 }
@@ -105,10 +108,12 @@ export function useProjectTags(projectId: string) {
  * Fetch tags for a specific document
  */
 export function useDocTags(docId: string) {
+    const orgId = useCurrentOrgId();
+    
     return useQuery({
-        queryKey: queryKeys.docTags.forDoc(docId),
+        queryKey: queryKeys.docTags.forDoc(orgId, docId),
         queryFn: () => fetchDocTags(docId),
-        enabled: Boolean(docId),
+        enabled: Boolean(docId) && orgId !== 'unknown',
         ...CACHE_TIMES.STANDARD,
     });
 }
@@ -118,13 +123,14 @@ export function useDocTags(docId: string) {
  */
 export function useCreateTag(projectId: string) {
     const queryClient = useQueryClient();
+    const orgId = useCurrentOrgId();
 
     return useMutation({
         mutationFn: createTag,
         onSuccess: (newTag) => {
             // 1. Optimistic update: add to list immediately
             queryClient.setQueryData<DocTag[]>(
-                queryKeys.docTags.list(projectId),
+                queryKeys.docTags.list(orgId, projectId),
                 (old) => {
                     if (!old) return [newTag];
                     return [...old, newTag];
@@ -133,7 +139,7 @@ export function useCreateTag(projectId: string) {
 
             // 2. Invalidate for consistency with force refetch
             queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.list(projectId),
+                queryKey: queryKeys.docTags.list(orgId, projectId),
                 refetchType: 'active'
             });
             toast.success('Tag criada');
@@ -149,22 +155,23 @@ export function useCreateTag(projectId: string) {
  */
 export function useDeleteTag(projectId: string) {
     const queryClient = useQueryClient();
+    const orgId = useCurrentOrgId();
 
     return useMutation({
         mutationFn: deleteTag,
         onMutate: async (deletedId) => {
             // Cancel outgoing refetches
-            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.list(projectId) });
+            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.list(orgId, projectId) });
 
             // Snapshot previous value
             const previousTags = queryClient.getQueryData<DocTag[]>(
-                queryKeys.docTags.list(projectId)
+                queryKeys.docTags.list(orgId, projectId)
             );
 
             // Optimistically remove
             if (previousTags) {
                 queryClient.setQueryData<DocTag[]>(
-                    queryKeys.docTags.list(projectId),
+                    queryKeys.docTags.list(orgId, projectId),
                     previousTags.filter((t) => t.id !== deletedId)
                 );
             }
@@ -173,11 +180,11 @@ export function useDeleteTag(projectId: string) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.list(projectId),
+                queryKey: queryKeys.docTags.list(orgId, projectId),
                 refetchType: 'active'
             });
             queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.all,
+                queryKey: queryKeys.docTags.all(orgId),
                 refetchType: 'active'
             });
             toast.success('Tag excluída');
@@ -186,7 +193,7 @@ export function useDeleteTag(projectId: string) {
             // Rollback on error
             if (context?.previousTags) {
                 queryClient.setQueryData(
-                    queryKeys.docTags.list(projectId),
+                    queryKeys.docTags.list(orgId, projectId),
                     context.previousTags
                 );
             }
@@ -200,22 +207,23 @@ export function useDeleteTag(projectId: string) {
  */
 export function useAssignTags(projectId: string) {
     const queryClient = useQueryClient();
+    const orgId = useCurrentOrgId();
 
     return useMutation({
         mutationFn: assignTags,
         onMutate: async (variables) => {
             // Cancel outgoing refetches
-            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.forDoc(variables.docId) });
+            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.forDoc(orgId, variables.docId) });
 
             // Return context for rollback
-            const previousTags = queryClient.getQueryData<DocTag[]>(queryKeys.docTags.forDoc(variables.docId));
+            const previousTags = queryClient.getQueryData<DocTag[]>(queryKeys.docTags.forDoc(orgId, variables.docId));
             return { previousTags };
         },
         onSuccess: (newTags, variables) => {
             // Update cache with server response
-            queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), newTags);
+            queryClient.setQueryData(queryKeys.docTags.forDoc(orgId, variables.docId), newTags);
             queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.list(projectId),
+                queryKey: queryKeys.docTags.list(orgId, projectId),
                 refetchType: 'active'
             });
             toast.success('Tag adicionada');
@@ -223,7 +231,7 @@ export function useAssignTags(projectId: string) {
         onError: (_, variables, context) => {
             // Rollback on error
             if (context?.previousTags) {
-                queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), context.previousTags);
+                queryClient.setQueryData(queryKeys.docTags.forDoc(orgId, variables.docId), context.previousTags);
             }
             toast.error('Erro ao adicionar tag');
         },
@@ -235,18 +243,19 @@ export function useAssignTags(projectId: string) {
  */
 export function useUnassignTag(projectId: string) {
     const queryClient = useQueryClient();
+    const orgId = useCurrentOrgId();
 
     return useMutation({
         mutationFn: unassignTag,
         onMutate: async (variables) => {
             // Cancel outgoing refetches
-            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.forDoc(variables.docId) });
+            await queryClient.cancelQueries({ queryKey: queryKeys.docTags.forDoc(orgId, variables.docId) });
 
             // Optimistically remove the tag
-            const previousTags = queryClient.getQueryData<DocTag[]>(queryKeys.docTags.forDoc(variables.docId));
+            const previousTags = queryClient.getQueryData<DocTag[]>(queryKeys.docTags.forDoc(orgId, variables.docId));
             if (previousTags) {
                 queryClient.setQueryData(
-                    queryKeys.docTags.forDoc(variables.docId),
+                    queryKeys.docTags.forDoc(orgId, variables.docId),
                     previousTags.filter((t) => t.id !== variables.tagId)
                 );
             }
@@ -254,9 +263,9 @@ export function useUnassignTag(projectId: string) {
         },
         onSuccess: (newTags, variables) => {
             // Update cache with server response
-            queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), newTags);
+            queryClient.setQueryData(queryKeys.docTags.forDoc(orgId, variables.docId), newTags);
             queryClient.invalidateQueries({ 
-                queryKey: queryKeys.docTags.list(projectId),
+                queryKey: queryKeys.docTags.list(orgId, projectId),
                 refetchType: 'active'
             });
             toast.success('Tag removida');
@@ -264,7 +273,7 @@ export function useUnassignTag(projectId: string) {
         onError: (_, variables, context) => {
             // Rollback on error
             if (context?.previousTags) {
-                queryClient.setQueryData(queryKeys.docTags.forDoc(variables.docId), context.previousTags);
+                queryClient.setQueryData(queryKeys.docTags.forDoc(orgId, variables.docId), context.previousTags);
             }
             toast.error('Erro ao remover tag');
         },

@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { useCurrentOrgId } from './use-org-id';
 
 // Types
 export interface ProjectDoc {
@@ -83,10 +84,12 @@ async function deleteDoc(id: string): Promise<void> {
  * Fetch all docs for a project
  */
 export function useProjectDocs(projectId: string) {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.projectDocs.list(projectId),
+    queryKey: queryKeys.projectDocs.list(orgId, projectId),
     queryFn: () => fetchProjectDocs(projectId),
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -95,10 +98,12 @@ export function useProjectDocs(projectId: string) {
  * Fetch a single doc
  */
 export function useDoc(id: string) {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.projectDocs.detail(id),
+    queryKey: queryKeys.projectDocs.detail(orgId, id),
     queryFn: () => fetchDoc(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -108,13 +113,14 @@ export function useDoc(id: string) {
  */
 export function useCreateDoc() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: createDoc,
     onSuccess: (newDoc, variables) => {
       // 1. Optimistic update: add to list immediately
       queryClient.setQueryData<ProjectDoc[]>(
-        queryKeys.projectDocs.list(variables.projectId),
+        queryKeys.projectDocs.list(orgId, variables.projectId),
         (old) => {
           if (!old) return [newDoc];
           return [...old, newDoc];
@@ -123,7 +129,7 @@ export function useCreateDoc() {
 
       // 2. Invalidate for consistency with force refetch
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectDocs.list(variables.projectId),
+        queryKey: queryKeys.projectDocs.list(orgId, variables.projectId),
         refetchType: 'active'
       });
       toast.success('Documento criado');
@@ -139,16 +145,17 @@ export function useCreateDoc() {
  */
 export function useUpdateDoc(projectId: string) {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: updateDoc,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectDocs.list(projectId),
+        queryKey: queryKeys.projectDocs.list(orgId, projectId),
         refetchType: 'active'
       });
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectDocs.detail(data.id),
+        queryKey: queryKeys.projectDocs.detail(orgId, data.id),
         refetchType: 'active'
       });
       toast.success('Documento atualizado');
@@ -164,12 +171,13 @@ export function useUpdateDoc(projectId: string) {
  */
 export function useDeleteDoc(projectId: string) {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: deleteDoc,
     onSuccess: () => {
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectDocs.list(projectId),
+        queryKey: queryKeys.projectDocs.list(orgId, projectId),
         refetchType: 'active'
       });
       toast.success('Documento excluído');

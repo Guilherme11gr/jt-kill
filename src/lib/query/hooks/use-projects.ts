@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invalidateDashboardQueries } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { useCurrentOrgId } from './use-org-id';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -81,9 +82,12 @@ async function deleteProject(id: string): Promise<void> {
  * Fetch all projects for the current org
  */
 export function useProjects() {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.projects.list(),
+    queryKey: queryKeys.projects.list(orgId),
     queryFn: fetchProjects,
+    enabled: orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -92,10 +96,12 @@ export function useProjects() {
  * Fetch a single project by ID
  */
 export function useProject(id: string) {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.projects.detail(id),
+    queryKey: queryKeys.projects.detail(orgId, id),
     queryFn: () => fetchProject(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -140,12 +146,13 @@ export function useModulesByProject(projectId: string | undefined) {
  */
 export function useCreateProject() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: createProject,
     onSuccess: (newProject) => {
       // 1. Optimistic update the list
-      queryClient.setQueryData<Project[]>(queryKeys.projects.list(), (old) => {
+      queryClient.setQueryData<Project[]>(queryKeys.projects.list(orgId), (old) => {
         if (!old) return [newProject];
         // Avoid duplicates
         if (old.some(p => p.id === newProject.id)) return old;
@@ -154,12 +161,12 @@ export function useCreateProject() {
 
       // 2. Invalidate with immediate refetch for active queries
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.list(),
+        queryKey: queryKeys.projects.list(orgId),
         refetchType: 'active'
       });
 
       // 3. Invalidate Dashboard Active Projects (new project might be active soon)
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
 
       toast.success('Projeto criado');
     },
@@ -176,34 +183,35 @@ export function useCreateProject() {
  */
 export function useUpdateProject() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: updateProject,
     onSuccess: (updatedProject, variables) => {
       // 1. Optimistic update: update the specific project in cache
       queryClient.setQueryData<Project>(
-        queryKeys.projects.detail(variables.id),
+        queryKeys.projects.detail(orgId, variables.id),
         updatedProject
       );
 
       // 2. Update in list immediately
-      queryClient.setQueryData<Project[]>(queryKeys.projects.list(), (old) => {
+      queryClient.setQueryData<Project[]>(queryKeys.projects.list(orgId), (old) => {
         if (!old) return old;
         return old.map((p) => (p.id === variables.id ? { ...p, ...updatedProject } : p));
       });
 
       // 3. Invalidate with immediate refetch for active queries
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.list(),
+        queryKey: queryKeys.projects.list(orgId),
         refetchType: 'active'
       });
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.detail(variables.id),
+        queryKey: queryKeys.projects.detail(orgId, variables.id),
         refetchType: 'active'
       });
 
       // 4. Invalidate Dashboard
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
       toast.success('Projeto atualizado');
     },
     onError: () => {
@@ -219,20 +227,21 @@ export function useUpdateProject() {
  */
 export function useDeleteProject() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: deleteProject,
     onMutate: async (projectId) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.projects.all });
+      await queryClient.cancelQueries({ queryKey: queryKeys.projects.all(orgId) });
 
       // Snapshot previous data for rollback
-      const previousProjects = queryClient.getQueryData<Project[]>(queryKeys.projects.list());
+      const previousProjects = queryClient.getQueryData<Project[]>(queryKeys.projects.list(orgId));
 
       // Optimistically remove from list
       if (previousProjects) {
         queryClient.setQueryData<Project[]>(
-          queryKeys.projects.list(),
+          queryKeys.projects.list(orgId),
           previousProjects.filter(p => p.id !== projectId)
         );
       }
@@ -241,22 +250,22 @@ export function useDeleteProject() {
     },
     onSuccess: (_, deletedProjectId) => {
       // Remove detail query
-      queryClient.removeQueries({ queryKey: queryKeys.projects.detail(deletedProjectId) });
+      queryClient.removeQueries({ queryKey: queryKeys.projects.detail(orgId, deletedProjectId) });
       
       // Invalidate with immediate refetch for active queries
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projects.list(),
+        queryKey: queryKeys.projects.list(orgId),
         refetchType: 'active'
       });
       
       // Invalidate dashboard
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
       toast.success('Projeto excluído');
     },
     onError: (_err, _projectId, context) => {
       // Rollback on error
       if (context?.previousProjects) {
-        queryClient.setQueryData(queryKeys.projects.list(), context.previousProjects);
+        queryClient.setQueryData(queryKeys.projects.list(orgId), context.previousProjects);
       }
       toast.error('Erro ao excluir projeto');
     },

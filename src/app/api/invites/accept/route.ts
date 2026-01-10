@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError, NotFoundError, BadRequestError, UnauthorizedError } from '@/shared/errors';
 import { inviteRepository, auditLogRepository, prisma, AUDIT_ACTIONS } from '@/infra/adapters/prisma';
+import { invalidateMembershipCache } from '@/shared/http/auth.helpers';
 import { z } from 'zod';
 
 const acceptInviteSchema = z.object({
@@ -99,6 +100,9 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+
+    // Invalidate membership cache (critical for new membership)
+    invalidateMembershipCache(user.id);
 
     // Log the action
     await auditLogRepository.log({

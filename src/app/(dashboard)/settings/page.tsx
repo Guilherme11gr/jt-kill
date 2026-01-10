@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, History, User, ChevronRight, Crown } from "lucide-react";
+import { Users, History, User, ChevronRight, Crown, Building2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useWorkspaceCTA } from "@/hooks/useWorkspaceCTA";
+import { CreateWorkspaceCTAModal } from "@/components/features/workspace-cta/CreateWorkspaceCTAModal";
 
 export default function SettingsPage() {
   const { profile } = useAuth();
   const isOwner = profile?.currentRole === 'OWNER';
+  const { showModal, setShowModal, handleWorkspaceCreated } = useWorkspaceCTA();
 
   const settingsLinks = [
     {
@@ -59,6 +62,25 @@ export default function SettingsPage() {
 
       {/* Settings Links */}
       <div className="grid gap-4">
+        {/* Create Workspace - Always visible */}
+        <Card 
+          className="hover:bg-accent/50 transition-colors cursor-pointer border-primary/20"
+          onClick={() => setShowModal(true)}
+        >
+          <CardContent className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">Criar Workspace</p>
+                <p className="text-sm text-muted-foreground">Gerencie seus próprios projetos</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          </CardContent>
+        </Card>
+
         {settingsLinks.filter(l => l.visible).map((link) => (
           <Link key={link.href} href={link.href}>
             <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
@@ -78,6 +100,13 @@ export default function SettingsPage() {
           </Link>
         ))}
       </div>
+
+      {/* Modal for workspace creation */}
+      <CreateWorkspaceCTAModal
+        open={showModal}
+        onOpenChange={setShowModal}
+        onWorkspaceCreated={handleWorkspaceCreated}
+      />
     </div>
   );
 }

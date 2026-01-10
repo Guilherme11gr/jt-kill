@@ -4,106 +4,130 @@ import type { TaskFiltersState } from '@/components/features/tasks';
  * Query Keys Factory
  * 
  * Centralized, type-safe query key definitions.
- * Uses factory pattern for parameterized keys.
+ * ALL keys include orgId as first element for multi-org isolation.
+ * 
+ * IMPORTANT: Always pass currentOrgId to prevent cross-org data leakage.
  * 
  * @example
  * // List with filters
- * queryKeys.tasks.list({ status: 'DOING' })
- * // => ['tasks', 'list', { status: 'DOING' }]
+ * queryKeys.tasks.list(orgId, { status: 'DOING' })
+ * // => ['org', orgId, 'tasks', 'list', { status: 'DOING' }]
  * 
  * // Detail by ID
- * queryKeys.tasks.detail('uuid-123')
- * // => ['tasks', 'detail', 'uuid-123']
+ * queryKeys.tasks.detail(orgId, 'uuid-123')
+ * // => ['org', orgId, 'tasks', 'detail', 'uuid-123']
  */
+
+// Helper to create org-scoped key
+const orgKey = (orgId: string) => ['org', orgId] as const;
+
 export const queryKeys = {
   // ============ TASKS ============
   tasks: {
-    all: ['tasks'] as const,
-    lists: () => [...queryKeys.tasks.all, 'list'] as const,
-    list: (filters?: Partial<TaskFiltersState>) =>
-      [...queryKeys.tasks.lists(), filters ?? {}] as const,
-    details: () => [...queryKeys.tasks.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.tasks.details(), id] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'tasks'] as const,
+    lists: (orgId: string) => [...queryKeys.tasks.all(orgId), 'list'] as const,
+    list: (orgId: string, filters?: Partial<TaskFiltersState>) =>
+      [...queryKeys.tasks.lists(orgId), filters ?? {}] as const,
+    details: (orgId: string) => [...queryKeys.tasks.all(orgId), 'detail'] as const,
+    detail: (orgId: string, id: string) => [...queryKeys.tasks.details(orgId), id] as const,
   },
 
   // ============ PROJECTS ============
   projects: {
-    all: ['projects'] as const,
-    lists: () => [...queryKeys.projects.all, 'list'] as const,
-    list: () => [...queryKeys.projects.lists()] as const,
-    details: () => [...queryKeys.projects.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.projects.details(), id] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'projects'] as const,
+    lists: (orgId: string) => [...queryKeys.projects.all(orgId), 'list'] as const,
+    list: (orgId: string) => [...queryKeys.projects.lists(orgId)] as const,
+    details: (orgId: string) => [...queryKeys.projects.all(orgId), 'detail'] as const,
+    detail: (orgId: string, id: string) => [...queryKeys.projects.details(orgId), id] as const,
   },
 
   // ============ EPICS ============
   epics: {
-    all: ['epics'] as const,
-    lists: () => [...queryKeys.epics.all, 'list'] as const,
-    list: (projectId: string) => [...queryKeys.epics.lists(), projectId] as const,
-    allList: () => [...queryKeys.epics.all, 'all'] as const,
-    details: () => [...queryKeys.epics.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.epics.details(), id] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'epics'] as const,
+    lists: (orgId: string) => [...queryKeys.epics.all(orgId), 'list'] as const,
+    list: (orgId: string, projectId: string) => [...queryKeys.epics.lists(orgId), projectId] as const,
+    allList: (orgId: string) => [...queryKeys.epics.all(orgId), 'all'] as const,
+    details: (orgId: string) => [...queryKeys.epics.all(orgId), 'detail'] as const,
+    detail: (orgId: string, id: string) => [...queryKeys.epics.details(orgId), id] as const,
   },
 
   // ============ FEATURES ============
   features: {
-    all: ['features'] as const,
-    lists: () => [...queryKeys.features.all, 'list'] as const,
-    list: (epicId?: string) => [...queryKeys.features.lists(), epicId] as const,
-    allList: () => [...queryKeys.features.all, 'all'] as const,
-    details: () => [...queryKeys.features.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.features.details(), id] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'features'] as const,
+    lists: (orgId: string) => [...queryKeys.features.all(orgId), 'list'] as const,
+    list: (orgId: string, epicId?: string) => [...queryKeys.features.lists(orgId), epicId] as const,
+    allList: (orgId: string) => [...queryKeys.features.all(orgId), 'all'] as const,
+    details: (orgId: string) => [...queryKeys.features.all(orgId), 'detail'] as const,
+    detail: (orgId: string, id: string) => [...queryKeys.features.details(orgId), id] as const,
   },
 
   // ============ COMMENTS ============
   comments: {
-    all: ['comments'] as const,
-    lists: () => [...queryKeys.comments.all, 'list'] as const,
-    list: (taskId: string) => [...queryKeys.comments.lists(), taskId] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'comments'] as const,
+    lists: (orgId: string) => [...queryKeys.comments.all(orgId), 'list'] as const,
+    list: (orgId: string, taskId: string) => [...queryKeys.comments.lists(orgId), taskId] as const,
   },
 
   // ============ PROJECT DOCS ============
   projectDocs: {
-    all: ['projectDocs'] as const,
-    lists: () => [...queryKeys.projectDocs.all, 'list'] as const,
-    list: (projectId: string) => [...queryKeys.projectDocs.lists(), projectId] as const,
-    details: () => [...queryKeys.projectDocs.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.projectDocs.details(), id] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'projectDocs'] as const,
+    lists: (orgId: string) => [...queryKeys.projectDocs.all(orgId), 'list'] as const,
+    list: (orgId: string, projectId: string) => [...queryKeys.projectDocs.lists(orgId), projectId] as const,
+    details: (orgId: string) => [...queryKeys.projectDocs.all(orgId), 'detail'] as const,
+    detail: (orgId: string, id: string) => [...queryKeys.projectDocs.details(orgId), id] as const,
   },
 
   // ============ DOC TAGS ============
   docTags: {
-    all: ['docTags'] as const,
-    lists: () => [...queryKeys.docTags.all, 'list'] as const,
-    list: (projectId: string) => [...queryKeys.docTags.lists(), projectId] as const,
-    forDoc: (docId: string) => [...queryKeys.docTags.all, 'doc', docId] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'docTags'] as const,
+    lists: (orgId: string) => [...queryKeys.docTags.all(orgId), 'list'] as const,
+    list: (orgId: string, projectId: string) => [...queryKeys.docTags.lists(orgId), projectId] as const,
+    forDoc: (orgId: string, docId: string) => [...queryKeys.docTags.all(orgId), 'doc', docId] as const,
   },
 
   // ============ PROJECT NOTES ============
   projectNotes: {
-    all: ['projectNotes'] as const,
-    lists: () => [...queryKeys.projectNotes.all, 'list'] as const,
-    list: (projectId: string, status?: string) =>
-      [...queryKeys.projectNotes.lists(), projectId, status ?? 'all'] as const,
-    details: () => [...queryKeys.projectNotes.all, 'detail'] as const,
-    detail: (id: string) => [...queryKeys.projectNotes.details(), id] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'projectNotes'] as const,
+    lists: (orgId: string) => [...queryKeys.projectNotes.all(orgId), 'list'] as const,
+    list: (orgId: string, projectId: string, status?: string) =>
+      [...queryKeys.projectNotes.lists(orgId), projectId, status ?? 'all'] as const,
+    details: (orgId: string) => [...queryKeys.projectNotes.all(orgId), 'detail'] as const,
+    detail: (orgId: string, id: string) => [...queryKeys.projectNotes.details(orgId), id] as const,
   },
 
   // ============ USERS ============
   users: {
-    all: ['users'] as const,
-    list: () => [...queryKeys.users.all, 'list'] as const,
-    current: () => [...queryKeys.users.all, 'current'] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'users'] as const,
+    list: (orgId: string) => [...queryKeys.users.all(orgId), 'list'] as const,
+    current: () => ['users', 'current'] as const, // Global - no org scope needed
   },
 
   // ============ DASHBOARD ============
   dashboard: {
-    all: ['dashboard'] as const,
-    myTasks: (includeDone?: boolean, teamView?: boolean) =>
-      [...queryKeys.dashboard.all, 'myTasks', includeDone ?? false, teamView ?? false] as const,
-    activeProjects: () => [...queryKeys.dashboard.all, 'activeProjects'] as const,
-    activity: (hours?: number) =>
-      [...queryKeys.dashboard.all, 'activity', hours ?? 24] as const,
+    all: (orgId: string) => [...orgKey(orgId), 'dashboard'] as const,
+    myTasks: (orgId: string, includeDone?: boolean, teamView?: boolean) =>
+      [...queryKeys.dashboard.all(orgId), 'myTasks', includeDone ?? false, teamView ?? false] as const,
+    activeProjects: (orgId: string) => [...queryKeys.dashboard.all(orgId), 'activeProjects'] as const,
+    activity: (orgId: string, hours?: number) =>
+      [...queryKeys.dashboard.all(orgId), 'activity', hours ?? 24] as const,
+  },
+
+  // ============ TASK TAGS ============
+  taskTags: {
+    all: (orgId: string) => [...orgKey(orgId), 'taskTags'] as const,
+    list: (orgId: string) => [...queryKeys.taskTags.all(orgId), 'list'] as const,
+  },
+
+  // ============ AI ============
+  ai: {
+    all: (orgId: string) => [...orgKey(orgId), 'ai'] as const,
+    summary: (orgId: string, projectId: string) => [...queryKeys.ai.all(orgId), 'summary', projectId] as const,
+  },
+
+  // ============ INVITES ============
+  invites: {
+    all: (orgId: string) => [...orgKey(orgId), 'invites'] as const,
+    list: (orgId: string) => [...queryKeys.invites.all(orgId), 'list'] as const,
   },
 } as const;
 

@@ -54,3 +54,36 @@ export function getQueryClient(): QueryClient {
     return browserQueryClient;
   }
 }
+
+/**
+ * Clear all React Query cache.
+ * Call this when switching organizations to prevent stale data.
+ * 
+ * Uses invalidateQueries + refetchQueries for better UX:
+ * - invalidateQueries marks all queries as stale
+ * - refetchQueries forces immediate refetch of active queries
+ * 
+ * @example
+ * // In switchOrg function
+ * await clearQueryCache();
+ */
+export async function clearQueryCache(): Promise<void> {
+  if (!isServer && browserQueryClient) {
+    // 1. Clear all cache completely (removes old org data)
+    browserQueryClient.clear();
+    
+    // 2. Reset query defaults to trigger fresh fetches
+    browserQueryClient.resetQueries();
+  }
+}
+
+/**
+ * Invalidate and refetch all active queries.
+ * Better for soft refresh - keeps data visible while refetching.
+ */
+export async function invalidateAndRefetchAll(): Promise<void> {
+  if (!isServer && browserQueryClient) {
+    await browserQueryClient.invalidateQueries();
+    await browserQueryClient.refetchQueries({ type: 'active' });
+  }
+}

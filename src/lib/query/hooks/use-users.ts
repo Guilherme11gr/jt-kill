@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { useCurrentOrgId } from './use-org-id';
 
 // Types
 export interface User {
@@ -51,15 +52,19 @@ async function updateProfile(data: UpdateProfileInput): Promise<User> {
  * Fetch all users in organization (for assignee dropdown)
  */
 export function useUsers() {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.users.list(),
+    queryKey: queryKeys.users.list(orgId),
     queryFn: fetchUsers,
+    enabled: orgId !== 'unknown',
     ...CACHE_TIMES.STABLE, // Users don't change often
   });
 }
 
 /**
  * Fetch current user profile
+ * NOTE: This is global (not org-scoped) because it's the same user across orgs
  */
 export function useCurrentUser() {
   return useQuery({
@@ -74,6 +79,7 @@ export function useCurrentUser() {
  */
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: updateProfile,
@@ -82,7 +88,7 @@ export function useUpdateProfile() {
       queryClient.setQueryData<User>(queryKeys.users.current(), updatedUser);
 
       // 2. Update in users list
-      queryClient.setQueryData<User[]>(queryKeys.users.list(), (old) => {
+      queryClient.setQueryData<User[]>(queryKeys.users.list(orgId), (old) => {
         if (!old) return old;
         return old.map((u) => (u.id === updatedUser.id ? updatedUser : u));
       });
@@ -93,7 +99,7 @@ export function useUpdateProfile() {
         refetchType: 'active'
       });
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.users.list(),
+        queryKey: queryKeys.users.list(orgId),
         refetchType: 'active'
       });
       toast.success('Perfil atualizado');

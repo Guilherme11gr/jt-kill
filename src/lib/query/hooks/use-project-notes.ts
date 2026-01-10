@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { useCurrentOrgId } from './use-org-id';
 
 // Types
 export type NoteStatus = 'ACTIVE' | 'ARCHIVED' | 'CONVERTED';
@@ -126,10 +127,12 @@ async function convertNote(input: ConvertNoteInput): Promise<ConvertNoteResult> 
  * Fetch all notes for a project
  */
 export function useProjectNotes(projectId: string, status?: NoteStatus) {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.projectNotes.list(projectId, status),
+    queryKey: queryKeys.projectNotes.list(orgId, projectId, status),
     queryFn: () => fetchProjectNotes(projectId, status),
-    enabled: Boolean(projectId),
+    enabled: Boolean(projectId) && orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -138,10 +141,12 @@ export function useProjectNotes(projectId: string, status?: NoteStatus) {
  * Fetch a single note
  */
 export function useNote(id: string) {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.projectNotes.detail(id),
+    queryKey: queryKeys.projectNotes.detail(orgId, id),
     queryFn: () => fetchNote(id),
-    enabled: Boolean(id),
+    enabled: Boolean(id) && orgId !== 'unknown',
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -151,13 +156,14 @@ export function useNote(id: string) {
  */
 export function useCreateNote() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: createNote,
     onSuccess: (newNote, variables) => {
       // Optimistic update: add to list immediately
       queryClient.setQueryData<ProjectNote[]>(
-        queryKeys.projectNotes.list(variables.projectId),
+        queryKeys.projectNotes.list(orgId, variables.projectId),
         (old) => {
           if (!old) return [newNote];
           return [newNote, ...old];
@@ -166,7 +172,7 @@ export function useCreateNote() {
 
       // Invalidate for consistency with refetch forçado
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(),
+        queryKey: queryKeys.projectNotes.lists(orgId),
         refetchType: 'active'
       });
       toast.success('Ideia criada');
@@ -182,16 +188,17 @@ export function useCreateNote() {
  */
 export function useUpdateNote(projectId: string) {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: updateNote,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(),
+        queryKey: queryKeys.projectNotes.lists(orgId),
         refetchType: 'active'
       });
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.detail(data.id),
+        queryKey: queryKeys.projectNotes.detail(orgId, data.id),
         refetchType: 'active'
       });
       toast.success('Ideia atualizada');
@@ -207,12 +214,13 @@ export function useUpdateNote(projectId: string) {
  */
 export function useDeleteNote(projectId: string) {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: deleteNote,
     onSuccess: () => {
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(),
+        queryKey: queryKeys.projectNotes.lists(orgId),
         refetchType: 'active'
       });
       toast.success('Ideia excluída');
@@ -227,23 +235,24 @@ export function useDeleteNote(projectId: string) {
  */
 export function useArchiveNote(projectId: string) {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: ({ id, unarchive = false }: { id: string; unarchive?: boolean }) =>
       archiveNote(id, unarchive),
     onMutate: async (variables) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.projectNotes.list(projectId) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.projectNotes.list(orgId, projectId) });
 
       // Snapshot previous value
       const previousNotes = queryClient.getQueryData<ProjectNote[]>(
-        queryKeys.projectNotes.list(projectId)
+        queryKeys.projectNotes.list(orgId, projectId)
       );
 
       // Optimistic update
       if (previousNotes) {
         queryClient.setQueryData<ProjectNote[]>(
-          queryKeys.projectNotes.list(projectId),
+          queryKeys.projectNotes.list(orgId, projectId),
           previousNotes.map(note =>
             note.id === variables.id
               ? { ...note, status: variables.unarchive ? 'ACTIVE' as const : 'ARCHIVED' as const }
@@ -258,7 +267,7 @@ export function useArchiveNote(projectId: string) {
       // Rollback on error
       if (context?.previousNotes) {
         queryClient.setQueryData(
-          queryKeys.projectNotes.list(projectId),
+          queryKeys.projectNotes.list(orgId, projectId),
           context.previousNotes
         );
       }
@@ -270,7 +279,7 @@ export function useArchiveNote(projectId: string) {
     onSettled: () => {
       // Refetch to ensure consistency with refetch forçado
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(),
+        queryKey: queryKeys.projectNotes.lists(orgId),
         refetchType: 'active'
       });
     },
@@ -282,16 +291,17 @@ export function useArchiveNote(projectId: string) {
  */
 export function useConvertNote(projectId: string) {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: convertNote,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.projectNotes.lists(),
+        queryKey: queryKeys.projectNotes.lists(orgId),
         refetchType: 'active'
       });
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.features.all,
+        queryKey: queryKeys.features.all(orgId),
         refetchType: 'active'
       });
       toast.success(`Ideia convertida em Feature "${data.feature.title}"`);

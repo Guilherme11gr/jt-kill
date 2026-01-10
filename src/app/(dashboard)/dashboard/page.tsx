@@ -17,6 +17,9 @@ import {
   ActiveProjectsBlock,
   QuickTaskDialog,
 } from '@/components/features/dashboard';
+import { CreateWorkspaceCTAModal } from '@/components/features/workspace-cta/CreateWorkspaceCTAModal';
+import { CreateWorkspaceCard } from '@/components/features/workspace-cta/CreateWorkspaceCard';
+import { useWorkspaceCTA } from '@/hooks/useWorkspaceCTA';
 
 /**
  * Dashboard Page - Painel de Comando
@@ -30,6 +33,16 @@ import {
 export default function DashboardPage() {
   const [isQuickTaskOpen, setIsQuickTaskOpen] = useState(false);
   const { profile, isLoading: isLoadingAuth } = useAuth();
+
+  // Workspace CTA hook
+  const {
+    showModal,
+    setShowModal,
+    handleDismiss,
+    handleWorkspaceCreated,
+    openModal,
+    shouldShowCard,
+  } = useWorkspaceCTA();
 
   // Queries otimizadas para dashboard
   // Bloqueios: modo equipe (todos os bloqueios dos projetos)
@@ -120,6 +133,11 @@ export default function DashboardPage() {
 
       {/* Blocos da Dashboard */}
       <div className="grid gap-6">
+        {/* CTA Card: Criar Workspace (só para MEMBERs) */}
+        {shouldShowCard && (
+          <CreateWorkspaceCard onCreateClick={openModal} />
+        )}
+
         {/* BLOCO 1: Bloqueios da Equipe (só aparece se houver) */}
         <BlockedBlock 
           tasks={blockedTasks} 
@@ -140,6 +158,16 @@ export default function DashboardPage() {
       <QuickTaskDialog
         open={isQuickTaskOpen}
         onOpenChange={setIsQuickTaskOpen}
+      />
+
+      {/* Workspace CTA Modal */}
+      <CreateWorkspaceCTAModal
+        open={showModal}
+        onOpenChange={(open) => {
+          if (!open) handleDismiss();
+          setShowModal(open);
+        }}
+        onWorkspaceCreated={handleWorkspaceCreated}
       />
     </div>
   );

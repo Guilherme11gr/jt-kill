@@ -29,18 +29,75 @@ import {
 import { useAllEpics } from '@/lib/query/hooks/use-epics';
 import { useUsers, useCurrentUser } from '@/lib/query/hooks/use-users';
 import { useDebounce } from '@/hooks/use-debounce';
+import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 
 function TasksPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { profile, switchOrg } = useAuth();
   const [view, setView] = useState<ViewMode>('kanban');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithReadableId | null>(null);
   const [selectedTask, setSelectedTask] = useState<TaskWithReadableId | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [orgSwitchHandled, setOrgSwitchHandled] = useState(false);
 
   // Delete Task State
   const [taskToDelete, setTaskToDelete] = useState<TaskWithReadableId | null>(null);
+
+  // Handle deep link with org parameter - auto-switch if needed
+  useEffect(() => {
+    if (orgSwitchHandled || !profile) return;
+    
+    const orgSlug = searchParams.get('org');
+    if (!orgSlug) {
+      setOrgSwitchHandled(true);
+      return;
+    }
+
+    // Find org by slug
+    const targetOrg = profile.memberships.find(m => m.orgSlug === orgSlug);
+    
+    if (!targetOrg) {
+      // User is not a member of this org
+      toast.error('Você não tem acesso a esta organização', {
+        description: `Organização: ${orgSlug}`,
+      });
+      // Clean org param from URL
+      const params = new URLSearchParams(window.location.search);
+      params.delete('org');
+      const newUrl = params.toString() ? `/tasks?${params.toString()}` : '/tasks';
+      window.history.replaceState(null, '', newUrl);
+      setOrgSwitchHandled(true);
+      return;
+    }
+
+    // If already in the correct org, just clean the param
+    if (targetOrg.orgId === profile.currentOrgId) {
+      const params = new URLSearchParams(window.location.search);
+      params.delete('org');
+      const taskId = params.get('task');
+      const newUrl = taskId ? `/tasks?task=${taskId}` : '/tasks';
+      window.history.replaceState(null, '', newUrl);
+      setOrgSwitchHandled(true);
+      return;
+    }
+
+    // Need to switch org - this will cause a reload
+    toast.info('Trocando para a organização correta...', {
+      description: targetOrg.orgName,
+    });
+    
+    // Build return URL with task param preserved (but without org param)
+    const params = new URLSearchParams(window.location.search);
+    params.delete('org');
+    const taskId = params.get('task');
+    const returnUrl = taskId ? `/tasks?task=${taskId}` : '/tasks';
+    
+    // Switch will do hard reload, preserving task param
+    switchOrg(targetOrg.orgId, returnUrl);
+  }, [searchParams, profile, switchOrg, orgSwitchHandled]);
 
   /* 
     Updated to sync with URL query params. 

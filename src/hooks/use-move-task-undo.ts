@@ -8,6 +8,7 @@ import { useCallback, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '@/lib/query/query-keys';
+import { useCurrentOrgId } from '@/lib/query/hooks/use-org-id';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import type { TasksResponse } from '@/lib/query/hooks/use-tasks';
 
@@ -35,6 +36,7 @@ async function moveTask(id: string, status: TaskStatus): Promise<TaskWithReadabl
 
 export function useMoveTaskWithUndo() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
   const undoTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const mutation = useMutation({
@@ -45,15 +47,15 @@ export function useMoveTaskWithUndo() {
     // Optimistic update
     onMutate: async ({ id, status, readableId: providedReadableId }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() });
-      await queryClient.cancelQueries({ queryKey: queryKeys.dashboard.all });
+      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists(orgId) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.dashboard.all(orgId) });
 
       // Snapshot previous value
       const previousTasks = queryClient.getQueriesData<TasksResponse>({
-        queryKey: queryKeys.tasks.lists(),
+        queryKey: queryKeys.tasks.lists(orgId),
       });
       const previousDashboard = queryClient.getQueriesData({
-        queryKey: queryKeys.dashboard.all,
+        queryKey: queryKeys.dashboard.all(orgId),
       });
 
       // Find the task to get previous status
@@ -70,7 +72,7 @@ export function useMoveTaskWithUndo() {
 
       // Optimistically update
       queryClient.setQueriesData<TasksResponse>(
-        { queryKey: queryKeys.tasks.lists() },
+        { queryKey: queryKeys.tasks.lists(orgId) },
         (old) => {
           if (!old) return old;
           return {
@@ -122,11 +124,11 @@ export function useMoveTaskWithUndo() {
                   moveTask(updatedTask.id, previousStatus).then(() => {
                     // Invalidate to refresh with force refetch
                     queryClient.invalidateQueries({ 
-                      queryKey: queryKeys.tasks.lists(),
+                      queryKey: queryKeys.tasks.lists(orgId),
                       refetchType: 'active'
                     });
                     queryClient.invalidateQueries({ 
-                      queryKey: queryKeys.dashboard.all,
+                      queryKey: queryKeys.dashboard.all(orgId),
                       refetchType: 'active'
                     });
                     toast.success('Ação desfeita');
@@ -148,11 +150,11 @@ export function useMoveTaskWithUndo() {
     onSettled: () => {
       // Invalidate and refetch active queries immediately
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.lists(),
+        queryKey: queryKeys.tasks.lists(orgId),
         refetchType: 'active' // Only refetch queries that are currently being used
       });
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.dashboard.all,
+        queryKey: queryKeys.dashboard.all(orgId),
         refetchType: 'active'
       });
     },

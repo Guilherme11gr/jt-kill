@@ -29,6 +29,7 @@ function SignupContent() {
   const [orgName, setOrgName] = useState("");
   const [loading, setLoading] = useState(false);
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [loadingInvite, setLoadingInvite] = useState(false);
 
   const router = useRouter();
@@ -42,6 +43,7 @@ function SignupContent() {
   useEffect(() => {
     if (inviteToken) {
       setLoadingInvite(true);
+      setInviteError(null);
       fetch(`/api/invites/${inviteToken}`)
         .then(res => res.json())
         .then(data => {
@@ -50,9 +52,14 @@ function SignupContent() {
               orgName: data.data.orgName,
               role: data.data.role,
             });
+          } else if (data.error) {
+            // Invite is invalid or expired
+            setInviteError(data.error.message || 'Convite inválido ou expirado');
           }
         })
-        .catch(() => { })
+        .catch(() => {
+          setInviteError('Erro ao carregar convite');
+        })
         .finally(() => setLoadingInvite(false));
     }
   }, [inviteToken]);
@@ -90,7 +97,7 @@ function SignupContent() {
         toast.success("Conta criada! Verifique seu email para confirmar.");
         router.push("/login?message=check-email");
       } else if (authData.session) {
-        // Auto-confirmed - if invite, accept it
+        // Auto-confirmed - need to set cookie manually since callback won't run
         if (inviteToken) {
           const acceptRes = await fetch('/api/invites/accept', {
             method: 'POST',
@@ -99,15 +106,36 @@ function SignupContent() {
           });
 
           if (acceptRes.ok) {
+            const acceptData = await acceptRes.json();
+            // Set cookie for the new org
+            if (acceptData.data?.orgId) {
+              await fetch('/api/org/switch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orgId: acceptData.data.orgId }),
+              });
+            }
             toast.success("Bem-vindo à organização!");
           } else {
             toast.error("Conta criada, mas erro ao aceitar convite.");
           }
         } else {
+          // New org flow - fetch profile to get orgId and set cookie
+          const profileRes = await fetch('/api/users/me');
+          if (profileRes.ok) {
+            const profile = await profileRes.json();
+            if (profile.data?.currentOrgId) {
+              await fetch('/api/org/switch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orgId: profile.data.currentOrgId }),
+              });
+            }
+          }
           toast.success("Conta criada com sucesso!");
         }
-        router.push("/dashboard");
-        router.refresh();
+        // Hard reload to ensure clean state with cookie set
+        window.location.href = '/dashboard';
       }
     } catch (error) {
       toast.error("Erro inesperado ao criar conta");
@@ -121,6 +149,36 @@ function SignupContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/40">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Show error if invite is invalid or expired
+  if (isInviteFlow && inviteError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="w-12 h-12 bg-destructive/10 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <Users className="w-6 h-6 text-destructive" />
+            </div>
+            <CardTitle className="text-2xl">Convite Inválido</CardTitle>
+            <CardDescription>{inviteError}</CardDescription>
+          </CardHeader>
+          <CardFooter className="flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground text-center">
+              Se você acredita que isso é um erro, solicite um novo convite ao administrador da organização.
+            </p>
+            <div className="flex gap-2 w-full">
+              <Link href="/login" className="flex-1">
+                <Button variant="outline" className="w-full">Fazer Login</Button>
+              </Link>
+              <Link href="/signup" className="flex-1">
+                <Button className="w-full">Criar Nova Conta</Button>
+              </Link>
+            </div>
+          </CardFooter>
+        </Card>
       </div>
     );
   }

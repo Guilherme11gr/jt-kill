@@ -13,26 +13,52 @@ const updateProfileSchema = z.object({
 
 /**
  * GET /api/users/me - Get current user profile with memberships
+ * 
+ * Returns global user profile (displayName, avatarUrl) + org-specific context
+ * (currentOrgId, currentRole, memberships).
+ * 
+ * Profile is auto-created on first access if it doesn't exist.
  */
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { userId, tenantId, memberships } = await extractAuthenticatedTenant(supabase);
 
-    const user = await userProfileRepository.findById(userId, tenantId);
-    if (!user) {
-      return jsonError('NOT_FOUND', 'Perfil não encontrado', 404);
+    // Find current role from memberships (source of truth)
+    const currentMembership = memberships.find(m => m.orgId === tenantId);
+    
+    if (!currentMembership) {
+      return jsonError('FORBIDDEN', 'Você não é membro desta organização', 403);
     }
 
-    // Find current role from memberships
-    const currentMembership = memberships.find(m => m.orgId === tenantId);
+    // 1. Try to get existing profile (global, not org-specific)
+    let user = await userProfileRepository.findByIdGlobal(userId);
+    
+    // 2. If no profile exists, create one (first login)
+    if (!user) {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        return jsonError('UNAUTHORIZED', 'Usuário não autenticado', 401);
+      }
 
+      // Create profile with data from auth provider
+      user = await userProfileRepository.create({
+        id: authUser.id,
+        displayName: authUser.user_metadata?.display_name || 
+                     authUser.email?.split('@')[0] || 
+                     'Usuário',
+        avatarUrl: authUser.user_metadata?.avatar_url || null,
+      });
+    }
+
+    // 3. Return profile with org context (role from OrgMembership)
     return jsonSuccess({
       id: user.id,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
       currentOrgId: tenantId,
-      currentRole: currentMembership?.role ?? user.role,
+      currentRole: currentMembership.role, // Always from OrgMembership
       memberships,
     });
 
@@ -44,11 +70,13 @@ export async function GET(request: NextRequest) {
 
 /**
  * PATCH /api/users/me - Update current user profile
+ * 
+ * Only updates global profile data (displayName, avatarUrl).
+ * Roles are managed through OrgMembership, not here.
  */
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { tenantId } = await extractAuthenticatedTenant(supabase);
     const userId = await extractUserId(supabase);
 
     const body = await request.json();
@@ -60,13 +88,12 @@ export async function PATCH(request: NextRequest) {
       } as Record<string, unknown>);
     }
 
-    const user = await userProfileRepository.update(userId, tenantId, parsed.data);
+    const user = await userProfileRepository.updateGlobal(userId, parsed.data);
 
     return jsonSuccess({
       id: user.id,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
-      role: user.role,
     });
 
   } catch (error) {

@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { useProjects, useAllFeatures } from '@/lib/query';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query/query-keys';
+import { useCurrentOrgId } from '@/lib/query/hooks/use-org-id';
 
 interface QuickTaskDialogProps {
   open: boolean;
@@ -80,6 +81,7 @@ export function QuickTaskDialog({
   const [featureId, setFeatureId] = useState('');
 
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
   const { data: projects, isLoading: isLoadingProjects } = useProjects();
   const { data: allFeatures, isLoading: isLoadingFeatures } = useAllFeatures();
 
@@ -116,11 +118,11 @@ export function QuickTaskDialog({
     onSuccess: () => {
       // Invalidar queries relacionadas com refetch forçado
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.tasks.lists(),
+        queryKey: queryKeys.tasks.lists(orgId),
         refetchType: 'active'
       });
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.dashboard.all,
+        queryKey: queryKeys.dashboard.all(orgId),
         refetchType: 'active'
       });
 

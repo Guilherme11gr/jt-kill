@@ -44,6 +44,7 @@ import { TaskComments } from './task-comments';
 import { UserAvatar } from '@/components/features/shared';
 import { useBlockTask } from '@/hooks/use-block-task';
 import { useMoveTaskWithUndo } from '@/hooks/use-move-task-undo';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 
 interface TaskDetailModalProps {
@@ -81,8 +82,12 @@ export function TaskDetailModal({
 }: TaskDetailModalProps) {
   // 🔴 CRITICAL: Hooks devem ser chamados SEMPRE, mesmo se task for null
   // Early return só deve acontecer após todos os hooks
+  const { profile } = useAuth();
   const { toggleBlocked, isPending: isBlockPending } = useBlockTask(task?.id || '');
   const { moveWithUndo, isPending: isMovePending } = useMoveTaskWithUndo();
+
+  // Get current org slug for deep links
+  const currentOrgSlug = profile?.memberships.find(m => m.orgId === profile.currentOrgId)?.orgSlug;
 
   const handleEdit = useCallback(() => {
     if (task && onEdit) {
@@ -140,8 +145,11 @@ export function TaskDetailModal({
 
               <div className="flex items-center gap-2 shrink-0">
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-foreground gap-1.5" onClick={() => {
-                  const url = new URL(window.location.href);
+                  const url = new URL(window.location.origin + '/tasks');
                   url.searchParams.set('task', task.id);
+                  if (currentOrgSlug) {
+                    url.searchParams.set('org', currentOrgSlug);
+                  }
                   navigator.clipboard.writeText(url.toString());
                   toast.success('Link da task copiado!');
                 }}>

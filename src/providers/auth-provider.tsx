@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import { createClient } from '@/lib/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { serializeCookie } from '@/shared/utils/cookie-utils';
+import { clearQueryCache } from '@/lib/query';
 
 // Cookie name (must match backend)
 const CURRENT_ORG_COOKIE = 'jt-current-org';
@@ -32,9 +32,10 @@ export interface AuthState {
   session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isSwitchingOrg: boolean;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  switchOrg: (orgId: string) => Promise<void>;
+  switchOrg: (orgId: string, returnUrl?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session: null,
     isLoading: true,
     isAuthenticated: false,
+    isSwitchingOrg: false,
   });
 
   const router = useRouter();
@@ -79,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session,
             isLoading: false,
             isAuthenticated: true,
+            isSwitchingOrg: false,
           });
         } else {
           setState({
@@ -87,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session: null,
             isLoading: false,
             isAuthenticated: false,
+            isSwitchingOrg: false,
           });
         }
       } catch (error) {
@@ -108,6 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session,
             isLoading: false,
             isAuthenticated: true,
+            isSwitchingOrg: false,
           });
         } else if (event === 'SIGNED_OUT') {
           setState({
@@ -116,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session: null,
             isLoading: false,
             isAuthenticated: false,
+            isSwitchingOrg: false,
           });
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
           setState(prev => ({
@@ -135,9 +141,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Logout function
   const logout = useCallback(async () => {
-    // Clear org cookie with secure options
-    const clearCookie = serializeCookie(CURRENT_ORG_COOKIE, '', { maxAge: 0 });
-    document.cookie = clearCookie;
+    // Clear React Query cache
+    clearQueryCache();
+    
+    // Clear org cookie (simple clear - will be overwritten by server on next login)
+    document.cookie = `${CURRENT_ORG_COOKIE}=; Max-Age=0; Path=/`;
     
     await supabase.auth.signOut();
     router.push('/login');
@@ -152,27 +160,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.user, fetchProfile]);
 
-  // Switch organization
-  const switchOrg = useCallback(async (orgId: string) => {
-    // Validate orgId is in user's memberships to prevent unauthorized access
-    if (!state.profile?.memberships.some(m => m.orgId === orgId)) {
-      console.error('Attempted to switch to org user does not belong to:', orgId);
+  // Switch organization - Professional implementation
+  // Uses hard reload to guarantee clean state (like Trello/Linear)
+  const switchOrg = useCallback(async (orgId: string, returnUrl?: string) => {
+    // Prevent switching to same org
+    if (state.profile?.currentOrgId === orgId) {
       return;
     }
 
-    // Set cookie with secure options (1 year expiry)
-    const secureCookie = serializeCookie(CURRENT_ORG_COOKIE, orgId, {
-      maxAge: 60 * 60 * 24 * 365,
-    });
-    document.cookie = secureCookie;
+    // Start switching state (shows loading overlay)
+    setState(prev => ({ ...prev, isSwitchingOrg: true }));
 
-    // Refresh profile to get new context
-    const profile = await fetchProfile();
-    setState(prev => ({ ...prev, profile }));
+    try {
+      // 1. Call API to set httpOnly cookie (server-side)
+      const response = await fetch('/api/org/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId }),
+        credentials: 'same-origin',
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error?.message || 'Erro ao trocar de organização');
+      }
 
-    // Refresh page to reload all data
-    router.refresh();
-  }, [state.profile, fetchProfile, router]);
+      // 2. Verify cookie was set by making a verification request
+      // This ensures the cookie is persisted before reload
+      const verifyResponse = await fetch('/api/users/me', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      
+      if (!verifyResponse.ok) {
+        throw new Error('Falha ao verificar troca de organização');
+      }
+
+      const profileData = await verifyResponse.json();
+      
+      // 3. Double-check the org switched correctly
+      if (profileData.data?.currentOrgId !== orgId) {
+        console.warn('[switchOrg] Cookie propagation delay detected, waiting...');
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+
+      // 4. Hard reload - guarantees clean state
+      // Use returnUrl if provided (for deep links), otherwise go to dashboard
+      window.location.href = returnUrl || '/dashboard';
+
+    } catch (error) {
+      console.error('[switchOrg] Error:', error);
+      setState(prev => ({ ...prev, isSwitchingOrg: false }));
+      throw error;
+    }
+  }, [state.profile?.currentOrgId]);
 
   const value = useMemo(() => ({
     ...state,

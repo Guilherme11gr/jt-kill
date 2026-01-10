@@ -6,6 +6,7 @@ import { invalidateDashboardQueries } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { useCurrentOrgId } from './use-org-id';
 
 // Types
 export interface Comment {
@@ -72,10 +73,12 @@ async function deleteComment(id: string): Promise<void> {
  * Fetch comments for a task
  */
 export function useComments(taskId: string) {
+  const orgId = useCurrentOrgId();
+  
   return useQuery({
-    queryKey: queryKeys.comments.list(taskId),
+    queryKey: queryKeys.comments.list(orgId, taskId),
     queryFn: () => fetchComments(taskId),
-    enabled: Boolean(taskId),
+    enabled: Boolean(taskId) && orgId !== 'unknown',
     ...CACHE_TIMES.FRESH, // Comments should be fresh
   });
 }
@@ -88,22 +91,23 @@ export function useComments(taskId: string) {
  */
 export function useAddComment() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: createComment,
     onSuccess: (newComment, variables) => {
       // 1. Update the list
-      queryClient.setQueryData<Comment[]>(queryKeys.comments.list(variables.taskId), (old) => {
+      queryClient.setQueryData<Comment[]>(queryKeys.comments.list(orgId, variables.taskId), (old) => {
         if (!old) return [newComment];
         return [...old, newComment];
       });
 
       // 2. Invalidate
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.comments.list(variables.taskId),
+        queryKey: queryKeys.comments.list(orgId, variables.taskId),
         refetchType: 'active'
       });
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
 
       toast.success('Comentário adicionado');
     },
@@ -118,13 +122,14 @@ export function useAddComment() {
  */
 export function useUpdateComment(taskId: string) {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: updateComment,
     onSuccess: (updatedComment) => {
       // 1. Optimistic update: update in list immediately
       queryClient.setQueryData<Comment[]>(
-        queryKeys.comments.list(taskId),
+        queryKeys.comments.list(orgId, taskId),
         (old) => {
           if (!old) return old;
           return old.map((c) => (c.id === updatedComment.id ? updatedComment : c));
@@ -133,7 +138,7 @@ export function useUpdateComment(taskId: string) {
 
       // 2. Invalidate for consistency
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.comments.list(taskId),
+        queryKey: queryKeys.comments.list(orgId, taskId),
         refetchType: 'active'
       });
       toast.success('Comentário atualizado');
@@ -149,22 +154,23 @@ export function useUpdateComment(taskId: string) {
  */
 export function useDeleteComment(taskId: string) {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: deleteComment,
     onMutate: async (deletedId) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.comments.list(taskId) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.comments.list(orgId, taskId) });
 
       // Snapshot previous value
       const previousComments = queryClient.getQueryData<Comment[]>(
-        queryKeys.comments.list(taskId)
+        queryKeys.comments.list(orgId, taskId)
       );
 
       // Optimistically remove
       if (previousComments) {
         queryClient.setQueryData<Comment[]>(
-          queryKeys.comments.list(taskId),
+          queryKeys.comments.list(orgId, taskId),
           previousComments.filter((c) => c.id !== deletedId)
         );
       }
@@ -173,17 +179,17 @@ export function useDeleteComment(taskId: string) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
-        queryKey: queryKeys.comments.list(taskId),
+        queryKey: queryKeys.comments.list(orgId, taskId),
         refetchType: 'active'
       });
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
       toast.success('Comentário excluído');
     },
     onError: (_, __, context) => {
       // Rollback on error
       if (context?.previousComments) {
         queryClient.setQueryData(
-          queryKeys.comments.list(taskId),
+          queryKeys.comments.list(orgId, taskId),
           context.previousComments
         );
       }

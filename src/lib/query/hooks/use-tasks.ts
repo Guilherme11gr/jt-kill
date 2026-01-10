@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { invalidateDashboardQueries, smartInvalidate } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
+import { useCurrentOrgId } from './use-org-id';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import type { TaskFiltersState } from '@/components/features/tasks';
 import { toast } from 'sonner';
@@ -121,6 +122,8 @@ interface UseTasksOptions {
  * IMPORTANT: Filters are sent to the API, not applied client-side.
  * This ensures accurate results even with >100 tasks.
  * 
+ * Query keys include orgId for multi-org cache isolation.
+ * 
  * @example
  * const { data, isLoading } = useTasks({ 
  *   filters: { status: 'DOING', assigneeId: 'me' },
@@ -129,6 +132,7 @@ interface UseTasksOptions {
  */
 export function useTasks(options: UseTasksOptions = {}) {
   const { filters, currentUserId } = options;
+  const orgId = useCurrentOrgId();
   
   // Resolve 'me' to actual userId for server-side filtering
   const resolvedFilters = filters ? {
@@ -140,10 +144,11 @@ export function useTasks(options: UseTasksOptions = {}) {
   } : undefined;
 
   return useQuery({
-    queryKey: queryKeys.tasks.list(resolvedFilters),
+    queryKey: queryKeys.tasks.list(orgId, resolvedFilters),
     queryFn: () => fetchTasks(resolvedFilters),
     // Don't fetch if 'me' filter is set but user isn't loaded yet
-    enabled: !(filters?.assigneeId === 'me' && !currentUserId),
+    // Also don't fetch if orgId is unknown (not authenticated yet)
+    enabled: !(filters?.assigneeId === 'me' && !currentUserId) && orgId !== 'unknown',
     // Keep previous data visible while fetching new filter results
     // This prevents the UI from showing skeleton on every filter change
     placeholderData: keepPreviousData,
@@ -159,13 +164,14 @@ export function useTasks(options: UseTasksOptions = {}) {
  */
 export function useCreateTask() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: createTask,
     onSuccess: (newTask) => {
       // 1. Optimistic update: add to any matching list immediately
       queryClient.setQueriesData<TasksResponse>(
-        { queryKey: queryKeys.tasks.lists() },
+        { queryKey: queryKeys.tasks.lists(orgId) },
         (old) => {
           if (!old) return old;
           // Add to beginning of list (newest first)
@@ -178,15 +184,15 @@ export function useCreateTask() {
       );
 
       // 2. Force immediate refetch to ensure consistency
-      smartInvalidate(queryClient, queryKeys.tasks.lists());
+      smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
 
       // 3. Invalidate feature detail to update task count
       if (newTask.featureId) {
-        smartInvalidate(queryClient, queryKeys.features.detail(newTask.featureId));
+        smartInvalidate(queryClient, queryKeys.features.detail(orgId, newTask.featureId));
       }
 
       // 4. Invalidate Dashboard using helper
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
 
       toast.success('Task criada com sucesso!');
     },
@@ -206,13 +212,14 @@ export function useCreateTask() {
  */
 export function useUpdateTask() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: updateTask,
     onSuccess: (updatedTask) => {
       // 1. Optimistic update: update task in all lists immediately
       queryClient.setQueriesData<TasksResponse>(
-        { queryKey: queryKeys.tasks.lists() },
+        { queryKey: queryKeys.tasks.lists(orgId) },
         (old) => {
           if (!old) return old;
           return {
@@ -225,15 +232,15 @@ export function useUpdateTask() {
       );
 
       // 2. Invalidate with immediate refetch for active queries
-      smartInvalidate(queryClient, queryKeys.tasks.lists());
+      smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
 
       // 3. Update feature detail if task belongs to a feature (for count updates)
       if (updatedTask.featureId) {
-        smartInvalidate(queryClient, queryKeys.features.detail(updatedTask.featureId));
+        smartInvalidate(queryClient, queryKeys.features.detail(orgId, updatedTask.featureId));
       }
 
       // 4. Invalidate Dashboard
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
 
       toast.success('Task atualizada');
     },
@@ -250,21 +257,22 @@ export function useUpdateTask() {
  */
 export function useDeleteTask() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: deleteTask,
     onMutate: async (taskId) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists(orgId) });
 
       // Snapshot previous data for rollback
       const previousTasks = queryClient.getQueriesData<TasksResponse>({ 
-        queryKey: queryKeys.tasks.lists() 
+        queryKey: queryKeys.tasks.lists(orgId) 
       });
 
       // Optimistically remove from all lists
       queryClient.setQueriesData<TasksResponse>(
-        { queryKey: queryKeys.tasks.lists() },
+        { queryKey: queryKeys.tasks.lists(orgId) },
         (old) => {
           if (!old) return old;
           return {
@@ -279,10 +287,10 @@ export function useDeleteTask() {
     },
     onSuccess: () => {
       // Force immediate refetch to ensure consistency
-      smartInvalidate(queryClient, queryKeys.tasks.lists());
+      smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
 
       // Invalidate Dashboard using helper
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
 
       toast.success('Task excluída');
     },
@@ -306,6 +314,7 @@ export function useDeleteTask() {
  */
 export function useMoveTask() {
   const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TaskStatus }) => {
@@ -322,14 +331,14 @@ export function useMoveTask() {
     // Optimistic update
     onMutate: async ({ id, status }) => {
       // Cancel outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists() });
+      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists(orgId) });
 
       // Snapshot previous value
-      const previousTasks = queryClient.getQueriesData({ queryKey: queryKeys.tasks.lists() });
+      const previousTasks = queryClient.getQueriesData({ queryKey: queryKeys.tasks.lists(orgId) });
 
       // Optimistically update
       queryClient.setQueriesData(
-        { queryKey: queryKeys.tasks.lists() },
+        { queryKey: queryKeys.tasks.lists(orgId) },
         (old: TasksResponse | undefined) => {
           if (!old) return old;
           return {
@@ -356,10 +365,10 @@ export function useMoveTask() {
 
     onSettled: () => {
       // Force immediate refetch after mutation settles
-      smartInvalidate(queryClient, queryKeys.tasks.lists());
+      smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
 
       // Invalidate Dashboard using helper
-      invalidateDashboardQueries(queryClient);
+      invalidateDashboardQueries(queryClient, orgId);
     },
   });
 }

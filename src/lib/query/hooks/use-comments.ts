@@ -6,7 +6,7 @@ import { invalidateDashboardQueries, smartInvalidate, smartInvalidateImmediate }
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 
 // Types
 export interface Comment {
@@ -78,7 +78,7 @@ export function useComments(taskId: string) {
   return useQuery({
     queryKey: queryKeys.comments.list(orgId, taskId),
     queryFn: () => fetchComments(taskId),
-    enabled: Boolean(taskId) && orgId !== 'unknown',
+    enabled: Boolean(taskId) && isOrgIdValid(orgId),
     ...CACHE_TIMES.FRESH, // Comments should be fresh
   });
 }

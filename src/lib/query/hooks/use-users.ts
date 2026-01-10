@@ -6,7 +6,7 @@ import { smartInvalidate } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 
 // Types
 export interface User {
@@ -58,7 +58,7 @@ export function useUsers() {
   return useQuery({
     queryKey: queryKeys.users.list(orgId),
     queryFn: fetchUsers,
-    enabled: orgId !== 'unknown',
+    enabled: isOrgIdValid(orgId),
     ...CACHE_TIMES.STABLE, // Users don't change often
   });
 }

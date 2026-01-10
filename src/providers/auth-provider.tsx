@@ -56,9 +56,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user profile from API
   const fetchProfile = useCallback(async (): Promise<UserProfile | null> => {
     try {
-      const response = await fetch(`/api/users/me`);
+      const response = await fetch(`/api/users/me`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+        },
+      });
       if (response.ok) {
         const data = await response.json();
+        console.log('[AuthProvider] Profile fetched:', {
+          currentOrgId: data.data?.currentOrgId,
+          memberships: data.data?.memberships?.length,
+          timestamp: new Date().toISOString(),
+        });
         return data.data as UserProfile;
       }
     } catch (error) {

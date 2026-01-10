@@ -6,7 +6,7 @@ import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 
 // Types
 export type NoteStatus = 'ACTIVE' | 'ARCHIVED' | 'CONVERTED';
@@ -133,7 +133,7 @@ export function useProjectNotes(projectId: string, status?: NoteStatus) {
   return useQuery({
     queryKey: queryKeys.projectNotes.list(orgId, projectId, status),
     queryFn: () => fetchProjectNotes(projectId, status),
-    enabled: Boolean(projectId) && orgId !== 'unknown',
+    enabled: Boolean(projectId) && isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -147,7 +147,7 @@ export function useNote(id: string) {
   return useQuery({
     queryKey: queryKeys.projectNotes.detail(orgId, id),
     queryFn: () => fetchNote(id),
-    enabled: Boolean(id) && orgId !== 'unknown',
+    enabled: Boolean(id) && isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }

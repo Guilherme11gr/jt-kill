@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import { smartInvalidate } from '../helpers';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -103,7 +103,7 @@ export function useEpic(id: string) {
   return useQuery({
     queryKey: queryKeys.epics.detail(orgId, id),
     queryFn: () => fetchEpic(id),
-    enabled: Boolean(id) && orgId !== 'unknown',
+    enabled: Boolean(id) && isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -117,7 +117,7 @@ export function useEpics(projectId: string) {
   return useQuery({
     queryKey: queryKeys.epics.list(orgId, projectId),
     queryFn: () => fetchEpics(projectId),
-    enabled: Boolean(projectId) && orgId !== 'unknown',
+    enabled: Boolean(projectId) && isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -131,7 +131,7 @@ export function useAllEpics() {
   return useQuery({
     queryKey: queryKeys.epics.allList(orgId),
     queryFn: fetchAllEpics,
-    enabled: orgId !== 'unknown',
+    enabled: isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }

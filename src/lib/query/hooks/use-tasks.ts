@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { invalidateDashboardQueries, smartInvalidate } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import type { TaskFiltersState } from '@/components/features/tasks';
 import { toast } from 'sonner';
@@ -148,7 +148,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     queryFn: () => fetchTasks(resolvedFilters),
     // Don't fetch if 'me' filter is set but user isn't loaded yet
     // Also don't fetch if orgId is unknown (not authenticated yet)
-    enabled: !(filters?.assigneeId === 'me' && !currentUserId) && orgId !== 'unknown',
+    enabled: !(filters?.assigneeId === 'me' && !currentUserId) && isOrgIdValid(orgId),
     // Keep previous data visible while fetching new filter results
     // This prevents the UI from showing skeleton on every filter change
     placeholderData: keepPreviousData,

@@ -6,7 +6,7 @@ import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 
 // Types
 export interface DocTag {
@@ -100,7 +100,7 @@ export function useProjectTags(projectId: string) {
     return useQuery({
         queryKey: queryKeys.docTags.list(orgId, projectId),
         queryFn: () => fetchProjectTags(projectId),
-        enabled: Boolean(projectId) && orgId !== 'unknown',
+        enabled: Boolean(projectId) && isOrgIdValid(orgId),
         ...CACHE_TIMES.STANDARD,
     });
 }
@@ -114,7 +114,7 @@ export function useDocTags(docId: string) {
     return useQuery({
         queryKey: queryKeys.docTags.forDoc(orgId, docId),
         queryFn: () => fetchDocTags(docId),
-        enabled: Boolean(docId) && orgId !== 'unknown',
+        enabled: Boolean(docId) && isOrgIdValid(orgId),
         ...CACHE_TIMES.STANDARD,
     });
 }

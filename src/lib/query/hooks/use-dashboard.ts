@@ -10,7 +10,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 import type { TaskWithReadableId } from '@/shared/types';
 
 // ============ Types ============
@@ -109,7 +109,7 @@ export function useMyTasks(options?: { includeDone?: boolean; teamView?: boolean
   return useQuery({
     queryKey: queryKeys.dashboard.myTasks(orgId, includeDone, teamView),
     queryFn: () => fetchMyTasks(includeDone, teamView),
-    enabled: orgId !== 'unknown',
+    enabled: isOrgIdValid(orgId),
     ...CACHE_TIMES.FRESH,
   });
 }
@@ -123,7 +123,7 @@ export function useActiveProjects() {
   return useQuery({
     queryKey: queryKeys.dashboard.activeProjects(orgId),
     queryFn: fetchActiveProjects,
-    enabled: orgId !== 'unknown',
+    enabled: isOrgIdValid(orgId),
     ...CACHE_TIMES.FRESH,
   });
 }
@@ -137,7 +137,7 @@ export function useActivityFeed(hours = 24) {
   return useQuery({
     queryKey: queryKeys.dashboard.activity(orgId, hours),
     queryFn: () => fetchActivity(hours),
-    enabled: orgId !== 'unknown',
+    enabled: isOrgIdValid(orgId),
     ...CACHE_TIMES.FRESH,
     // Refetch periodically for fresh activity
     refetchInterval: 60000, // 1 minute

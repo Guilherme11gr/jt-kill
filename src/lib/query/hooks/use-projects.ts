@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { invalidateDashboardQueries, smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -87,7 +87,7 @@ export function useProjects() {
   return useQuery({
     queryKey: queryKeys.projects.list(orgId),
     queryFn: fetchProjects,
-    enabled: orgId !== 'unknown',
+    enabled: isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -101,7 +101,7 @@ export function useProject(id: string) {
   return useQuery({
     queryKey: queryKeys.projects.detail(orgId, id),
     queryFn: () => fetchProject(id),
-    enabled: Boolean(id) && orgId !== 'unknown',
+    enabled: Boolean(id) && isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }

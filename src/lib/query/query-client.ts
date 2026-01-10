@@ -56,6 +56,7 @@ export function getQueryClient(): QueryClient {
     if (typeof sessionStorage !== 'undefined') {
       const orgSwitchPending = sessionStorage.getItem(ORG_SWITCH_PENDING_KEY);
       if (orgSwitchPending) {
+        console.log('[QueryClient] Org switch pending detected, destroying old client');
         sessionStorage.removeItem(ORG_SWITCH_PENDING_KEY);
         // Destroy existing client completely
         if (browserQueryClient) {
@@ -68,6 +69,7 @@ export function getQueryClient(): QueryClient {
     // Browser: make a new query client if we don't already have one
     // This is important for SSR hydration
     if (!browserQueryClient) {
+      console.log('[QueryClient] Creating new QueryClient instance');
       browserQueryClient = makeQueryClient();
     }
     return browserQueryClient;

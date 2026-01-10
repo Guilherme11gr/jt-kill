@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import { smartInvalidate } from '../helpers';
-import { useCurrentOrgId } from './use-org-id';
+import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -115,7 +115,7 @@ export function useFeature(id: string) {
   return useQuery({
     queryKey: queryKeys.features.detail(orgId, id),
     queryFn: () => fetchFeature(id),
-    enabled: Boolean(id) && orgId !== 'unknown',
+    enabled: Boolean(id) && isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -129,7 +129,7 @@ export function useAllFeatures() {
   return useQuery({
     queryKey: queryKeys.features.list(orgId),
     queryFn: fetchFeatures,
-    enabled: orgId !== 'unknown',
+    enabled: isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }
@@ -143,7 +143,7 @@ export function useFeaturesByEpic(epicId: string) {
   return useQuery({
     queryKey: queryKeys.features.list(orgId, epicId),
     queryFn: () => fetchFeaturesByEpic(epicId),
-    enabled: Boolean(epicId) && orgId !== 'unknown',
+    enabled: Boolean(epicId) && isOrgIdValid(orgId),
     ...CACHE_TIMES.STANDARD,
   });
 }

@@ -16,14 +16,15 @@ export function jsonSuccess<T>(
 ): NextResponse<ApiResponse<T>> {
   const { status = 200, cache = 'none', private: isPrivate = false, orgId } = options ?? {};
 
-  const headers = isPrivate
-    ? privateCacheHeaders()
+  const baseHeaders = isPrivate
+    ? privateCacheHeaders() // Uses Vary: Cookie for multi-tenant cache invalidation
     : cacheHeaders(cache);
-  
+
   // Add debug header in development
-  if (process.env.NODE_ENV === 'development' && orgId) {
-    headers['X-Debug-Org-Id'] = orgId;
-  }
+  const headers = {
+    ...baseHeaders,
+    ...(process.env.NODE_ENV === 'development' && orgId ? { 'X-Debug-Org-Id': orgId } : {}),
+  } as HeadersInit;
 
   return NextResponse.json({ data }, { status, headers });
 }

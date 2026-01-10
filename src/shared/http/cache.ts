@@ -27,9 +27,12 @@ export function cacheHeaders(duration: CacheDuration): HeadersInit {
 /**
  * Get cache headers for private data (user-specific).
  * Uses private directive - cached by browser but not CDN.
+ * 
+ * CRITICAL for multi-tenant: Uses Vary: Cookie to invalidate cache when org cookie changes.
  */
 export function privateCacheHeaders(maxAge: number = 60): HeadersInit {
   return {
     'Cache-Control': `private, max-age=${maxAge}`,
+    'Vary': 'Cookie', // Invalidate cache when cookies change (org switch)
   };
 }

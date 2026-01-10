@@ -172,7 +172,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isSwitchingOrg: true }));
 
     try {
-      // 1. Call API to set httpOnly cookie (server-side)
+      // 1. Clear React Query cache BEFORE switching
+      // This prevents any stale data from being shown
+      clearQueryCache();
+
+      // 2. Call API to set httpOnly cookie (server-side)
       const response = await fetch('/api/org/switch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,28 +189,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error(data.error?.message || 'Erro ao trocar de organização');
       }
 
-      // 2. Verify cookie was set by making a verification request
+      // 3. Wait a bit for cookie to propagate (important for Vercel edge)
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 4. Verify cookie was set by making a verification request
       // This ensures the cookie is persisted before reload
-      const verifyResponse = await fetch('/api/users/me', {
-        credentials: 'same-origin',
-        cache: 'no-store',
-      });
-      
-      if (!verifyResponse.ok) {
-        throw new Error('Falha ao verificar troca de organização');
+      let verifyAttempts = 0;
+      const maxAttempts = 3;
+      let verified = false;
+
+      while (verifyAttempts < maxAttempts && !verified) {
+        const verifyResponse = await fetch('/api/users/me', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+          },
+        });
+        
+        if (!verifyResponse.ok) {
+          throw new Error('Falha ao verificar troca de organização');
+        }
+
+        const profileData = await verifyResponse.json();
+        
+        if (profileData.data?.currentOrgId === orgId) {
+          verified = true;
+        } else {
+          console.warn(`[switchOrg] Attempt ${verifyAttempts + 1}: Cookie not propagated yet, waiting...`);
+          await new Promise(resolve => setTimeout(resolve, 200));
+          verifyAttempts++;
+        }
       }
 
-      const profileData = await verifyResponse.json();
-      
-      // 3. Double-check the org switched correctly
-      if (profileData.data?.currentOrgId !== orgId) {
-        console.warn('[switchOrg] Cookie propagation delay detected, waiting...');
-        await new Promise(resolve => setTimeout(resolve, 150));
+      if (!verified) {
+        console.error('[switchOrg] Cookie verification failed after max attempts');
+        // Still proceed with reload, but log the issue
       }
 
-      // 4. Hard reload - guarantees clean state
-      // Use returnUrl if provided (for deep links), otherwise go to dashboard
-      window.location.href = returnUrl || '/dashboard';
+      // 5. Hard reload with cache bypass
+      // Use timestamp to bust any potential cache
+      const separator = (returnUrl || '/dashboard').includes('?') ? '&' : '?';
+      const targetUrl = `${returnUrl || '/dashboard'}${separator}_t=${Date.now()}`;
+      window.location.href = targetUrl;
 
     } catch (error) {
       console.error('[switchOrg] Error:', error);

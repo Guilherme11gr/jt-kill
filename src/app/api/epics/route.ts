@@ -5,6 +5,9 @@ import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
 import { epicRepository } from '@/infra/adapters/prisma';
 
+// Disable Next.js cache - data depends on org cookie
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/epics - Get ALL epics in organization
  * Single query, no N+1

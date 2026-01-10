@@ -8,6 +8,9 @@ import { createProject } from '@/domain/use-cases/projects/create-project';
 import { getProjects } from '@/domain/use-cases/projects/get-projects';
 import { z } from 'zod';
 
+// Disable Next.js cache - data depends on org cookie
+export const dynamic = 'force-dynamic';
+
 const createProjectSchema = z.object({
   name: z.string().min(2, 'Mínimo 2 caracteres').max(100, 'Máximo 100 caracteres'),
   key: z.string().min(2).max(10).regex(/^[A-Z0-9]+$/i, 'Apenas letras e números'),

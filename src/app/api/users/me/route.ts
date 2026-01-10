@@ -6,6 +6,9 @@ import { handleError } from '@/shared/errors';
 import { userProfileRepository } from '@/infra/adapters/prisma';
 import { z } from 'zod';
 
+// Disable Next.js cache - data depends on org cookie
+export const dynamic = 'force-dynamic';
+
 const updateProfileSchema = z.object({
   displayName: z.string().min(1).max(100).optional(),
   avatarUrl: z.string().url().optional(),

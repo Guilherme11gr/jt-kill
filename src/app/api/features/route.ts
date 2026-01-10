@@ -6,6 +6,9 @@ import { handleError } from '@/shared/errors';
 import { featureRepository } from '@/infra/adapters/prisma';
 import { getAllFeatures } from '@/domain/use-cases/features/get-all-features';
 
+// Disable Next.js cache - data depends on org cookie
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();

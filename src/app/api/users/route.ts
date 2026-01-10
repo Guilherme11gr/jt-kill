@@ -5,6 +5,9 @@ import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
 import { prisma } from '@/infra/adapters/prisma';
 
+// Disable Next.js cache - data depends on org cookie
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/users - List all members of the current organization
  * Uses OrgMembership table for accurate multi-org member listing.

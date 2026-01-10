@@ -39,6 +39,46 @@ export function smartInvalidate(
 }
 
 /**
+ * Invalidação IMEDIATA para operações críticas (CREATE/DELETE/MOVE).
+ * 
+ * Diferença do smartInvalidate:
+ * - smartInvalidate: marca como stale, refetch se query ativa
+ * - smartInvalidateImmediate: FORÇA refetch E remove cache antigo
+ * 
+ * Use APENAS em:
+ * - CREATE (tasks, features, epics, projects, comments)
+ * - DELETE (mesmo motivo)
+ * - MOVE/STATUS CHANGE (drag-drop)
+ * 
+ * NÃO use em:
+ * - UPDATE simples (smartInvalidate basta)
+ * - READ operations (nunca)
+ * 
+ * @example
+ * // Após criar task
+ * smartInvalidateImmediate(queryClient, queryKeys.tasks.lists(orgId));
+ * 
+ * @see docs/architecture/CACHE-STANDARDIZATION-PLAN.md
+ */
+export function smartInvalidateImmediate(
+  queryClient: QueryClient,
+  queryKey: InvalidateQueryFilters['queryKey']
+) {
+  // 1. Invalida com refetch forçado para queries ativas
+  queryClient.invalidateQueries({ 
+    queryKey,
+    refetchType: 'active'
+  });
+  
+  // 2. Remove cache antigo para garantir dados frescos no próximo mount
+  // Isso evita que dados stale apareçam brevemente antes do refetch
+  queryClient.removeQueries({ 
+    queryKey, 
+    exact: false 
+  });
+}
+
+/**
  * Invalidação múltipla de queries relacionadas.
  * Útil para mutações que afetam várias entidades.
  * 

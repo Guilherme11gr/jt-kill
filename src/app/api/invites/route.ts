@@ -6,6 +6,9 @@ import { handleError, ForbiddenError } from '@/shared/errors';
 import { inviteRepository, auditLogRepository, AUDIT_ACTIONS } from '@/infra/adapters/prisma';
 import { z } from 'zod';
 
+// Disable Next.js cache - data depends on org cookie
+export const dynamic = 'force-dynamic';
+
 const createInviteSchema = z.object({
   email: z.string().email().optional(),
   role: z.enum(['ADMIN', 'MEMBER']), // Can't invite OWNER

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,7 @@ interface QuickTaskInput {
   title: string;
   projectId: string;
   featureId: string;
+  type: 'TASK' | 'BUG';
 }
 
 async function createQuickTask(data: QuickTaskInput) {
@@ -45,9 +46,10 @@ async function createQuickTask(data: QuickTaskInput) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       title: data.title,
-      featureId: data.featureId,
+      projectId: data.projectId,
+      featureId: data.featureId || null,
       description: '',
-      type: 'TASK',
+      type: data.type,
       priority: 'MEDIUM',
       status: 'BACKLOG',
       points: null,
@@ -80,6 +82,7 @@ export function QuickTaskDialog({
   const [title, setTitle] = useState('');
   const [projectId, setProjectId] = useState(defaultProjectId || '');
   const [featureId, setFeatureId] = useState('');
+  const [type, setType] = useState<'TASK' | 'BUG'>('TASK');
 
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
@@ -87,21 +90,27 @@ export function QuickTaskDialog({
   const { data: allFeatures, isLoading: isLoadingFeatures } = useAllFeatures();
 
   // Filtrar features do projeto selecionado
-  const projectFeatures = allFeatures?.filter((f) => {
-    // Verificar se feature pertence ao projeto
-    return f.epic?.project?.id === projectId;
-  }) || [];
+  const projectFeatures = useMemo(() => {
+    return allFeatures?.filter((f) => {
+      // Verificar se feature pertence ao projeto
+      return f.epic?.project?.id === projectId;
+    }) || [];
+  }, [allFeatures, projectId]);
 
   // Reset form when dialog opens
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       setTitle('');
       setProjectId(defaultProjectId || projects?.[0]?.id || '');
       setFeatureId('');
+      setType('TASK');
     }
   }, [open, defaultProjectId, projects]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Auto-selecionar primeira feature quando projeto muda
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (projectFeatures.length > 0 && !featureId) {
       // Preferir feature "Sustentação" ou primeira disponível
@@ -113,6 +122,7 @@ export function QuickTaskDialog({
       setFeatureId(sustentacao?.id || projectFeatures[0].id);
     }
   }, [projectFeatures, featureId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const mutation = useMutation({
     mutationFn: createQuickTask,
@@ -147,15 +157,11 @@ export function QuickTaskDialog({
       return;
     }
 
-    if (!featureId) {
-      toast.error('Nenhuma feature disponível para este projeto');
-      return;
-    }
-
     mutation.mutate({
       title: title.trim(),
       projectId,
       featureId,
+      type,
     });
   };
 
@@ -213,7 +219,25 @@ export function QuickTaskDialog({
             </Select>
           </div>
 
-          {/* Feature (escondido por padrão, mostra se há mais de uma) */}
+          {/* Tipo */}
+          <div className="space-y-2">
+            <Label htmlFor="quick-type">Tipo</Label>
+            <Select
+              value={type}
+              onValueChange={(value) => setType(value as 'TASK' | 'BUG')}
+              disabled={isLoading || isSaving}
+            >
+              <SelectTrigger id="quick-type">
+                <SelectValue placeholder="Selecione o tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TASK">Task</SelectItem>
+                <SelectItem value="BUG">Bug</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Feature: mostra select se houver mais de uma, texto se uma, mensagem se nenhuma */}
           {projectFeatures.length > 1 && (
             <div className="space-y-2">
               <Label htmlFor="quick-feature">Feature</Label>
@@ -233,6 +257,22 @@ export function QuickTaskDialog({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+          {projectFeatures.length === 1 && (
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">Feature</Label>
+              <p className="text-sm text-muted-foreground">
+                {projectFeatures[0].title}
+              </p>
+            </div>
+          )}
+          {projectFeatures.length === 0 && (
+            <div className="space-y-1">
+              <Label className="text-sm font-medium">Feature</Label>
+              <p className="text-sm text-muted-foreground italic">
+                Nenhuma feature encontrada. A task será criada na feature de Sustentação.
+              </p>
             </div>
           )}
 

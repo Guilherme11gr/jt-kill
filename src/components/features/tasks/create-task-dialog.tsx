@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
-import { AssigneeSelect } from "@/components/features/shared";
+import { AssigneeSelect, DocContextSelector } from "@/components/features/shared";
 import { TagSelector } from "@/components/features/tags";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -98,7 +98,7 @@ export function TaskDialog({
   onSuccess,
 }: TaskDialogProps) {
   const [formData, setFormData] = useState<TaskFormData>(INITIAL_FORM_DATA);
-  const [includeProjectDocs, setIncludeProjectDocs] = useState(false);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   // Remove local saving state, use mutation state instead
   const { data: projects } = useProjects();
 
@@ -179,7 +179,7 @@ export function TaskDialog({
       if (isEditing && taskToEdit?.id) {
         const result = await improveDescription.mutateAsync({
           taskId: taskToEdit.id,
-          includeProjectDocs,
+          docIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
         });
         setFormData(prev => ({ ...prev, description: result.description }));
         toast.success('Descrição melhorada com sucesso!');
@@ -191,7 +191,7 @@ export function TaskDialog({
           currentDescription: formData.description || undefined,
           type: formData.type,
           priority: formData.priority,
-          includeProjectDocs,
+          docIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
           projectId: resolvedProjectId || undefined,
         });
         setFormData(prev => ({ ...prev, description: result.description }));
@@ -209,7 +209,7 @@ export function TaskDialog({
     formData.priority,
     isEditing,
     taskToEdit?.id,
-    includeProjectDocs,
+    selectedDocIds,
     resolvedProjectId,
     improveDescription,
     generateDescription,
@@ -334,17 +334,15 @@ export function TaskDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Descrição (Markdown)</Label>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={includeProjectDocs}
-                    onChange={(e) => setIncludeProjectDocs(e.target.checked)}
+              <div className="flex items-center gap-2">
+                {resolvedProjectId && (
+                  <DocContextSelector
+                    projectId={resolvedProjectId}
+                    selectedDocIds={selectedDocIds}
+                    onSelectionChange={setSelectedDocIds}
                     disabled={isGeneratingAI}
-                    className="h-3.5 w-3.5 rounded border-gray-300 text-violet-600 focus:ring-violet-500 disabled:opacity-50"
                   />
-                  Incluir docs
-                </label>
+                )}
                 <AIImproveButton
                   onClick={handleAIGenerate}
                   isLoading={isGeneratingAI}

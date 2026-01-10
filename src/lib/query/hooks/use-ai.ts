@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 interface ImproveDescriptionInput {
     taskId: string;
     includeProjectDocs?: boolean;
+    docIds?: string[];
 }
 
 interface GenerateDescriptionInput {
@@ -17,6 +18,7 @@ interface GenerateDescriptionInput {
     type?: 'TASK' | 'BUG';
     priority?: string;
     includeProjectDocs?: boolean;
+    docIds?: string[];
     projectId?: string;
 }
 
@@ -143,6 +145,7 @@ interface ImproveFeatureDescriptionInput {
     description?: string;
     epicId?: string;
     includeProjectDocs?: boolean;
+    docIds?: string[];
 }
 
 interface ImproveFeatureDescriptionResponse {

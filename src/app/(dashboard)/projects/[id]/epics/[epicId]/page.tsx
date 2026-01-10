@@ -15,15 +15,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TagSelector } from "@/components/features/tags";
+import { DocContextSelector } from "@/components/features/shared";
 import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature, useImproveFeatureDescription } from "@/lib/query";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { toast } from "sonner";
 import type { FeatureHealth } from "@/shared/types/project.types";
 import type { TagInfo } from "@/shared/types/tag.types";
-import { 
-  API_ROUTES, 
-  AI_REFINE_TIMEOUT_MS, 
-  AI_COOLDOWN_MS 
+import {
+  API_ROUTES,
+  AI_REFINE_TIMEOUT_MS,
+  AI_COOLDOWN_MS
 } from "@/config/ai.config";
 
 interface Feature {
@@ -75,6 +76,7 @@ export default function EpicDetailPage({
     status: "BACKLOG" as "BACKLOG" | "TODO" | "DOING" | "DONE",
     tags: [] as TagInfo[],
   });
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
 
   // Edit Feature State
   const [editingFeature, setEditingFeature] = useState<Feature | null>(null);
@@ -146,14 +148,14 @@ export default function EpicDetailPage({
 
       const result = await response.json();
       setFeatureFormData(prev => ({ ...prev, description: result.data.refinedText }));
-      
+
       toast.success('Descrição melhorada', {
         description: `${result.data.originalLength} → ${result.data.refinedLength} caracteres`,
       });
     } catch (error) {
       clearTimeout(timeoutId);
       console.error('[AI] Improve error:', error);
-      
+
       if (error instanceof Error && error.name === 'AbortError') {
         toast.error('Tempo esgotado', {
           description: 'A requisição demorou muito. Tente novamente.',
@@ -196,6 +198,7 @@ export default function EpicDetailPage({
         description: featureFormData.description || undefined,
         epicId: resolvedParams.epicId,
         featureId: editingFeature?.id,
+        docIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
       });
       setFeatureFormData(prev => ({ ...prev, description: result.description }));
       toast.success('Descrição gerada com sucesso!');
@@ -223,9 +226,7 @@ export default function EpicDetailPage({
     }
   };
 
-  const handleEditFeatureClick = useCallback((feature: Feature, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleEditFeatureClick = useCallback((feature: Feature) => {
     setEditingFeature(feature);
     setFeatureFormData({
       title: feature.title,
@@ -258,9 +259,7 @@ export default function EpicDetailPage({
     }
   };
 
-  const handleDeleteFeatureClick = useCallback((feature: Feature, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDeleteFeatureClick = useCallback((feature: Feature) => {
     setFeatureToDelete(feature); // Opens dialog
   }, []);
 
@@ -393,7 +392,15 @@ export default function EpicDetailPage({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="feature-description">Descrição</Label>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label htmlFor="feature-description">Descrição</Label>
+                    <DocContextSelector
+                      projectId={resolvedParams.id}
+                      selectedDocIds={selectedDocIds}
+                      onSelectionChange={setSelectedDocIds}
+                      disabled={isGeneratingAI || isRefiningDescription}
+                    />
+                  </div>
                   <MarkdownEditor
                     id="feature-description"
                     value={featureFormData.description}
@@ -550,12 +557,12 @@ export default function EpicDetailPage({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={(e) => handleEditFeatureClick(feature, e)}>
+                      <DropdownMenuItem onSelect={() => handleEditFeatureClick(feature)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={(e) => handleDeleteFeatureClick(feature, e)}
+                        onSelect={() => handleDeleteFeatureClick(feature)}
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
@@ -593,7 +600,15 @@ export default function EpicDetailPage({
               />
             </div>
             <div>
-              <Label htmlFor="edit-feature-description">Descrição</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="edit-feature-description">Descrição</Label>
+                <DocContextSelector
+                  projectId={resolvedParams.id}
+                  selectedDocIds={selectedDocIds}
+                  onSelectionChange={setSelectedDocIds}
+                  disabled={isGeneratingAI || isRefiningDescription}
+                />
+              </div>
               <MarkdownEditor
                 id="edit-feature-description"
                 value={featureFormData.description}

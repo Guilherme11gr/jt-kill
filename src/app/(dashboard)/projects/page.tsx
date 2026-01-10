@@ -72,9 +72,7 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleEditClick = useCallback((project: Project, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleEditClick = useCallback((project: Project) => {
     setEditingProject(project);
     setFormData({
       name: project.name,
@@ -108,9 +106,7 @@ export default function ProjectsPage() {
     }
   };
 
-  const handleDeleteClick = useCallback((project: Project, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDeleteClick = useCallback((project: Project) => {
     setProjectToDelete(project);
   }, []);
 
@@ -298,12 +294,12 @@ export default function ProjectsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={(e) => handleEditClick(project, e)}>
+                    <DropdownMenuItem onSelect={() => handleEditClick(project)}>
                       <Pencil className="mr-2 h-4 w-4" />
                       Editar
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={(e) => handleDeleteClick(project, e)}
+                      onSelect={() => handleDeleteClick(project)}
                       className="text-destructive focus:text-destructive"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />

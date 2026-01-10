@@ -249,9 +249,7 @@ export default function ProjectDetailPage({
     }
   };
 
-  const handleEditEpicClick = useCallback((epic: Epic, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleEditEpicClick = useCallback((epic: Epic) => {
     setEditingEpic(epic);
     setEpicFormData({
       title: epic.title,
@@ -282,9 +280,7 @@ export default function ProjectDetailPage({
     }
   };
 
-  const handleDeleteEpicClick = useCallback((epic: Epic, e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleDeleteEpicClick = useCallback((epic: Epic) => {
     setEpicToDelete(epic);
   }, []);
 
@@ -540,12 +536,12 @@ export default function ProjectDetailPage({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => handleEditEpicClick(epic, e)}>
+                        <DropdownMenuItem onSelect={() => handleEditEpicClick(epic)}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Editar
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={(e) => handleDeleteEpicClick(epic, e)}
+                          onSelect={() => handleDeleteEpicClick(epic)}
                           className="text-destructive focus:text-destructive"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />

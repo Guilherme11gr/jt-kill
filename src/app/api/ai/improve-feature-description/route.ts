@@ -17,6 +17,7 @@ const improveFeatureDescriptionSchema = z.object({
     description: z.string().optional(),
     epicId: z.string().uuid('ID do epic inválido').optional(),
     includeProjectDocs: z.boolean().optional().default(false),
+    docIds: z.array(z.string().uuid()).optional(),
 });
 
 /**
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
             } as Record<string, unknown>);
         }
 
-        const { featureId, title, description, epicId, includeProjectDocs } = parsed.data;
+        const { featureId, title, description, epicId, includeProjectDocs, docIds } = parsed.data;
 
         let featureData = { title, description: description || null };
         let epicData: { title: string; description: string | null } | null = null;
@@ -65,9 +66,12 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Fetch project docs if requested
+        // Fetch project docs - specific IDs or all
         let projectDocs: Array<{ title: string; content: string }> | undefined;
-        if (includeProjectDocs && projectId) {
+
+        if (docIds && docIds.length > 0) {
+            projectDocs = await projectDocRepository.findByIds(docIds, tenantId);
+        } else if (includeProjectDocs && projectId) {
             projectDocs = await projectDocRepository.findForAIContext(projectId, tenantId);
         }
 

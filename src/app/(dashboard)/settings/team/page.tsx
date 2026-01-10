@@ -249,13 +249,13 @@ export default function TeamSettingsPage() {
                         {canChangeRoles && (
                           <>
                             {member.role === 'MEMBER' && (
-                              <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'ADMIN')}>
+                              <DropdownMenuItem onSelect={() => handleRoleChange(member.id, 'ADMIN')}>
                                 <Shield className="w-4 h-4 mr-2" />
                                 Promover a Admin
                               </DropdownMenuItem>
                             )}
                             {member.role === 'ADMIN' && (
-                              <DropdownMenuItem onClick={() => handleRoleChange(member.id, 'MEMBER')}>
+                              <DropdownMenuItem onSelect={() => handleRoleChange(member.id, 'MEMBER')}>
                                 <User className="w-4 h-4 mr-2" />
                                 Rebaixar a Membro
                               </DropdownMenuItem>
@@ -265,7 +265,7 @@ export default function TeamSettingsPage() {
                         )}
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => {
+                          onSelect={() => {
                             setSelectedMember(member);
                             setRemoveDialogOpen(true);
                           }}

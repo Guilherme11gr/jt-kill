@@ -80,7 +80,7 @@ export function OrgSwitcher() {
         {profile.memberships.map((membership) => (
           <DropdownMenuItem
             key={membership.orgId}
-            onClick={() => handleSwitchOrg(membership.orgId)}
+            onSelect={() => handleSwitchOrg(membership.orgId)}
             className="flex items-center justify-between"
           >
             <div className="flex items-center gap-2">

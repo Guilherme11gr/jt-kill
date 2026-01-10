@@ -59,11 +59,11 @@ export function KanbanCard({ task, onClick, onEdit, onDelete }: KanbanCardProps)
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit?.(task)}>
+              <DropdownMenuItem onSelect={() => onEdit?.(task)}>
                 <Pencil className="mr-2 h-4 w-4" />
                 Editar
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDelete?.(task)} className="text-destructive focus:text-destructive">
+              <DropdownMenuItem onSelect={() => onDelete?.(task)} className="text-destructive focus:text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Excluir
               </DropdownMenuItem>

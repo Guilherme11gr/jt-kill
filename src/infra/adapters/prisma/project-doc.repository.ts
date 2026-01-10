@@ -182,4 +182,47 @@ export class ProjectDocRepository {
 
     return result;
   }
+
+  /**
+   * Find docs by specific IDs for AI context
+   * Used when user selects specific docs to include
+   */
+  async findByIds(
+    ids: string[],
+    orgId: string,
+    maxTotalChars: number = 4000
+  ): Promise<Array<{ title: string; content: string }>> {
+    if (ids.length === 0) return [];
+
+    const docs = await this.prisma.projectDoc.findMany({
+      where: { id: { in: ids }, orgId },
+      select: { title: true, content: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    // Apply same character limit logic
+    const result: Array<{ title: string; content: string }> = [];
+    let totalChars = 0;
+
+    for (const doc of docs) {
+      const docChars = doc.title.length + doc.content.length + 10;
+
+      if (totalChars + docChars > maxTotalChars) {
+        const remainingChars = maxTotalChars - totalChars - doc.title.length - 20;
+        if (remainingChars > 100) {
+          result.push({
+            title: doc.title,
+            content: doc.content.substring(0, remainingChars) + '...',
+          });
+        }
+        break;
+      }
+
+      result.push({ title: doc.title, content: doc.content });
+      totalChars += docChars;
+    }
+
+    return result;
+  }
 }
+

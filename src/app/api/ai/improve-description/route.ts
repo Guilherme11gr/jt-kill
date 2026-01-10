@@ -14,6 +14,7 @@ import { z } from 'zod';
 const improveDescriptionSchema = z.object({
     taskId: z.string().uuid('ID da task inválido'),
     includeProjectDocs: z.boolean().optional().default(false),
+    docIds: z.array(z.string().uuid()).optional(),
 });
 
 /**
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
             } as Record<string, unknown>);
         }
 
-        const { taskId, includeProjectDocs } = parsed.data;
+        const { taskId, includeProjectDocs, docIds } = parsed.data;
 
         // 1. Fetch task with relations (includes feature.title)
         const task = await taskRepository.findByIdWithRelations(taskId, tenantId);
@@ -47,9 +48,12 @@ export async function POST(request: NextRequest) {
         // 2. Fetch feature description (not included in task relations by default)
         const feature = await featureRepository.findById(task.featureId, tenantId);
 
-        // 3. Fetch project docs if requested
+        // 3. Fetch project docs - specific IDs or all
         let projectDocs: Array<{ title: string; content: string }> | undefined;
-        if (includeProjectDocs) {
+
+        if (docIds && docIds.length > 0) {
+            projectDocs = await projectDocRepository.findByIds(docIds, tenantId);
+        } else if (includeProjectDocs) {
             projectDocs = await projectDocRepository.findForAIContext(
                 task.projectId,
                 tenantId

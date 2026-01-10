@@ -18,6 +18,7 @@ const generateDescriptionSchema = z.object({
     type: z.enum(['TASK', 'BUG']).optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
     includeProjectDocs: z.boolean().optional().default(false),
+    docIds: z.array(z.string().uuid()).optional(),
     projectId: z.string().uuid('ID do projeto inválido').optional(),
 });
 
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
             } as Record<string, unknown>);
         }
 
-        const { title, featureId, currentDescription, type, priority, includeProjectDocs, projectId: providedProjectId } = parsed.data;
+        const { title, featureId, currentDescription, type, priority, includeProjectDocs, docIds, projectId: providedProjectId } = parsed.data;
 
         // Fetch feature for context (with breadcrumb to get projectId if needed)
         const feature = includeProjectDocs && !providedProjectId
@@ -52,9 +53,14 @@ export async function POST(request: NextRequest) {
             return jsonError('NOT_FOUND', 'Feature não encontrada', 404);
         }
 
-        // Resolve project ID for docs
+        // Resolve project ID and fetch docs
         let projectDocs: Array<{ title: string; content: string }> | undefined;
-        if (includeProjectDocs) {
+
+        // If specific docIds provided, use those
+        if (docIds && docIds.length > 0) {
+            projectDocs = await projectDocRepository.findByIds(docIds, tenantId);
+        } else if (includeProjectDocs) {
+            // Fallback to all docs if includeProjectDocs is true
             let resolvedProjectId = providedProjectId;
             if (!resolvedProjectId && 'epic' in feature) {
                 const featureWithEpic = feature as { epic: { projectId: string } };

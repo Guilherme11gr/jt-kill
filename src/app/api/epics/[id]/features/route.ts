@@ -26,7 +26,8 @@ export async function GET(
 
     await getEpicById(epicId, tenantId, { epicRepository });
     const features = await getFeatures(epicId, tenantId, { featureRepository });
-    return jsonSuccess(features, { cache: 'short' });
+    // Private cache (browser only) - org-specific data MUST NOT be cached by CDN
+    return jsonSuccess(features, { private: true });
 
   } catch (error) {
     const { status, body } = handleError(error);

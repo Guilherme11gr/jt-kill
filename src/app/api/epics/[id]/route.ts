@@ -25,7 +25,8 @@ export async function GET(
     const { tenantId } = await extractAuthenticatedTenant(supabase);
 
     const epic = await getEpicById(id, tenantId, { epicRepository });
-    return jsonSuccess(epic, { cache: 'short' });
+    // Private cache (browser only) - org-specific data MUST NOT be cached by CDN
+    return jsonSuccess(epic, { private: true });
 
   } catch (error) {
     const { status, body } = handleError(error);

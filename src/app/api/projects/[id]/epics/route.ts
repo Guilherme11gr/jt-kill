@@ -29,7 +29,8 @@ export async function GET(
 
     await getProjectById(projectId, tenantId, { projectRepository });
     const epics = await getEpics(projectId, tenantId, { epicRepository });
-    return jsonSuccess(epics, { cache: 'short' });
+    // Private cache (browser only) - org-specific data MUST NOT be cached by CDN
+    return jsonSuccess(epics, { private: true });
 
   } catch (error) {
     const { status, body } = handleError(error);

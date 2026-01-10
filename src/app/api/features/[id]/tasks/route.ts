@@ -22,7 +22,8 @@ export async function GET(
     const { tenantId } = await extractAuthenticatedTenant(supabase);
 
     const tasks = await getTasksByFeature(featureId, tenantId, { taskRepository });
-    return jsonSuccess(tasks, { cache: 'short' });
+    // Private cache (browser only) - org-specific data MUST NOT be cached by CDN
+    return jsonSuccess(tasks, { private: true });
 
   } catch (error) {
     const { status, body } = handleError(error);

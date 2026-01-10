@@ -74,8 +74,9 @@ export async function GET() {
     // 2. Call use case
     const projects = await getProjects(tenantId, { projectRepository });
 
-    // 3. Return with short cache (1 min)
-    return jsonSuccess(projects, { cache: 'short' });
+    // 3. Private cache (browser only) - org-specific data MUST NOT be cached by CDN
+    // CRITICAL: Using 'public' cache caused cross-org data leakage in Vercel
+    return jsonSuccess(projects, { private: true });
 
   } catch (error) {
     const { status, body } = handleError(error);

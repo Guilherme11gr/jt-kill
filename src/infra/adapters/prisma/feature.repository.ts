@@ -74,6 +74,7 @@ export class FeatureRepository {
           select: {
             id: true,
             title: true,
+            description: true,
             status: true,
             type: true,
             priority: true,

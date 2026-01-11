@@ -32,7 +32,13 @@ Query params:
 - `featureId` (uuid, opcional)
 - `epicId` (uuid, opcional)
 - `projectId` (uuid, opcional)
+- `assigneeId` (uuid, opcional)
+- `tagId` (uuid, opcional)
 - `status` (enum: BACKLOG, TODO, DOING, REVIEW, DONE)
+- `priority` (enum: LOW, MEDIUM, HIGH, CRITICAL)
+- `type` (enum: TASK, BUG)
+- `blocked` (boolean, ex: true)
+- `search` (string, busca por título, descrição ou ID legível ex: "APP-123")
 - `limit` (number, default: 50, max: 100)
 
 ### Criar Task
@@ -67,7 +73,21 @@ Body (todos opcionais):
   "description": "string",
   "type": "TASK | BUG",
   "priority": "LOW | MEDIUM | HIGH | CRITICAL",
-  "status": "BACKLOG | TODO | DOING | REVIEW | DONE"
+  "status": "BACKLOG | TODO | DOING | REVIEW | DONE",
+  "blocked": "boolean",
+  "assigneeId": "uuid | null"
+}
+```
+
+### Comentar em Task
+```
+POST /api/agent/tasks/:id/comments
+```
+Body:
+```json
+{
+  "content": "string (required, markdown)",
+  "userId": "uuid (optional - defaults to AGENT_USER_ID env var)"
 }
 ```
 

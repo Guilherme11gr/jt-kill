@@ -428,6 +428,7 @@ export class TaskRepository {
       featureId,
       epicId,
       search,
+      blocked,
     } = filters;
 
     const where: Record<string, unknown> = { orgId };
@@ -441,6 +442,7 @@ export class TaskRepository {
     if (module) where.modules = { has: module };
     if (projectId) where.projectId = projectId;
     if (featureId) where.featureId = featureId;
+    if (blocked !== undefined) where.blocked = blocked;
 
     // Filter by tag (requires JOIN via tagAssignments)
     if (tagId) {
@@ -450,7 +452,7 @@ export class TaskRepository {
     if (search) {
       // Escape caracteres especiais do LIKE (%, _) para evitar wildcard injection
       const escapedSearch = this.escapeLike(search);
-      
+
       // Detectar se é busca por readableId (formato: KEY-123 ou apenas 123)
       const readableIdPattern = /^([A-Z0-9]{2,10}-)?\d+$/i;
       if (readableIdPattern.test(search.trim())) {
@@ -458,7 +460,7 @@ export class TaskRepository {
         const localIdMatch = search.trim().match(/(\d+)$/);
         if (localIdMatch) {
           const localId = parseInt(localIdMatch[1], 10);
-          
+
           // Se tem projeto-prefix, busca por projeto também
           const projectKeyMatch = search.trim().match(/^([A-Z0-9]{2,10})-/i);
           if (projectKeyMatch) {

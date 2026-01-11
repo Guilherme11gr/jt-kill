@@ -47,6 +47,7 @@ const updateTaskSchema = z.object({
   type: z.enum(['TASK', 'BUG']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
   status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'DONE']).optional(),
+  blocked: z.boolean().optional(),
   assigneeId: z.string().uuid().nullable().optional(),
 });
 

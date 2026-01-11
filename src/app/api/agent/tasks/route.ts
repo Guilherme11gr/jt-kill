@@ -20,6 +20,12 @@ const listQuerySchema = z.object({
   epicId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),
   status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'DONE']).optional(),
+  type: z.enum(['TASK', 'BUG']).optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
+  assigneeId: z.string().uuid().optional(),
+  tagId: z.string().uuid().optional(),
+  blocked: z.enum(['true', 'false']).transform((val) => val === 'true').optional(),
+  search: z.string().optional(),
   limit: z.coerce.number().min(1).max(100).default(50),
 });
 
@@ -33,6 +39,12 @@ export async function GET(request: NextRequest) {
       epicId: searchParams.get('epicId') || undefined,
       projectId: searchParams.get('projectId') || undefined,
       status: searchParams.get('status') || undefined,
+      type: searchParams.get('type') || undefined,
+      priority: searchParams.get('priority') || undefined,
+      assigneeId: searchParams.get('assigneeId') || undefined,
+      tagId: searchParams.get('tagId') || undefined,
+      blocked: searchParams.get('blocked') || undefined,
+      search: searchParams.get('search') || undefined,
       limit: searchParams.get('limit') || 50,
     });
 
@@ -40,18 +52,27 @@ export async function GET(request: NextRequest) {
       return agentError('VALIDATION_ERROR', 'Invalid query parameters', 400);
     }
 
-    const { featureId, epicId, projectId, status, limit } = query.data;
+    const {
+      featureId, epicId, projectId, status,
+      type, priority, assigneeId, tagId, blocked, search,
+      limit
+    } = query.data;
 
     // Build filter object
     const filter: Record<string, unknown> = {};
     if (featureId) filter.featureId = featureId;
     if (projectId) filter.projectId = projectId;
     if (status) filter.status = status;
+    if (type) filter.type = type;
+    if (priority) filter.priority = priority;
+    if (assigneeId) filter.assigneeId = assigneeId;
+    if (tagId) filter.tagId = tagId;
+    if (blocked !== undefined) filter.blocked = blocked;
+    if (search) filter.search = search;
+    if (epicId) filter.epicId = epicId;
 
-    // If epicId provided, we need to get all features first then filter tasks
-    if (epicId) {
-      filter.epicId = epicId;
-    }
+    // Fix: Explicitly map limit to pageSize to override repository default (20)
+    filter.pageSize = limit;
 
     const tasks = await taskRepository.findMany(orgId, filter);
     const limited = tasks.slice(0, limit);

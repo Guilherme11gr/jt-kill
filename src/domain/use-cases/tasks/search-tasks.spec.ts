@@ -21,7 +21,7 @@ describe('searchTasks', () => {
   it('should return paginated tasks and total count', async () => {
     const orgId = 'org-1';
     const filters = { page: 1, pageSize: 10, status: 'TODO' as const };
-    
+
     const expectedTasks: TaskWithReadableId[] = [
       {
         id: 'task-1',
@@ -32,8 +32,16 @@ describe('searchTasks', () => {
         readableId: 'PROJ-1',
         title: 'Task 1',
         status: 'TODO',
-        type: 'STORY',
+        type: 'TASK',
         priority: 'MEDIUM',
+        description: null,
+        modules: [],
+        assigneeId: null,
+        blocked: false,
+        statusChangedAt: new Date(),
+        points: null,
+        feature: {} as any, // Simple mock for nested
+        assignee: undefined,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -59,7 +67,7 @@ describe('searchTasks', () => {
   it('should skip count query when skipCount=true', async () => {
     const orgId = 'org-1';
     const filters = { page: 1, pageSize: 10, skipCount: true };
-    
+
     const expectedTasks: TaskWithReadableId[] = [
       {
         id: 'task-1',
@@ -72,6 +80,13 @@ describe('searchTasks', () => {
         status: 'TODO',
         type: 'TASK',
         priority: 'MEDIUM',
+        description: null,
+        modules: [],
+        assigneeId: null,
+        statusChangedAt: new Date(),
+        points: null,
+        feature: {} as any,
+        assignee: undefined,
         createdAt: new Date(),
         updatedAt: new Date(),
         blocked: false,
@@ -90,7 +105,7 @@ describe('searchTasks', () => {
       pageSize: 10,
       totalPages: -1,
     });
-    
+
     // count() NÃO deve ter sido chamado
     expect(mockRepo.findMany).toHaveBeenCalledWith(orgId, filters);
     expect(mockRepo.count).not.toHaveBeenCalled();

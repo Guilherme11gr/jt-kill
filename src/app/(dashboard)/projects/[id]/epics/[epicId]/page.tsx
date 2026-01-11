@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MarkdownEditor } from "@/components/ui/markdown-editor";
+import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Plus, Box, Loader2, MoreVertical, MoreHorizontal, Pencil, Trash2, Sparkles, Bug } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,7 +18,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { TagSelector } from "@/components/features/tags";
 import { DocContextSelector } from "@/components/features/shared";
 import { useEpic, useFeaturesByEpic, useCreateFeature, useUpdateFeature, useDeleteFeature, useImproveFeatureDescription } from "@/lib/query";
-import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
+import { PageHeaderSkeleton, CardsSkeleton, TableSkeleton } from '@/components/layout/page-skeleton';
 import { toast } from "sonner";
 import type { FeatureHealth } from "@/shared/types/project.types";
 import type { TagInfo } from "@/shared/types/tag.types";
@@ -43,7 +44,12 @@ interface Feature {
 import { EpicAISummaryCard } from "@/components/features/epics/epic-ai-summary-card";
 import { EpicRiskBadge } from "@/components/features/epics";
 import { FeatureHealthBadge } from "@/components/features/features";
-import { StackedProgressBar } from "@/components/features/stacked-progress-bar";
+import { FeaturesTableView } from "@/components/features/features-table-view";
+import { ChevronDown, ChevronRight, LayoutList, LayoutGrid } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+
 
 export default function EpicDetailPage({
   params,
@@ -67,6 +73,8 @@ export default function EpicDetailPage({
   const saving = createFeatureMutation.isPending || updateFeatureMutation.isPending;
   const isGeneratingAI = improveDescriptionMutation.isPending;
   const [isRefiningDescription, setIsRefiningDescription] = useState(false);
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   // Create Feature State
   const [isFeatureDialogOpen, setIsFeatureDialogOpen] = useState(false);
@@ -282,7 +290,7 @@ export default function EpicDetailPage({
         <div className="mb-6 md:mb-8">
           <PageHeaderSkeleton />
         </div>
-        <CardsSkeleton count={3} />
+        <TableSkeleton rows={5} />
       </div>
     );
   }
@@ -331,9 +339,71 @@ export default function EpicDetailPage({
             <h1 className="text-3xl font-bold tracking-tight mb-2">
               {epic.title}
             </h1>
-            <p className="text-muted-foreground max-w-2xl">
-              {epic.description || "Sem descrição"}
-            </p>
+            <div className="max-w-2xl">
+              <div className={`text-muted-foreground text-sm transition-all duration-200 ${!isDescriptionExpanded ? 'line-clamp-2' : ''}`}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    h1: ({ node, ...props }) => <span className="block font-bold mt-2 first:mt-0" {...props} />,
+                    h2: ({ node, ...props }) => <span className="block font-semibold mt-2 first:mt-0" {...props} />,
+                    p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                    ul: ({ node, ...props }) => <ul className="ml-4 list-disc mb-2" {...props} />,
+                    ol: ({ node, ...props }) => <ol className="ml-4 list-decimal mb-2" {...props} />,
+                    li: ({ node, ...props }) => <li className="" {...props} />,
+                    a: ({ node, ...props }) => <a className="text-primary underline hover:no-underline" {...props} />,
+                    blockquote: ({ node, ...props }) => <blockquote className="border-l-2 border-primary/30 pl-2 italic my-2" {...props} />,
+                    code: (props: any) => {
+                      const { children, className, node, ...rest } = props
+                      const match = /language-(\w+)/.exec(className || '')
+                      return !match ? (
+                        <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs" {...rest}>
+                          {children}
+                        </code>
+                      ) : (
+                        <code className={className} {...rest}>
+                          {children}
+                        </code>
+                      )
+                    }
+                  }}
+                >
+                  {epic.description || "Sem descrição"}
+                </ReactMarkdown>
+              </div>
+              {epic.description && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="px-0 h-auto mt-1 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                >
+                  {isDescriptionExpanded ? "Ver menos" : "Ver mais"}
+                </Button>
+              )}
+            </div>
+
+            {features.length > 0 && (
+              <div className="flex items-center gap-4 mt-6 w-full max-w-md">
+                <div className="flex-1">
+                  <Progress
+                    value={(() => {
+                      const totalTasks = features.reduce((acc, f) => acc + (f._count?.tasks || 0), 0);
+                      const completedTasks = features.reduce((acc, f) => acc + (f.tasks?.filter(t => t.status === 'DONE').length || 0), 0);
+                      return totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                    })()}
+                    className="h-2"
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground whitespace-nowrap min-w-[120px] text-right">
+                  {(() => {
+                    const totalTasks = features.reduce((acc, f) => acc + (f._count?.tasks || 0), 0);
+                    const completedTasks = features.reduce((acc, f) => acc + (f.tasks?.filter(t => t.status === 'DONE').length || 0), 0);
+                    const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+                    return `${progress}% (${completedTasks}/${totalTasks} tasks)`;
+                  })()}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -484,101 +554,43 @@ export default function EpicDetailPage({
             }
           />
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {features.map((feature) => (
-              <div key={feature.id} className="relative group">
-                <Link href={`/projects/${resolvedParams.id}/epics/${resolvedParams.epicId}/features/${feature.id}`}>
-                  <Card
-                    className="group hover:bg-muted/50 hover:border-primary/50 transition-colors cursor-pointer h-full"
-                  >
-                    <CardHeader>
-                      <div className="flex justify-between items-start mb-2">
-                        <Badge variant="outline" className="text-[10px]">
-                          FEATURE
-                        </Badge>
-                        <Badge
-                          variant="secondary"
-                        >
-                          {feature.status}
-                        </Badge>
-                        {feature.health && (
-                          <FeatureHealthBadge
-                            health={feature.health}
-                            healthReason={feature.healthReason}
-                            healthUpdatedAt={feature.healthUpdatedAt}
-                          />
-                        )}
-                      </div>
-                      <CardTitle className="text-lg pr-8">
-                        {feature.title}
-                      </CardTitle>
-                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground mt-1.5 font-medium">
-                        <span className="flex items-center gap-1">
-                          <span className="text-emerald-500">✅</span>
-                          {feature.tasks?.filter(t => t.status === 'DONE').length || 0} Done
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="text-blue-500">🔵</span>
-                          {feature.tasks?.filter(t => t.status === 'DOING').length || 0} Doing
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <span className="text-zinc-500">⚪</span>
-                          {feature.tasks?.filter(t => !['DONE', 'DOING'].includes(t.status)).length || 0} Todo
-                        </span>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-col gap-3 mt-1">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-1.5 h-1.5 rounded-full bg-primary/70" />
-                              <span className="font-medium">{feature._count?.tasks || 0} tasks</span>
-                            </div>
-                          </div>
-                          {(feature.tasks?.filter(t => t.type === 'BUG' && t.status !== 'DONE').length || 0) > 0 && (
-                            <div className="flex items-center gap-1.5 text-red-500/90 font-medium bg-red-500/10 px-2 py-0.5 rounded-full text-[10px]" title="Bugs abertos">
-                              <Bug className="w-3 h-3" />
-                              {feature.tasks?.filter(t => t.type === 'BUG' && t.status !== 'DONE').length}
-                            </div>
-                          )}
-                        </div>
-                        <StackedProgressBar tasks={feature.tasks || []} className="h-2" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-                {/* Action Menu */}
-                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-sm">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => handleEditFeatureClick(feature)}>
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onSelect={() => handleDeleteFeatureClick(feature)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+          <div className="space-y-12">
+            {/* Active Features */}
+            <div>
+              <FeaturesTableView
+                features={features.filter(f => f.status !== 'DONE')}
+                projectId={resolvedParams.id}
+                epicId={resolvedParams.epicId}
+                onEdit={handleEditFeatureClick}
+                onDelete={handleDeleteFeatureClick}
+              />
+            </div>
+
+            {/* Completed Features */}
+            {features.some(f => f.status === 'DONE') && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <h3 className="text-sm font-medium uppercase tracking-wider">Concluídas ({features.filter(f => f.status === 'DONE').length})</h3>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+                <div className="opacity-75 grayscale-[0.3]">
+                  <FeaturesTableView
+                    features={features.filter(f => f.status === 'DONE')}
+                    projectId={resolvedParams.id}
+                    epicId={resolvedParams.epicId}
+                    onEdit={handleEditFeatureClick}
+                    onDelete={handleDeleteFeatureClick}
+                  />
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
 
       {/* Edit Feature Dialog */}
       <Dialog open={isFeatureEditDialogOpen} onOpenChange={setIsFeatureEditDialogOpen}>
+
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Feature</DialogTitle>

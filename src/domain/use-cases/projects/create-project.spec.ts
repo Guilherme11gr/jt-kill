@@ -39,7 +39,11 @@ describe('createProject', () => {
 
     vi.mocked(mockRepo.create).mockResolvedValue(expectedProject);
 
-    const result = await createProject(input, { projectRepository: mockRepo });
+    const result = await createProject(input, {
+      projectRepository: mockRepo,
+      epicRepository: {} as any,
+      featureRepository: {} as any,
+    });
 
     expect(result).toEqual(expectedProject);
     expect(mockRepo.create).toHaveBeenCalledWith(input);
@@ -52,10 +56,18 @@ describe('createProject', () => {
       key: 'invalid-key', // Lowercase and hyphen
     };
 
-    await expect(createProject(input, { projectRepository: mockRepo }))
+    await expect(createProject(input, {
+      projectRepository: mockRepo,
+      epicRepository: {} as any,
+      featureRepository: {} as any,
+    }))
       .rejects.toThrow(ValidationError);
-    
-    await expect(createProject(input, { projectRepository: mockRepo }))
+
+    await expect(createProject(input, {
+      projectRepository: mockRepo,
+      epicRepository: {} as any,
+      featureRepository: {} as any,
+    }))
       .rejects.toThrow('Key deve ter 2-10 caracteres');
   });
 
@@ -67,10 +79,18 @@ describe('createProject', () => {
       modules: ['kanban', 'kanban'],
     };
 
-    await expect(createProject(input, { projectRepository: mockRepo }))
+    await expect(createProject(input, {
+      projectRepository: mockRepo,
+      epicRepository: {} as any,
+      featureRepository: {} as any,
+    }))
       .rejects.toThrow(ValidationError);
 
-    await expect(createProject(input, { projectRepository: mockRepo }))
+    await expect(createProject(input, {
+      projectRepository: mockRepo,
+      epicRepository: {} as any,
+      featureRepository: {} as any,
+    }))
       .rejects.toThrow('Módulos duplicados não são permitidos');
   });
 });

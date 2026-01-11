@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
+import type { JSX } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useCreateFeature, useUpdateFeature, useDeleteFeature } from './use-features';
 import { queryKeys } from '../query-keys';
@@ -19,6 +20,7 @@ vi.mock('sonner', () => ({
 describe('use-features: Cache Invalidation', () => {
   let queryClient: QueryClient;
   let wrapper: ({ children }: { children: ReactNode }) => JSX.Element;
+  const orgId = 'org-123';
 
   beforeEach(() => {
     // Reset mocks
@@ -68,7 +70,7 @@ describe('use-features: Cache Invalidation', () => {
 
       // Assert: should invalidate epic-specific feature list
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.features.list(epicId),
+        queryKey: queryKeys.features.list(orgId, epicId),
       });
     });
 
@@ -99,7 +101,7 @@ describe('use-features: Cache Invalidation', () => {
 
       // Assert: should invalidate all-features list
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.features.list(),
+        queryKey: queryKeys.features.list(orgId),
       });
     });
 
@@ -130,7 +132,7 @@ describe('use-features: Cache Invalidation', () => {
 
       // Assert: should invalidate epic detail
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.epics.detail(epicId),
+        queryKey: queryKeys.epics.detail(orgId, epicId),
       });
     });
   });
@@ -163,7 +165,7 @@ describe('use-features: Cache Invalidation', () => {
 
       // Assert: should invalidate feature detail
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.features.detail(featureId),
+        queryKey: queryKeys.features.detail(orgId, featureId),
       });
     });
 
@@ -194,7 +196,7 @@ describe('use-features: Cache Invalidation', () => {
 
       // Assert: should invalidate lists
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.features.lists(),
+        queryKey: queryKeys.features.lists(orgId),
       });
     });
 
@@ -226,7 +228,7 @@ describe('use-features: Cache Invalidation', () => {
 
       // Assert: should invalidate epic detail
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.epics.detail(epicId),
+        queryKey: queryKeys.epics.detail(orgId, epicId),
       });
     });
 
@@ -257,7 +259,7 @@ describe('use-features: Cache Invalidation', () => {
 
       // Assert: should invalidate tasks (they depend on feature.status)
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.tasks.lists(),
+        queryKey: queryKeys.tasks.lists(orgId),
       });
     });
   });
@@ -280,7 +282,7 @@ describe('use-features: Cache Invalidation', () => {
 
       // Assert: should invalidate all feature queries
       expect(invalidateSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.features.all,
+        queryKey: queryKeys.features.all(orgId),
       });
     });
 
@@ -299,12 +301,13 @@ describe('use-features: Cache Invalidation', () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
-      // Assert: should remove orphaned queries
+      const orgId = 'org-123';
+
       expect(removeSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.features.detail(featureId),
+        queryKey: queryKeys.features.detail(orgId, featureId),
       });
       expect(removeSpy).toHaveBeenCalledWith({
-        queryKey: queryKeys.tasks.list({ featureId }),
+        queryKey: queryKeys.tasks.list(orgId, { featureId }),
       });
     });
 

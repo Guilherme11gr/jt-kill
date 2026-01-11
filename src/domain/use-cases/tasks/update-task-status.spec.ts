@@ -22,7 +22,7 @@ describe('updateTaskStatus', () => {
   it('should update the task status successfully', async () => {
     const id = 'task-1';
     const orgId = 'org-1';
-    const newStatus = 'IN_PROGRESS';
+    const newStatus = 'DOING';
 
     const existingTask: Task = {
       id,
@@ -32,8 +32,14 @@ describe('updateTaskStatus', () => {
       localId: 1,
       title: 'Task 1',
       status: 'TODO',
-      type: 'STORY',
+      type: 'TASK',
       priority: 'MEDIUM',
+      points: 3,
+      description: null,
+      modules: [],
+      assigneeId: null,
+      blocked: false,
+      statusChangedAt: new Date(),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -47,7 +53,13 @@ describe('updateTaskStatus', () => {
     vi.mocked(mockRepo.findById).mockResolvedValue(existingTask);
     vi.mocked(mockRepo.updateStatus).mockResolvedValue(updatedTask);
 
-    const result = await updateTaskStatus(id, orgId, newStatus, { taskRepository: mockRepo });
+    const userId = 'user-1';
+    const mockAuditRepo = { log: vi.fn() } as any;
+
+    const result = await updateTaskStatus(id, orgId, newStatus, userId, {
+      taskRepository: mockRepo,
+      auditLogRepository: mockAuditRepo
+    });
 
     expect(result).toEqual(updatedTask);
     expect(mockRepo.updateStatus).toHaveBeenCalledWith(id, orgId, newStatus);
@@ -56,11 +68,16 @@ describe('updateTaskStatus', () => {
   it('should throw NotFoundError if task does not exist', async () => {
     const id = 'task-1';
     const orgId = 'org-1';
-    const newStatus = 'IN_PROGRESS';
+    const newStatus = 'DOING';
+    const userId = 'user-1';
+    const mockAuditRepo = { log: vi.fn() } as any;
 
     vi.mocked(mockRepo.findById).mockResolvedValue(null);
 
-    await expect(updateTaskStatus(id, orgId, newStatus, { taskRepository: mockRepo }))
+    await expect(updateTaskStatus(id, orgId, newStatus, userId, {
+      taskRepository: mockRepo,
+      auditLogRepository: mockAuditRepo
+    }))
       .rejects.toThrow(NotFoundError);
   });
 });

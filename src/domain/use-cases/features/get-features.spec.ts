@@ -19,16 +19,21 @@ describe('getFeatures', () => {
   it('should return features for the epic with stats', async () => {
     const epicId = 'epic-1';
     const orgId = 'org-1';
-    const expectedFeatures: Array<Feature & { _count: { tasks: number } }> = [
+    const expectedFeatures: Array<Feature & { _count: { tasks: number }; tasks: any[] }> = [
       {
         id: 'feat-1',
         orgId,
         epicId,
         title: 'Feature 1',
-        status: 'OPEN',
+        description: null,
+        status: 'TODO',
         createdAt: new Date(),
         updatedAt: new Date(),
+        health: 'healthy',
+        healthUpdatedAt: new Date(),
+        healthReason: null,
         _count: { tasks: 5 },
+        tasks: [],
       },
     ];
 

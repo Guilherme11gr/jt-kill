@@ -19,15 +19,20 @@ describe('getEpics', () => {
   it('should return epics for the project', async () => {
     const projectId = 'proj-1';
     const orgId = 'org-1';
-    const expectedEpics: Epic[] = [
+    const expectedEpics: (Epic & { _count: { features: number } })[] = [
       {
         id: 'epic-1',
         orgId,
         projectId,
         title: 'Epic 1',
         status: 'OPEN',
+        description: null,
+        risk: 'low',
+        riskUpdatedAt: new Date(),
+        riskReason: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        _count: { features: 0 },
       },
     ];
 

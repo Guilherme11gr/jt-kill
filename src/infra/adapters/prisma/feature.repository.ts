@@ -32,7 +32,7 @@ export class FeatureRepository {
   async findManyWithStats(
     epicId: string,
     orgId: string
-  ): Promise<Array<Feature & { _count: { tasks: number }; tasks: Array<{ status: string; type: string }> }>> {
+  ): Promise<Array<Feature & { _count: { tasks: number }; tasks: Array<{ status: string; type: string; assignee: { user_profiles: { displayName: string; avatarUrl: string | null } | null } | null }> }>> {
     return await this.prisma.feature.findMany({
       where: { epicId, orgId },
       include: {
@@ -43,6 +43,16 @@ export class FeatureRepository {
           select: {
             status: true,
             type: true,
+            assignee: {
+              select: {
+                user_profiles: {
+                  select: {
+                    displayName: true,
+                    avatarUrl: true,
+                  }
+                }
+              }
+            }
           },
         },
       },

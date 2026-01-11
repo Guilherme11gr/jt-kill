@@ -21,10 +21,12 @@ describe('getProjectById', () => {
     const id = 'proj-1';
     const orgId = 'org-1';
     const expectedProject: Project = {
-      id,
+      id: 'proj-1',
       orgId,
       name: 'Project 1',
       key: 'P1',
+      description: null,
+      modules: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -26,6 +26,10 @@ describe('getEpicById', () => {
       projectId: 'proj-1',
       title: 'Epic 1',
       status: 'OPEN',
+      description: null,
+      risk: 'low',
+      riskUpdatedAt: new Date(),
+      riskReason: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

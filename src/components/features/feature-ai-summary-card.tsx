@@ -91,10 +91,10 @@ export function FeatureAISummaryCard({
   }
 
   return (
-    <div className="mb-6 group relative rounded-lg border bg-gradient-to-b from-white to-neutral-50 dark:from-neutral-900 dark:to-neutral-900/50 shadow-sm transition-all hover:shadow-md">
+    <div className="mb-6 group relative rounded-lg border border-border/40 shadow-sm transition-all hover:bg-muted/5">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b border-transparent hover:bg-accent/5 cursor-pointer select-none"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer select-none"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2 text-sm text-foreground/80">
@@ -146,7 +146,7 @@ export function FeatureAISummaryCard({
 
       {/* Content */}
       {isExpanded && (
-        <div className="p-5 border-t border-neutral-100 dark:border-neutral-800/50 animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-1 duration-200">
           {isLoading || (!localSummary && isStreaming) ? (
             <div className="space-y-3 animate-pulse">
               <div className="h-4 bg-muted/60 rounded w-3/4" />

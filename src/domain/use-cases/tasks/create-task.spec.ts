@@ -23,8 +23,9 @@ describe('createTask', () => {
       orgId: 'org-1',
       featureId: 'feat-1',
       title: 'New Task',
+      projectId: 'proj-1',
       description: 'Task description',
-      type: 'STORY' as const,
+      type: 'TASK' as const,
       priority: 'MEDIUM' as const,
       points: 3 as const,
     };
@@ -43,11 +44,18 @@ describe('createTask', () => {
       points: input.points,
       createdAt: new Date(),
       updatedAt: new Date(),
+      modules: [],
+      assigneeId: null, // default
+      blocked: false,
+      statusChangedAt: null,
     };
 
     vi.mocked(mockRepo.create).mockResolvedValue(expectedTask);
 
-    const result = await createTask(input, { taskRepository: mockRepo });
+    const result = await createTask(input, {
+      taskRepository: mockRepo,
+      featureRepository: { findById: vi.fn().mockResolvedValue({ id: 'feat-1' }) } as any
+    });
 
     expect(result).toEqual(expectedTask);
     expect(mockRepo.create).toHaveBeenCalledWith(input);

@@ -111,10 +111,11 @@ describe('Dashboard Query Keys', () => {
     // Import dynamically to avoid module issues
     const { queryKeys } = await import('@/lib/query/query-keys');
 
-    expect(queryKeys.dashboard.all).toEqual(['dashboard']);
-    expect(queryKeys.dashboard.myTasks(false)).toEqual(['dashboard', 'myTasks', false]);
-    expect(queryKeys.dashboard.myTasks(true)).toEqual(['dashboard', 'myTasks', true]);
-    expect(queryKeys.dashboard.activeProjects()).toEqual(['dashboard', 'activeProjects']);
-    expect(queryKeys.dashboard.activity(24)).toEqual(['dashboard', 'activity', 24]);
+    const orgId = 'org-123';
+    expect(queryKeys.dashboard.all(orgId)).toEqual(['org', orgId, 'dashboard']);
+    expect(queryKeys.dashboard.myTasks(orgId, false)).toEqual(['org', orgId, 'dashboard', 'myTasks', false, false]);
+    expect(queryKeys.dashboard.myTasks(orgId, true)).toEqual(['org', orgId, 'dashboard', 'myTasks', true, false]);
+    expect(queryKeys.dashboard.activeProjects(orgId)).toEqual(['org', orgId, 'dashboard', 'activeProjects']);
+    expect(queryKeys.dashboard.activity(orgId, 24)).toEqual(['org', orgId, 'dashboard', 'activity', 24]);
   });
 });

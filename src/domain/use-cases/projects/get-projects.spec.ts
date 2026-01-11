@@ -18,22 +18,28 @@ describe('getProjects', () => {
 
   it('should return projects for the organization', async () => {
     const orgId = 'org-1';
-    const expectedProjects: Project[] = [
+    const expectedProjects: (Project & { _count: { epics: number; tasks: number } })[] = [
       {
         id: 'proj-1',
         orgId,
         name: 'Project 1',
-        key: 'P1',
+        key: 'PROJ1',
+        description: null,
+        modules: [],
         createdAt: new Date(),
         updatedAt: new Date(),
+        _count: { epics: 0, tasks: 0 },
       },
       {
         id: 'proj-2',
         orgId,
         name: 'Project 2',
-        key: 'P2',
+        key: 'PROJ2',
+        description: null,
+        modules: [],
         createdAt: new Date(),
         updatedAt: new Date(),
+        _count: { epics: 0, tasks: 0 },
       },
     ];
 

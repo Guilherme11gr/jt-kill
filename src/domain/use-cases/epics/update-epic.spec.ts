@@ -22,7 +22,7 @@ describe('updateEpic', () => {
     const orgId = 'org-1';
     const input = {
       title: 'Updated Epic',
-      status: 'IN_PROGRESS' as const,
+      status: 'CLOSED' as const,
     };
 
     const existingEpic: Epic = {
@@ -31,6 +31,10 @@ describe('updateEpic', () => {
       projectId: 'proj-1',
       title: 'Old Epic',
       status: 'OPEN',
+      description: null,
+      risk: 'low',
+      riskUpdatedAt: new Date(),
+      riskReason: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

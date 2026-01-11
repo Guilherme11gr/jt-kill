@@ -30,6 +30,8 @@ describe('updateProject', () => {
       orgId,
       name: 'Old Project',
       key: 'P1',
+      description: null,
+      modules: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -72,6 +74,8 @@ describe('updateProject', () => {
       orgId,
       name: 'Old Project',
       key: 'P1',
+      description: null,
+      modules: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     };

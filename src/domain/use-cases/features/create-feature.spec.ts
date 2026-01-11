@@ -30,9 +30,12 @@ describe('createFeature', () => {
       epicId: input.epicId,
       title: input.title,
       description: input.description,
-      status: 'OPEN',
+      status: 'TODO',
       createdAt: new Date(),
       updatedAt: new Date(),
+      health: 'healthy',
+      healthUpdatedAt: new Date(),
+      healthReason: null,
     };
 
     vi.mocked(mockRepo.create).mockResolvedValue(expectedFeature);

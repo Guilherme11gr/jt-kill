@@ -363,10 +363,28 @@ export class TaskRepository {
       throw new Error('Task not found');
     }
 
-    // Re-fetch to return the updated object (updateMany doesn't return the object)
     const updated = await this.findById(id, orgId);
     if (!updated) throw new Error('Task not found');
     return updated;
+  }
+
+  /**
+   * Bulk update tasks
+   * Securely updates multiple tasks belonging to the same organization
+   */
+  async bulkUpdate(
+    ids: string[],
+    orgId: string,
+    input: UpdateTaskInput
+  ): Promise<number> {
+    const result = await this.prisma.task.updateMany({
+      where: {
+        id: { in: ids },
+        orgId, // Security: Ensure all tasks belong to the org
+      },
+      data: input,
+    });
+    return result.count;
   }
 
   /**

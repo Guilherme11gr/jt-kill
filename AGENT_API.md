@@ -96,6 +96,36 @@ Body:
 DELETE /api/agent/tasks/:id
 ```
 
+### Atualização em Massa (Bulk)
+```
+PATCH /api/agent/tasks/bulk
+```
+Body:
+```json
+{
+  "ids": ["uuid", "uuid"],
+  "update": {
+    "status": "string (enum)",
+    "priority": "string (enum)",
+    "type": "string (enum)",
+    "blocked": "boolean",
+    "assigneeId": "uuid | null"
+  }
+}
+```
+
+### Bloquear/Desbloquear Tasks
+```
+PATCH /api/agent/tasks/block
+```
+Body:
+```json
+{
+  "ids": ["uuid", "uuid"],
+  "blocked": true
+}
+```
+
 ---
 
 ## Features

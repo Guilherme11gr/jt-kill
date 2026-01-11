@@ -19,6 +19,7 @@ import { ExpandableMarkdown } from "@/components/ui/expandable-markdown";
 import type { TaskWithReadableId, TaskStatus } from "@/shared/types";
 import { useFeature, useTasks, useProject, useMoveTask, useDeleteTask, useModules } from "@/lib/query";
 import { FeatureHealthBadge } from "@/components/features/features";
+import { FeatureAISummaryCard } from "@/components/features/feature-ai-summary-card";
 
 export default function FeatureDetailPage({
   params,
@@ -29,8 +30,8 @@ export default function FeatureDetailPage({
 
   // React Query hooks
   const { data: feature, isLoading: featureLoading } = useFeature(resolvedParams.featureId);
-  const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks, isFetching } = useTasks({ 
-    filters: { featureId: resolvedParams.featureId } 
+  const { data: tasksData, isLoading: tasksLoading, refetch: refetchTasks, isFetching } = useTasks({
+    filters: { featureId: resolvedParams.featureId }
   });
   const { data: modules = [] } = useModules();
 
@@ -236,31 +237,36 @@ export default function FeatureDetailPage({
         </div>
       </div>
 
+      {/* AI Summary Card */}
+      <FeatureAISummaryCard featureId={feature.id} />
+
       {/* Kanban Board */}
-      {tasks.length === 0 ? (
-        <EmptyState
-          icon={CheckSquare}
-          title="Nenhuma task ainda"
-          description="Crie tasks para detalhar o trabalho necessário nesta feature."
-          action={
-            <Button onClick={() => setIsTaskDialogOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Criar Primeira Task
-            </Button>
-          }
-        />
-      ) : (
-        <div className="animate-in fade-in-50 duration-200">
-          <KanbanBoard
-            tasks={tasksForKanban}
-            onTaskMove={handleTaskMove}
-            onTaskClick={handleTaskClick}
-            onEdit={handleEditTask}
-            onDelete={handleDeleteTaskClick}
-            isLoading={loading}
+      {
+        tasks.length === 0 ? (
+          <EmptyState
+            icon={CheckSquare}
+            title="Nenhuma task ainda"
+            description="Crie tasks para detalhar o trabalho necessário nesta feature."
+            action={
+              <Button onClick={() => setIsTaskDialogOpen(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Criar Primeira Task
+              </Button>
+            }
           />
-        </div>
-      )}
+        ) : (
+          <div className="animate-in fade-in-50 duration-200">
+            <KanbanBoard
+              tasks={tasksForKanban}
+              onTaskMove={handleTaskMove}
+              onTaskClick={handleTaskClick}
+              onEdit={handleEditTask}
+              onDelete={handleDeleteTaskClick}
+              isLoading={loading}
+            />
+          </div>
+        )
+      }
 
       {/* Universal Task Dialog */}
       <TaskDialog
@@ -308,6 +314,6 @@ export default function FeatureDetailPage({
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

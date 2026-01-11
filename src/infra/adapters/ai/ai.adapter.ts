@@ -1,9 +1,9 @@
 import OpenAI from 'openai';
 import type { ChatCompletionInput, ChatCompletionResult, AIMessage } from './types';
-import { 
-    AI_MODEL_CHAT, 
-    AI_MODEL_REASONER, 
-    AI_TEMPERATURE_CREATIVE 
+import {
+    AI_MODEL_CHAT,
+    AI_MODEL_REASONER,
+    AI_TEMPERATURE_CREATIVE
 } from '@/config/ai.config';
 
 /**
@@ -104,6 +104,59 @@ Objetivo: ${input.objective}`;
                 totalTokens: response.usage.total_tokens,
             } : undefined,
         };
+    }
+
+    /**
+     * Streamed Reasoner Completion
+     * Captures "reasoning_content" if available (DeepSeek R1/V3) and formats it as blockquotes.
+     */
+    async *reasonerCompletionStream(input: {
+        objective: string;
+        context: string;
+        systemPrompt: string;
+        temperature?: number;
+        maxTokens?: number;
+    }): AsyncGenerator<string> {
+        const userPrompt = `${input.context}\n\n---\n\nObjetivo: ${input.objective}`;
+
+        const stream = await this.client.chat.completions.create({
+            model: AI_MODEL_REASONER,
+            messages: [
+                { role: 'system', content: input.systemPrompt },
+                { role: 'user', content: userPrompt },
+            ],
+            temperature: input.temperature ?? AI_TEMPERATURE_CREATIVE,
+            max_tokens: input.maxTokens ?? 4000,
+            stream: true,
+        });
+
+        let hasStartedReasoning = false;
+        let hasFinishedReasoning = false;
+
+        for await (const chunk of stream) {
+            const delta = chunk.choices[0]?.delta as any;
+
+            // Handle Reasoning
+            if (delta?.reasoning_content) {
+                if (!hasStartedReasoning) {
+                    hasStartedReasoning = true;
+                    yield "> **🧠 Pensamento (DeepSeek Reasoner):**\n> ";
+                }
+                const formattedDiff = delta.reasoning_content.replace(/\n/g, '\n> ');
+                yield formattedDiff;
+            }
+
+            // Handle Transition to Content
+            if (hasStartedReasoning && !hasFinishedReasoning && delta?.content) {
+                hasFinishedReasoning = true;
+                yield "\n\n---\n\n";
+            }
+
+            // Handle Content
+            if (delta?.content) {
+                yield delta.content;
+            }
+        }
     }
 
     /**

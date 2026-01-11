@@ -211,6 +211,7 @@ export class FeatureRepository {
     return updated;
   }
 
+
   async delete(id: string, orgId: string): Promise<boolean> {
     // Protect system features from deletion
     const feature = await this.prisma.feature.findFirst({
@@ -229,4 +230,55 @@ export class FeatureRepository {
     });
     return result.count > 0;
   }
+
+  /**
+   * Find feature with tasks and comments for AI Analysis
+   * Used by generate-feature-summary use case
+   */
+  async findByIdWithTasksAndComments(
+    id: string,
+    orgId: string
+  ) {
+    return await this.prisma.feature.findFirst({
+      where: { id, orgId },
+      include: {
+        epic: {
+          select: {
+            title: true,
+            projectId: true,
+          }
+        },
+        tasks: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            status: true,
+            type: true,
+            priority: true,
+            updatedAt: true,
+            comments: {
+              take: 5,
+              orderBy: { createdAt: 'desc' },
+              select: {
+                content: true,
+                users: {
+                  select: {
+                    user_profiles: {
+                      select: { displayName: true }
+                    }
+                  }
+                },
+                createdAt: true,
+              }
+            },
+            createdAt: true,
+          },
+          orderBy: { updatedAt: 'desc' },
+          take: 100
+        }
+      },
+    });
+  }
 }
+

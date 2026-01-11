@@ -309,3 +309,33 @@ DELETE /api/agent/tags/:id
 - `NOT_FOUND` (404) - Recurso não encontrado
 - `CONFLICT` (409) - Conflito (ex: tag duplicada)
 - `INTERNAL_ERROR` (500) - Erro interno
+
+## Modelos de Dados
+
+### Task Object
+```json
+{
+  "id": "uuid",
+  "readableId": "APP-123",
+  "title": "string",
+  "description": "string | null",
+  "status": "BACKLOG | TODO | DOING | REVIEW | DONE",
+  "type": "TASK | BUG",
+  "priority": "LOW | MEDIUM | HIGH | CRITICAL",
+  "blocked": boolean,
+  "points": "number | null",
+  "featureId": "uuid",
+  "projectId": "uuid",
+  "orgId": "uuid",
+  "assigneeId": "uuid | null",
+  "createdAt": "ISO date",
+  "updatedAt": "ISO date",
+  "tags": [
+    { "id": "uuid", "name": "string", "color": "hex" }
+  ],
+  "assignee": {
+    "displayName": "string",
+    "avatarUrl": "url | null"
+  }
+}
+```

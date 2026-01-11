@@ -1,7 +1,28 @@
-import { type NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
+// CORS headers for Agent API
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
 export async function middleware(request: NextRequest) {
+  // Handle CORS preflight for Agent API
+  if (request.nextUrl.pathname.startsWith('/api/agent')) {
+    if (request.method === 'OPTIONS') {
+      return new NextResponse(null, { status: 204, headers: corsHeaders });
+    }
+
+    // For actual requests, add CORS headers and skip session update
+    const response = NextResponse.next();
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
+  }
+
   return await updateSession(request);
 }
 

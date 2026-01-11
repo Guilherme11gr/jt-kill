@@ -1,0 +1,86 @@
+/**
+ * Agent API - Project Docs List & Create
+ * 
+ * GET /api/agent/docs - List docs with filters
+ * POST /api/agent/docs - Create a new doc
+ */
+
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { extractAgentAuth } from '@/shared/http/agent-auth';
+import { agentList, agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
+import { projectDocRepository, projectRepository } from '@/infra/adapters/prisma';
+
+export const dynamic = 'force-dynamic';
+
+// ============ GET - List Docs ============
+
+const listQuerySchema = z.object({
+  projectId: z.string().uuid(),
+  limit: z.coerce.number().min(1).max(100).default(50),
+});
+
+export async function GET(request: NextRequest) {
+  try {
+    const { orgId } = await extractAgentAuth();
+
+    const { searchParams } = new URL(request.url);
+    const query = listQuerySchema.safeParse({
+      projectId: searchParams.get('projectId'),
+      limit: searchParams.get('limit') || 50,
+    });
+
+    if (!query.success) {
+      return agentError('VALIDATION_ERROR', 'projectId is required', 400);
+    }
+
+    const { projectId, limit } = query.data;
+
+    const docs = await projectDocRepository.findByProjectId(projectId, orgId);
+    const limited = docs.slice(0, limit);
+
+    return agentList(limited, docs.length);
+  } catch (error) {
+    return handleAgentError(error);
+  }
+}
+
+// ============ POST - Create Doc ============
+
+const createDocSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  projectId: z.string().uuid('Invalid project ID'),
+  content: z.string().min(1, 'Content is required'),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const { orgId } = await extractAgentAuth();
+
+    const body = await request.json();
+    const parsed = createDocSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return agentError('VALIDATION_ERROR', parsed.error.issues[0].message, 400);
+    }
+
+    const { title, projectId, content } = parsed.data;
+
+    // Verify project exists
+    const project = await projectRepository.findById(projectId, orgId);
+    if (!project) {
+      return agentError('NOT_FOUND', 'Project not found', 404);
+    }
+
+    const doc = await projectDocRepository.create({
+      title,
+      projectId,
+      content,
+      orgId,
+    });
+
+    return agentSuccess(doc, 201);
+  } catch (error) {
+    return handleAgentError(error);
+  }
+}

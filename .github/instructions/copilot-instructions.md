@@ -225,6 +225,38 @@ Manter na rota quando:
   - Incrementar `VERSION` (ex: `v1.0.3` → `v1.0.4`)
   - Força limpeza de cache PWA no client
 
+## 🔤 Encoding UTF-8 em Integrações
+
+**SEMPRE preserve UTF-8 ao enviar markdown/JSON com emojis e caracteres especiais:**
+
+### ❌ ERRADO (encoding quebrado)
+```bash
+# Inline JSON em curl quebra UTF-8 em alguns shells
+curl -d '{"description": "✅ PASS ❌ FAIL"}' ...  # → � � (quebrado)
+```
+
+### ✅ CORRETO (usar arquivo temporário)
+```bash
+# 1. Criar arquivo JSON com encoding UTF-8
+cat > /tmp/payload.json <<'EOF'
+{
+  "description": "✅ **PASS**\n❌ **FAIL**\nConteúdo com acentuação"
+}
+EOF
+
+# 2. Enviar com --data-binary
+curl -X PATCH "https://api.example.com/..." \
+  -H "Content-Type: application/json; charset=utf-8" \
+  --data-binary @/tmp/payload.json
+```
+
+### Por quê?
+- Shells (bash, cmd, powershell) podem não preservar UTF-8 em strings inline
+- `--data-binary @file` preserva encoding original
+- Header `charset=utf-8` garante interpretação correta no servidor
+
+**REGRA**: Para qualquer JSON com markdown rico (emojis, ✅, ❌, acentos), SEMPRE use arquivo temporário.
+
 ## Planejamento de Features
 
 **SEMPRE fazer reflexão crítica ANTES de implementar:**

@@ -50,6 +50,32 @@ Se qualquer um falhar:
 
 Isso garante que o código entregue está sempre em estado funcional.
 
+### 🔤 REGRA CRÍTICA: Encoding UTF-8 em Requisições
+
+**SEMPRE use UTF-8 para enviar markdown com emojis/caracteres especiais:**
+
+❌ **ERRADO** (encoding quebrado):
+```bash
+curl -d '{"description": "✅ PASS"}' ...  # Emojis ficam como �
+```
+
+✅ **CORRETO** (usar arquivo JSON):
+```bash
+# 1. Criar arquivo JSON com UTF-8
+cat > /tmp/update.json <<'EOF'
+{
+  "description": "✅ **PASS**\n❌ **FAIL**\nConteúdo com acentuação"
+}
+EOF
+
+# 2. Enviar com --data-binary
+curl -X PATCH "https://..." \
+  -H "Content-Type: application/json; charset=utf-8" \
+  --data-binary @/tmp/update.json
+```
+
+**Por quê?** Shells podem não preservar UTF-8 em strings inline. Sempre use arquivos para conteúdo markdown rico.
+
 ### 📋 REGRA: Code Review de Tasks em REVIEW
 
 Quando houver tasks em status `REVIEW`:

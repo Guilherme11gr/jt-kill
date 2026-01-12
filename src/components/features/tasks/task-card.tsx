@@ -15,6 +15,7 @@ import { Bug, Ban } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
 import { TagBadge } from '@/components/features/tags';
+import { TaskHierarchyPath } from './task-hierarchy-path';
 import { useBlockTask } from '@/hooks/use-block-task';
 import type { TaskWithReadableId } from '@/shared/types';
 
@@ -130,6 +131,11 @@ export function TaskCard({
       )}>
         {task.title}
       </h4>
+
+      {/* Hierarchy Path */}
+      <div className="mb-3">
+        <TaskHierarchyPath task={task} />
+      </div>
 
       {/* Footer: Avatar + Points + Bug + Blocked */}
       <div className="flex items-center justify-between">

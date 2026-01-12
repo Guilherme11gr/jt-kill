@@ -1,5 +1,6 @@
 // Tasks feature components
 export { TaskCard } from './task-card';
+export { TaskHierarchyPath } from './task-hierarchy-path';
 export { TaskSkeleton, KanbanColumnSkeleton, KanbanBoardSkeleton, TableSkeleton } from './task-skeleton';
 export { StatusBadge, StatusColumnHeader } from './status-badge';
 export { PriorityIndicator } from './priority-indicator';

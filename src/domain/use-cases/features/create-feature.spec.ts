@@ -29,10 +29,11 @@ describe('createFeature', () => {
       orgId: input.orgId,
       epicId: input.epicId,
       title: input.title,
-      description: input.description,
-      status: 'TODO',
+      description: null, // input.description is undefined in test
+      status: 'BACKLOG',
       createdAt: new Date(),
       updatedAt: new Date(),
+      isSystem: false,
       health: 'healthy',
       healthUpdatedAt: new Date(),
       healthReason: null,

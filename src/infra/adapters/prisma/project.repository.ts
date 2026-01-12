@@ -184,13 +184,13 @@ export class ProjectRepository {
       const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
       // Calculate Facepile (Unique Assignees)
-      const uniqueAssignees = new Map();
+      type UserProfile = { displayName: string; avatarUrl: string | null };
+      const uniqueAssignees = new Map<string, UserProfile>();
+
       p.tasks.forEach(t => {
         if (t.assignee?.user_profiles) {
           const profile = t.assignee.user_profiles;
-          // @ts-ignore
           if (!uniqueAssignees.has(profile.displayName)) {
-            // @ts-ignore
             uniqueAssignees.set(profile.displayName, profile);
           }
         }

@@ -6,11 +6,14 @@ import { aiAdapter } from '@/infra/adapters/ai';
 import { featureRepository, projectDocRepository, docTagRepository } from '@/infra/adapters/prisma';
 import { generateFeatureSummary } from '@/domain/use-cases/ai/generate-feature-summary';
 
+import { Feature } from '@/shared/types';
+
 // Schemas
 const bodySchema = z.object({
   featureId: z.string().uuid(),
-  forceRegenerate: z.boolean().optional(),
 });
+
+// ... (imports remain)
 
 export const GET = async (req: NextRequest) => {
   try {
@@ -24,64 +27,17 @@ export const GET = async (req: NextRequest) => {
       return NextResponse.json({ message: 'Missing featureId' }, { status: 400 });
     }
 
-    const feature = await featureRepository.findByIdWithTasksAndComments(featureId, tenantId);
+    // Optimized: Fetch directly from Feature model
+    const feature: Feature | null = await featureRepository.findById(featureId, tenantId);
+
     if (!feature) {
       return NextResponse.json({ message: 'Feature not found' }, { status: 404 });
     }
 
-    const docTitle = `Resumo IA: ${feature.title}`;
-    const tagName = 'ia-summary';
-
-    // 1. Find the tag first
-    const tag = await docTagRepository.findByName(tagName, feature.epic.projectId, tenantId);
-
-    if (tag) {
-      // 2. Get all docs with this tag (usually few)
-      const docIds = await docTagRepository.findDocIdsByTagId(tag.id, tenantId);
-
-      if (docIds.length > 0) {
-        // 3. Fetch only these docs to find title match
-        // We use findByIds which returns { title, content }
-        // Note: findByIds signature in repo might limit chars, but we want full content?
-        // Existing findByIds defaults to 4000 chars context. We probably want full.
-        // But we don't have a "findFullByIds". 
-        // Given "Summary" is likely small enough, 4000 chars might suffice, 
-        // BUT if it's truncated, it's bad.
-        // BETTER: iterating them and checking title is safer than fetching all project docs.
-
-        // Actually, we can loop and findFirst? No, too many queries.
-        // Let's use the efficient findByProjectId approach but filtered in memory IF list is small?
-        // No, the initial approach was fetching ALL project docs.
-        // Optimizing:
-
-        // A better query would be to db join. We can't change repo easily now.
-        // Let's stick to: findByIds (limited) and see.
-        // Wait, existing findByIds returns truncated content potentially.
-        // Using `findByProjectId` was actually fetching metadata only (no content).
-        // That was safer for large docs.
-
-        // Let's refine the previous approach:
-        // 1. Get ALL Project Docs (Metadata only) -> Filter by Title.
-        // 2. Check if THAT doc has the tag assignment?
-        // That's more robust than relying on "findByIds" content.
-
-        const projectDocs = await projectDocRepository.findByProjectId(feature.epic.projectId, tenantId);
-        const match = projectDocs.find(d =>
-          d.title === docTitle &&
-          d.tags?.some(t => t.tag.name === 'ia-summary')
-        );
-
-        if (match) {
-          const fullDoc = await projectDocRepository.findById(match.id, tenantId);
-          return NextResponse.json({
-            summary: fullDoc?.content || null,
-            lastAnalyzedAt: fullDoc?.updatedAt || null
-          });
-        }
-      }
-    }
-
-    return NextResponse.json({ summary: null, lastAnalyzedAt: null });
+    return NextResponse.json({
+      summary: feature.technicalAnalysis || null,
+      lastAnalyzedAt: feature.analysisUpdatedAt || null
+    });
 
   } catch (error: any) {
     console.error('Error fetching summary:', error);
@@ -92,9 +48,6 @@ export const GET = async (req: NextRequest) => {
   }
 };
 
-/**
- * Converts an AsyncGenerator<string> into a ReadableStream
- */
 /**
  * Converts an AsyncGenerator<string> into a ReadableStream
  * Side-effect: Accumulates full content and saves to DB when done.
@@ -126,69 +79,34 @@ function iteratorToStream(
 export const POST = async (req: NextRequest) => {
   try {
     const supabase = await createClient();
-    // Ensure user is authenticated and get their Org/Tenant ID
     const { tenantId } = await extractAuthenticatedTenant(supabase);
 
     const body = await req.json();
-    const { featureId, forceRegenerate } = bodySchema.parse(body);
+    const { featureId } = bodySchema.parse(body);
 
-    // Fetch feature details for Project ID and Title (needed for persistence)
-    const feature = await featureRepository.findByIdWithTasksAndComments(featureId, tenantId);
+    const feature = await featureRepository.findById(featureId, tenantId);
     if (!feature) {
       return NextResponse.json({ message: 'Feature not found' }, { status: 404 });
     }
 
-    // Call Use Case which returns a Generator
     const streamGenerator = await generateFeatureSummary(
-      { featureId, orgId: tenantId, forceRegenerate },
+      { featureId, orgId: tenantId },
       { aiAdapter, featureRepository }
     );
 
-    // Define save handler
-    // Define save handler
     const handleSaveParams = async (content: string) => {
       try {
-        const tagName = 'ia-summary';
-        const docTitle = `Resumo IA: ${feature.title}`;
-
-        // 1. Safe Tag Creation (Upsert-like logic via find first, if not create catch race)
-        // Prisma doesn't support upsert directly without unique where, which we have (projectId_name)
-        // defined in schema as @@unique([projectId, name])
-
-        let tag = await docTagRepository.findByName(tagName, feature.epic.projectId, tenantId);
-        if (!tag) {
-          try {
-            tag = await docTagRepository.create({
-              orgId: tenantId,
-              projectId: feature.epic.projectId,
-              name: tagName
-            });
-          } catch (e) {
-            // If race condition met (unique constraint), fetch again
-            tag = await docTagRepository.findByName(tagName, feature.epic.projectId, tenantId);
-          }
-        }
-
-        if (!tag) throw new Error('Failed to get or create tag');
-
-        // 2. Create Document
-        const newDoc = await projectDocRepository.create({
-          orgId: tenantId,
-          projectId: feature.epic.projectId,
-          title: docTitle,
-          content: content
+        // Updated: Persist directly to Feature
+        await featureRepository.update(featureId, tenantId, {
+          technicalAnalysis: content,
+          analysisUpdatedAt: new Date()
         });
-
-        // 3. Assign Tag
-        await docTagRepository.assignToDoc(newDoc.id, tag.id);
-
-        console.log(`[AI] Summary saved as doc: ${newDoc.id}`);
+        console.log(`[AI] Summary saved to feature: ${featureId}`);
       } catch (err) {
-        console.error('[AI] Failed to save summary doc:', err);
+        console.error('[AI] Failed to save summary to feature:', err);
       }
     };
 
-    // Convert to ReadableStream for Next.js Response
     const stream = iteratorToStream(streamGenerator, handleSaveParams);
 
     return new NextResponse(stream, {

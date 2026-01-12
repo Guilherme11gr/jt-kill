@@ -1,4 +1,6 @@
 // Project status types
+import { Task } from './task.types';
+
 export type EpicStatus = 'OPEN' | 'CLOSED';
 export type FeatureStatus = 'BACKLOG' | 'TODO' | 'DOING' | 'DONE';
 export type TaskStatus = 'BACKLOG' | 'TODO' | 'DOING' | 'REVIEW' | 'QA_READY' | 'DONE';
@@ -61,8 +63,12 @@ export interface Feature {
   status: FeatureStatus;
   createdAt: Date;
   updatedAt: Date;
+  isSystem: boolean;
   // Health check fields
   health: FeatureHealth;
   healthUpdatedAt: Date;
-  healthReason: string | null;
+  healthReason?: string | null;
+  technicalAnalysis?: string | null;
+  analysisUpdatedAt?: Date | string | null;
+  tasks?: Task[];
 }

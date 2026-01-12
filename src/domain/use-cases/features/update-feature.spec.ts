@@ -34,6 +34,7 @@ describe('updateFeature', () => {
       status: 'BACKLOG',
       createdAt: new Date(),
       updatedAt: new Date(),
+      isSystem: false,
       health: 'healthy',
       healthUpdatedAt: new Date(),
       healthReason: null,
@@ -41,10 +42,10 @@ describe('updateFeature', () => {
 
     const updatedFeature: Feature = {
       ...existingFeature,
-      ...input,
-      updatedAt: new Date(),
+      title: 'Updated Title',
+      status: 'DOING',
+      updatedAt: new Date(), // This would change in reality
     };
-
     vi.mocked(mockRepo.findById).mockResolvedValue(existingFeature);
     vi.mocked(mockRepo.update).mockResolvedValue(updatedFeature);
 

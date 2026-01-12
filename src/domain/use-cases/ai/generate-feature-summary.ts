@@ -5,7 +5,6 @@ import { AI_TEMPERATURE_CREATIVE, AI_MAX_TOKENS_DESCRIPTION } from '@/config/ai.
 interface GenerateFeatureSummaryInput {
   featureId: string;
   orgId: string;
-  forceRegenerate?: boolean;
 }
 
 const SYSTEM_PROMPT = `Você é um Líder Técnico experiente e pragmático.

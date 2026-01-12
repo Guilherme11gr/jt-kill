@@ -358,6 +358,48 @@ Body (todos opcionais):
 DELETE /api/agent/tasks/:id
 ```
 
+### Atualização em Massa (Bulk Update) ⭐ NOVO
+```
+PATCH /api/agent/tasks/bulk
+```
+Atualiza múltiplas tasks de uma vez. Útil para mover vários itens ou reatribuir em lote.
+
+Body:
+```json
+{
+  "ids": ["uuid", "uuid"],
+  "update": {
+    "status": "BACKLOG | TODO | DOING | REVIEW | DONE",
+    "type": "TASK | BUG",
+    "priority": "LOW | MEDIUM | HIGH | CRITICAL",
+    "blocked": false,
+    "assigneeId": "uuid | null"
+  },
+  "_metadata": {
+    "source": "agent",
+    "agentName": "Copilot",
+    "changeReason": "Bulk update via agent"
+  }
+}
+```
+
+### Bloquear/Desbloquear em Massa ⭐ NOVO
+```
+PATCH /api/agent/tasks/block
+```
+Body:
+```json
+{
+  "ids": ["uuid", "uuid"],
+  "blocked": true, // ou false para desbloquear
+  "_metadata": {
+    "source": "agent",
+    "agentName": "Copilot",
+    "changeReason": "Dependent task failed"
+  }
+}
+```
+
 ---
 
 ## Comentários em Tasks

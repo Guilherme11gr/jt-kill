@@ -1,13 +1,14 @@
 /**
- * Agent API - Epics List
+ * Agent API - Epics
  * 
- * GET /api/agent/epics - List epics with filters (read-only)
+ * GET /api/agent/epics - List epics with filters
+ * POST /api/agent/epics - Create new epic
  */
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { extractAgentAuth } from '@/shared/http/agent-auth';
-import { agentList, agentError, handleAgentError } from '@/shared/http/agent-responses';
+import { agentList, agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
 import { epicRepository } from '@/infra/adapters/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,13 @@ const listQuerySchema = z.object({
   projectId: z.string().uuid().optional(),
   status: z.enum(['OPEN', 'IN_PROGRESS', 'DONE']).optional(),
   limit: z.coerce.number().min(1).max(100).default(50),
+});
+
+const createEpicSchema = z.object({
+  title: z.string().min(1).max(200),
+  projectId: z.string().uuid(),
+  description: z.string().optional(),
+  status: z.enum(['OPEN', 'IN_PROGRESS', 'DONE']).default('OPEN'),
 });
 
 export async function GET(request: NextRequest) {
@@ -51,6 +59,33 @@ export async function GET(request: NextRequest) {
     epics = epics.slice(0, limit);
 
     return agentList(epics, epics.length);
+  } catch (error) {
+    return handleAgentError(error);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { orgId } = await extractAgentAuth();
+
+    const body = await request.json();
+    const parsed = createEpicSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return agentError('VALIDATION_ERROR', parsed.error.issues[0].message, 400);
+    }
+
+    const { title, projectId, description, status } = parsed.data;
+
+    const epic = await epicRepository.create({
+      orgId,
+      projectId,
+      title,
+      description: description || null,
+      status: status === 'DONE' ? 'CLOSED' : 'OPEN',
+    });
+
+    return agentSuccess(epic, 201);
   } catch (error) {
     return handleAgentError(error);
   }

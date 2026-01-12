@@ -3,6 +3,7 @@
  * 
  * GET /api/agent/features/:id - Get feature by ID
  * PATCH /api/agent/features/:id - Update feature
+ * DELETE /api/agent/features/:id - Delete feature
  */
 
 import { NextRequest } from 'next/server';
@@ -83,6 +84,34 @@ export async function PATCH(
     const updated = await featureRepository.update(id, orgId, updateData);
 
     return agentSuccess(updated);
+  } catch (error) {
+    return handleAgentError(error);
+  }
+}
+
+// ============ DELETE - Delete Feature ============
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { orgId } = await extractAgentAuth();
+    const { id } = await params;
+
+    if (!z.string().uuid().safeParse(id).success) {
+      return agentError('VALIDATION_ERROR', 'Invalid feature ID', 400);
+    }
+
+    // Verify feature exists
+    const existing = await featureRepository.findById(id, orgId);
+    if (!existing) {
+      return agentError('NOT_FOUND', 'Feature not found', 404);
+    }
+
+    await featureRepository.delete(id, orgId);
+
+    return agentSuccess({ deleted: true, id });
   } catch (error) {
     return handleAgentError(error);
   }

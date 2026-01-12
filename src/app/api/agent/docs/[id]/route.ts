@@ -89,8 +89,28 @@ export async function PATCH(
 }
 
 // ============ DELETE - Delete Doc ============
-// DISABLED: Operações destrutivas desabilitadas por precaução
 
-export async function DELETE() {
-  return agentError('DISABLED', 'DELETE operations are disabled for safety', 403);
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { orgId } = await extractAgentAuth();
+    const { id } = await params;
+
+    if (!z.string().uuid().safeParse(id).success) {
+      return agentError('VALIDATION_ERROR', 'Invalid doc ID', 400);
+    }
+
+    // Verify doc exists
+    const existing = await projectDocRepository.findById(id, orgId);
+    if (!existing) {
+      return agentError('NOT_FOUND', 'Doc not found', 404);
+    }
+
+    await projectDocRepository.delete(id, orgId);
+    return agentSuccess({ deleted: true, id, title: existing.title });
+  } catch (error) {
+    return handleAgentError(error);
+  }
 }

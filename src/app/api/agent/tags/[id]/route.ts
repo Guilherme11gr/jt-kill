@@ -39,8 +39,28 @@ export async function GET(
 }
 
 // ============ DELETE - Delete Tag ============
-// DISABLED: Operações destrutivas desabilitadas por precaução
 
-export async function DELETE() {
-  return agentError('DISABLED', 'DELETE operations are disabled for safety', 403);
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { orgId } = await extractAgentAuth();
+    const { id } = await params;
+
+    if (!z.string().uuid().safeParse(id).success) {
+      return agentError('VALIDATION_ERROR', 'Invalid tag ID', 400);
+    }
+
+    // Verify tag exists
+    const existing = await docTagRepository.findById(id, orgId);
+    if (!existing) {
+      return agentError('NOT_FOUND', 'Tag not found', 404);
+    }
+
+    await docTagRepository.delete(id, orgId);
+    return agentSuccess({ deleted: true, id, name: existing.name });
+  } catch (error) {
+    return handleAgentError(error);
+  }
 }

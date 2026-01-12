@@ -108,8 +108,28 @@ export async function PATCH(
 }
 
 // ============ DELETE - Delete Task ============
-// DISABLED: Operações destrutivas desabilitadas por precaução
 
-export async function DELETE() {
-  return agentError('DISABLED', 'DELETE operations are disabled for safety', 403);
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { orgId } = await extractAgentAuth();
+    const { id } = await params;
+
+    if (!z.string().uuid().safeParse(id).success) {
+      return agentError('VALIDATION_ERROR', 'Invalid task ID', 400);
+    }
+
+    // Verify task exists and belongs to org
+    const task = await taskRepository.findById(id, orgId);
+    if (!task) {
+      return agentError('NOT_FOUND', 'Task not found', 404);
+    }
+
+    await taskRepository.delete(id, orgId);
+    return agentSuccess({ deleted: true, id });
+  } catch (error) {
+    return handleAgentError(error);
+  }
 }

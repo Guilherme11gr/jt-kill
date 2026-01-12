@@ -7,13 +7,21 @@ import { toast } from 'sonner';
 
 // ============ Types ============
 
-interface Project {
+export interface Project {
   id: string;
   name: string;
   key: string;
   description?: string | null;
   modules?: string[];
   _count?: { epics: number; tasks: number };
+  // Analytics
+  progress?: number;
+  activeCount?: number;
+  blockedCount?: number;
+  recentAssignees?: Array<{
+    displayName: string;
+    avatarUrl: string | null;
+  }>;
 }
 
 
@@ -83,7 +91,7 @@ async function deleteProject(id: string): Promise<void> {
  */
 export function useProjects() {
   const orgId = useCurrentOrgId();
-  
+
   return useQuery({
     queryKey: queryKeys.projects.list(orgId),
     queryFn: fetchProjects,
@@ -97,7 +105,7 @@ export function useProjects() {
  */
 export function useProject(id: string) {
   const orgId = useCurrentOrgId();
-  
+
   return useQuery({
     queryKey: queryKeys.projects.detail(orgId, id),
     queryFn: () => fetchProject(id),
@@ -242,10 +250,10 @@ export function useDeleteProject() {
     onSuccess: (_, deletedProjectId) => {
       // Remove detail query
       queryClient.removeQueries({ queryKey: queryKeys.projects.detail(orgId, deletedProjectId) });
-      
+
       // Invalidate with immediate refetch (DELETE = critical)
       smartInvalidateImmediate(queryClient, queryKeys.projects.list(orgId));
-      
+
       // Invalidate dashboard
       invalidateDashboardQueries(queryClient, orgId);
       toast.success('Projeto excluído');

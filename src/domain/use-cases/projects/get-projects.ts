@@ -14,8 +14,8 @@ export interface GetProjectsDeps {
 export async function getProjects(
   orgId: string,
   deps: GetProjectsDeps
-): Promise<Project[]> {
+): Promise<any[]> {
   const { projectRepository } = deps;
 
-  return await projectRepository.findMany(orgId);
+  return await projectRepository.findManyWithAnalytics(orgId);
 }

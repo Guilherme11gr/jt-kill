@@ -11,25 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Plus, FolderKanban, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from "@/lib/query";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
-
-interface Project {
-  id: string;
-  name: string;
-  key: string;
-  description?: string | null;
-  modules?: string[];
-  _count?: {
-    epics: number;
-    tasks: number;
-  };
-}
+import { ProjectCard } from "@/components/features/projects/project-card";
+import { useProjects, useCreateProject, useUpdateProject, useDeleteProject, type Project } from "@/lib/query";
 
 export default function ProjectsPage() {
-  // React Query hooks
   const { data: projects = [], isLoading: loading } = useProjects();
   const createProjectMutation = useCreateProject();
   const updateProjectMutation = useUpdateProject();
@@ -247,68 +234,18 @@ export default function ProjectsPage() {
       ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <div key={project.id} className="relative group">
-              <Link href={`/projects/${project.id}`}>
-                <Card className="hover:border-primary transition-colors cursor-pointer h-full">
-                  <CardHeader>
-                    <div className="flex justify-between items-start mb-2">
-                      <Badge variant="outline-info" className="font-mono">
-                        {project.key}
-                      </Badge>
-                      <div className="flex gap-2 text-xs text-muted-foreground">
-                        <span>{project._count?.epics || 0} epics</span>
-                        <span>•</span>
-                        <span>{project._count?.tasks || 0} tasks</span>
-                      </div>
-                    </div>
-                    <CardTitle>{project.name}</CardTitle>
-                    {project.description && (
-                      <CardDescription className="line-clamp-2">
-                        {project.description}
-                      </CardDescription>
-                    )}
-                  </CardHeader>
-                  {project.modules && project.modules.length > 0 && (
-                    <CardContent>
-                      <div className="flex flex-wrap gap-1">
-                        {project.modules.map((module) => (
-                          <Badge
-                            key={module}
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {module}
-                          </Badge>
-                        ))}
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-              </Link>
-              {/* Action Menu */}
-              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-sm">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => handleEditClick(project)}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Editar
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => handleDeleteClick(project)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Excluir
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
+            <ProjectCard
+              key={project.id}
+              project={{
+                ...project,
+                progress: project.progress ?? 0,
+                activeCount: project.activeCount ?? 0,
+                blockedCount: project.blockedCount ?? 0,
+                recentAssignees: project.recentAssignees ?? []
+              }}
+              onEdit={() => handleEditClick(project)}
+              onDelete={() => handleDeleteClick(project)}
+            />
           ))}
         </div>
       )}

@@ -1,11 +1,12 @@
 'use client';
 
-import { History, Inbox } from 'lucide-react';
+import { History } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ActivityItem } from '@/lib/query/hooks/use-dashboard';
 import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ActivityBlockProps {
   activities: ActivityItem[];
@@ -84,21 +85,30 @@ function ActivityRow({ activity }: ActivityRowProps) {
         activity.targetId && 'hover:bg-accent/50 cursor-pointer'
       )}
     >
-      {/* Avatar placeholder */}
-      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-        <span className="text-xs font-medium text-primary">
+      {/* Avatar */}
+      <Avatar className="h-8 w-8 shrink-0">
+        <AvatarImage src={activity.actorAvatar || undefined} alt={activity.actorName || '?'} />
+        <AvatarFallback className="bg-primary/10 text-primary text-xs">
           {getInitials(activity.actorName)}
-        </span>
-      </div>
+        </AvatarFallback>
+      </Avatar>
 
       {/* Conteúdo */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm">
+        <p className="text-sm leading-snug">
           {activity.humanMessage}
         </p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {timeAgo}
-        </p>
+
+        <div className="flex items-center gap-2 mt-1">
+          {activity.projectName && (
+            <span className="text-xs font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+              {activity.projectName}
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">
+            {timeAgo}
+          </span>
+        </div>
       </div>
     </div>
   );

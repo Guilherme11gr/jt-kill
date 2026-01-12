@@ -45,10 +45,12 @@ export interface ActivityItem {
   action: string;
   actorId: string;
   actorName: string | null;
+  actorAvatar: string | null;
   targetType: string | null;
   targetId: string | null;
   targetTitle: string | null;
   targetReadableId: string | null;
+  projectName: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
   humanMessage: string;
@@ -119,7 +121,7 @@ export function useMyTasks(options?: { includeDone?: boolean; teamView?: boolean
  */
 export function useActiveProjects() {
   const orgId = useCurrentOrgId();
-  
+
   return useQuery({
     queryKey: queryKeys.dashboard.activeProjects(orgId),
     queryFn: fetchActiveProjects,
@@ -133,7 +135,7 @@ export function useActiveProjects() {
  */
 export function useActivityFeed(hours = 24) {
   const orgId = useCurrentOrgId();
-  
+
   return useQuery({
     queryKey: queryKeys.dashboard.activity(orgId, hours),
     queryFn: () => fetchActivity(hours),

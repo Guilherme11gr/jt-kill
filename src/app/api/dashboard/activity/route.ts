@@ -14,10 +14,12 @@ interface ActivityItem {
   action: string;
   actorId: string;
   actorName: string | null;
+  actorAvatar: string | null;
   targetType: string | null;
   targetId: string | null;
   targetTitle: string | null;
   targetReadableId: string | null;
+  projectName: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: Date;
   humanMessage: string;
@@ -45,15 +47,10 @@ export async function GET(request: NextRequest) {
     const since = new Date();
     since.setHours(since.getHours() - hours);
 
-    // 3. Buscar projetos onde o usuário participa (assignee ou criou tasks)
-    const projectIds = await getUserProjectIds(tenantId, userId);
-
-    if (projectIds.length === 0) {
-      return jsonSuccess({ items: [], total: 0 });
-    }
-
-    // 4. OPTIMIZED: Single raw SQL query with JOINs
+    // 3. OPTIMIZED: Single raw SQL query with JOINs
     // Gets audit logs + user names + task details in one query
+    // CHANGE: Removed projectIds filter to show ALL org activity
+    // CHANGE: Exclude current user's activity
     interface AuditLogRow {
       id: string;
       user_id: string;
@@ -63,9 +60,11 @@ export async function GET(request: NextRequest) {
       metadata: Record<string, unknown> | null;
       created_at: Date;
       display_name: string | null;
+      avatar_url: string | null;
       task_title: string | null;
       task_local_id: number | null;
       project_key: string | null;
+      project_name: string | null;
     }
 
     const logs = await prisma.$queryRaw<AuditLogRow[]>`
@@ -78,9 +77,11 @@ export async function GET(request: NextRequest) {
         a.metadata,
         a.created_at,
         u.display_name,
+        u.avatar_url,
         t.title as task_title,
         t.local_id as task_local_id,
-        p.key as project_key
+        p.key as project_key,
+        p.name as project_name
       FROM public.audit_logs a
       LEFT JOIN public.user_profiles u ON a.user_id = u.id AND u.org_id = ${tenantId}::uuid
       LEFT JOIN public.tasks t ON a.target_id = t.id
@@ -88,11 +89,7 @@ export async function GET(request: NextRequest) {
       WHERE a.org_id = ${tenantId}::uuid
         AND a.created_at >= ${since}
         AND a.target_type = 'task'
-        AND a.target_id IN (
-          SELECT id FROM public.tasks 
-          WHERE org_id = ${tenantId}::uuid 
-            AND project_id = ANY(${projectIds}::uuid[])
-        )
+        AND a.user_id != ${userId}::uuid
       ORDER BY a.created_at DESC
       LIMIT ${limit}
     `;
@@ -101,7 +98,7 @@ export async function GET(request: NextRequest) {
       return jsonSuccess({ items: [], total: 0 });
     }
 
-    // 5. Format activities with human messages
+    // 4. Format activities with human messages
     const items: ActivityItem[] = logs.map((log) => {
       const actorName = log.display_name || 'Alguém';
       const readableId = log.project_key && log.task_local_id
@@ -120,10 +117,12 @@ export async function GET(request: NextRequest) {
         action: log.action,
         actorId: log.user_id,
         actorName,
+        actorAvatar: log.avatar_url || null,
         targetType: log.target_type,
         targetId: log.target_id,
         targetTitle: log.task_title || null,
         targetReadableId: readableId,
+        projectName: log.project_name || null,
         metadata: log.metadata,
         createdAt: log.created_at,
         humanMessage,

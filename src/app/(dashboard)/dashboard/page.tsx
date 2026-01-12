@@ -67,7 +67,7 @@ export default function DashboardPage() {
   const {
     data: activityData,
     isLoading: isLoadingActivity,
-  } = useActivityFeed(24);
+  } = useActivityFeed();
 
   const blockedTasks = blockedTasksData?.items ?? [];
   const tasks = myTasksData?.items ?? [];
@@ -139,9 +139,9 @@ export default function DashboardPage() {
         )}
 
         {/* BLOCO 1: Bloqueios da Equipe (só aparece se houver) */}
-        <BlockedBlock 
-          tasks={blockedTasks} 
-          teamView={true} 
+        <BlockedBlock
+          tasks={blockedTasks}
+          teamView={true}
         />
 
         {/* BLOCO 2: Hoje (minhas tasks) */}

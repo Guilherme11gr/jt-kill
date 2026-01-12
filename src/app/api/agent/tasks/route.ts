@@ -9,7 +9,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { extractAgentAuth } from '@/shared/http/agent-auth';
 import { agentList, agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
-import { taskRepository, featureRepository } from '@/infra/adapters/prisma';
+import { taskRepository, featureRepository, auditLogRepository } from '@/infra/adapters/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,6 +85,12 @@ export async function GET(request: NextRequest) {
 
 // ============ POST - Create Task ============
 
+const agentMetadataSchema = z.object({
+  changeReason: z.string().optional(),
+  aiReasoning: z.string().optional(),
+  relatedTaskIds: z.array(z.string().uuid()).optional(),
+}).optional();
+
 const createTaskSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   featureId: z.string().uuid('Invalid feature ID'),
@@ -92,11 +98,12 @@ const createTaskSchema = z.object({
   type: z.enum(['TASK', 'BUG']).default('TASK'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
   status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'DONE']).default('BACKLOG'),
+  _metadata: agentMetadataSchema,
 });
 
 export async function POST(request: NextRequest) {
   try {
-    const { orgId } = await extractAgentAuth();
+    const { orgId, userId, agentName } = await extractAgentAuth();
 
     const body = await request.json();
     const parsed = createTaskSchema.safeParse(body);
@@ -105,7 +112,7 @@ export async function POST(request: NextRequest) {
       return agentError('VALIDATION_ERROR', parsed.error.issues[0].message, 400);
     }
 
-    const { title, featureId, description, type, priority, status } = parsed.data;
+    const { title, featureId, description, type, priority, status, _metadata: agentMetadata } = parsed.data;
 
     // Verify feature exists
     const feature = await featureRepository.findById(featureId, orgId);
@@ -122,6 +129,30 @@ export async function POST(request: NextRequest) {
       status,
       orgId,
     });
+
+    // Create audit log for task creation
+    await auditLogRepository.log({
+      orgId,
+      userId,
+      action: 'task.created',
+      targetType: 'task',
+      targetId: task.id,
+      metadata: {
+        source: 'agent',
+        agentName,
+        taskTitle: title,
+        localId: task.localId,
+        type,
+        priority,
+        status,
+        featureId,
+        ...(agentMetadata && {
+          changeReason: agentMetadata.changeReason,
+          aiReasoning: agentMetadata.aiReasoning,
+          relatedTaskIds: agentMetadata.relatedTaskIds,
+        }),
+      }
+    }).catch(() => {}); // Best-effort, don't fail task creation
 
     return agentSuccess(task, 201);
   } catch (error) {

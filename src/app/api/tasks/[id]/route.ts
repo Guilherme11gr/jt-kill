@@ -3,11 +3,12 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { taskRepository } from '@/infra/adapters/prisma';
+import { taskRepository, auditLogRepository } from '@/infra/adapters/prisma';
 import { updateTask } from '@/domain/use-cases/tasks/update-task';
 import { deleteTask } from '@/domain/use-cases/tasks/delete-task';
 import type { StoryPoints } from '@/shared/types';
 import { updateTaskSchema } from '@/shared/utils';
+import { extractUserId } from '@/shared/http/auth.helpers';
 
 /**
  * GET /api/tasks/[id] - Get task with relations
@@ -41,6 +42,7 @@ export async function PATCH(
     const { id } = await params;
     const supabase = await createClient();
     const { tenantId } = await extractAuthenticatedTenant(supabase);
+    const userId = await extractUserId(supabase);
 
     const body = await request.json();
     if (!body || Object.keys(body).length === 0) {
@@ -54,10 +56,10 @@ export async function PATCH(
       } as Record<string, unknown>);
     }
 
-    const task = await updateTask(id, tenantId, {
+    const task = await updateTask(id, tenantId, userId, {
       ...parsed.data,
       points: parsed.data.points as StoryPoints | null | undefined,
-    }, { taskRepository });
+    }, { taskRepository, auditLogRepository });
     return jsonSuccess(task);
 
   } catch (error) {

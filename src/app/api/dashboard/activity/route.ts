@@ -83,7 +83,17 @@ export async function GET(request: NextRequest) {
         p.key as project_key,
         p.name as project_name
       FROM public.audit_logs a
-      LEFT JOIN public.user_profiles u ON a.user_id = u.id AND u.org_id = ${tenantId}::uuid
+      -- TODO: Temporary fix for "Split Identity" issue.
+      -- Users might act in Org A but only have a profile in Org B.
+      -- We prioritized current Org profile, but fallback to ANY profile to ensure we show a name.
+      -- Ideally, display_name should be on the global User table or profiles should be strictly provisioned.
+      LEFT JOIN LATERAL (
+        SELECT display_name, avatar_url
+        FROM public.user_profiles
+        WHERE id = a.user_id
+        ORDER BY CASE WHEN org_id = a.org_id THEN 0 ELSE 1 END, created_at DESC
+        LIMIT 1
+      ) u ON true
       LEFT JOIN public.tasks t ON a.target_id = t.id
       LEFT JOIN public.projects p ON t.project_id = p.id
       WHERE a.org_id = ${tenantId}::uuid
@@ -100,14 +110,21 @@ export async function GET(request: NextRequest) {
 
     // 4. Format activities with human messages
     const items: ActivityItem[] = logs.map((log) => {
-      const actorName = log.display_name || 'Alguém';
+      // Fallback to metadata if joins fail (e.g. deleted task/user)
+      const actorName = log.display_name || (log.metadata as any)?.actorName || 'Alguém';
+
+      // Try to get task info from Relation -> Metadata -> Generic ID
+      const meta = log.metadata as Record<string, any> | null;
+      const targetTitle = log.task_title || meta?.taskTitle || meta?.title || null;
+
       const readableId = log.project_key && log.task_local_id
         ? `${log.project_key}-${log.task_local_id}`
-        : null;
+        : (meta?.localId && meta?.projectKey ? `${meta.projectKey}-${meta.localId}` : null);
 
       const humanMessage = formatHumanMessage(
         log.action,
         actorName,
+        targetTitle || 'uma task', // Use title if available, otherwise generic
         readableId,
         log.metadata
       );
@@ -120,7 +137,7 @@ export async function GET(request: NextRequest) {
         actorAvatar: log.avatar_url || null,
         targetType: log.target_type,
         targetId: log.target_id,
-        targetTitle: log.task_title || null,
+        targetTitle,
         targetReadableId: readableId,
         projectName: log.project_name || null,
         metadata: log.metadata,
@@ -143,14 +160,21 @@ export async function GET(request: NextRequest) {
 /**
  * Formata mensagem humana para cada tipo de ação
  */
+/**
+ * Formata mensagem humana para cada tipo de ação
+ */
 function formatHumanMessage(
   action: string,
   actorName: string | null,
+  targetTitle: string | null,
   taskId: string | null,
   metadata: Record<string, unknown> | null
 ): string {
   const actor = actorName || 'Alguém';
-  const task = taskId || 'uma task';
+  // Prefer Title > ID > Generic
+  const task = targetTitle
+    ? `"${targetTitle}"`
+    : (taskId || 'uma task');
 
   switch (action) {
     case 'task.status.changed': {

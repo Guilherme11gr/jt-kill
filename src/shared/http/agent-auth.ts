@@ -16,6 +16,8 @@ import { timingSafeEqual } from 'crypto';
 
 export interface AgentAuthContext {
   orgId: string;
+  userId: string; // User ID for audit trail (e.g., AI agent user)
+  agentName: string; // Agent name for audit metadata (e.g., 'Gepeto')
   keyPrefix: string; // Last 4 chars for logging
 }
 
@@ -52,8 +54,10 @@ export async function extractAgentAuth(): Promise<AgentAuthContext> {
   // Validate against environment variable
   const validKey = process.env.AGENT_API_KEY;
   const orgId = process.env.AGENT_ORG_ID;
+  const userId = process.env.AGENT_USER_ID; // User ID for audit logs
+  const agentName = process.env.AGENT_NAME || 'Gepeto'; // Agent name for audit metadata
 
-  if (!validKey || !orgId) {
+  if (!validKey || !orgId || !userId) {
     throw new AgentAuthError('Agent API not configured', 503);
   }
 
@@ -67,6 +71,8 @@ export async function extractAgentAuth(): Promise<AgentAuthContext> {
 
   return {
     orgId,
+    userId,
+    agentName,
     keyPrefix: key.slice(-4),
   };
 }

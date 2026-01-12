@@ -10,7 +10,8 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { extractAgentAuth } from '@/shared/http/agent-auth';
 import { agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
-import { taskRepository } from '@/infra/adapters/prisma';
+import { taskRepository, auditLogRepository } from '@/infra/adapters/prisma';
+import { updateTask } from '@/domain/use-cases/tasks/update-task';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,6 +42,12 @@ export async function GET(
 
 // ============ PATCH - Update Task ============
 
+const agentMetadataSchema = z.object({
+  changeReason: z.string().optional(),
+  aiReasoning: z.string().optional(),
+  relatedTaskIds: z.array(z.string().uuid()).optional(),
+}).optional();
+
 const updateTaskSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -49,6 +56,8 @@ const updateTaskSchema = z.object({
   status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'DONE']).optional(),
   blocked: z.boolean().optional(),
   assigneeId: z.string().uuid().nullable().optional(),
+  // Agent-provided metadata (optional)
+  _metadata: agentMetadataSchema,
 });
 
 export async function PATCH(
@@ -56,17 +65,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { orgId } = await extractAgentAuth();
+    const { orgId, userId, agentName } = await extractAgentAuth();
     const { id } = await params;
 
     if (!z.string().uuid().safeParse(id).success) {
       return agentError('VALIDATION_ERROR', 'Invalid task ID', 400);
-    }
-
-    // Verify task exists
-    const existing = await taskRepository.findById(id, orgId);
-    if (!existing) {
-      return agentError('NOT_FOUND', 'Task not found', 404);
     }
 
     const body = await request.json();
@@ -76,16 +79,27 @@ export async function PATCH(
       return agentError('VALIDATION_ERROR', parsed.error.issues[0].message, 400);
     }
 
-    // Filter out undefined values
+    // Extract metadata before filtering
+    const agentMetadata = parsed.data._metadata;
+
+    // Filter out undefined values and _metadata
     const updateData = Object.fromEntries(
-      Object.entries(parsed.data).filter(([_, v]) => v !== undefined)
+      Object.entries(parsed.data).filter(([k, v]) => k !== '_metadata' && v !== undefined)
     );
 
     if (Object.keys(updateData).length === 0) {
       return agentError('VALIDATION_ERROR', 'No fields to update', 400);
     }
 
-    const updated = await taskRepository.update(id, orgId, updateData);
+    // Use updateTask use case with agent context for rich audit logs
+    const updated = await updateTask(id, orgId, userId, updateData, { 
+      taskRepository,
+      auditLogRepository
+    }, {
+      source: 'agent',
+      agentName,
+      metadata: agentMetadata,
+    });
 
     return agentSuccess(updated);
   } catch (error) {

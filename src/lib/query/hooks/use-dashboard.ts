@@ -133,7 +133,7 @@ export function useActiveProjects() {
 /**
  * Fetch recent activity on user's tasks (by others)
  */
-export function useActivityFeed(hours = 24) {
+export function useActivityFeed(hours = 168) {
   const orgId = useCurrentOrgId();
 
   return useQuery({

@@ -139,7 +139,7 @@ export function useCreateDoc() {
 }
 
 /**
- * Update a doc
+ * Update a doc with optimistic update for instant UX
  */
 export function useUpdateDoc(projectId: string) {
   const queryClient = useQueryClient();
@@ -147,19 +147,67 @@ export function useUpdateDoc(projectId: string) {
 
   return useMutation({
     mutationFn: updateDoc,
+    onMutate: async (input) => {
+      // 1. Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.projectDocs.list(orgId, projectId) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.projectDocs.detail(orgId, input.id) });
+
+      // 2. Snapshot previous values for rollback
+      const previousList = queryClient.getQueryData<ProjectDoc[]>(
+        queryKeys.projectDocs.list(orgId, projectId)
+      );
+      const previousDetail = queryClient.getQueryData<ProjectDoc>(
+        queryKeys.projectDocs.detail(orgId, input.id)
+      );
+
+      // 3. Optimistically update list cache
+      queryClient.setQueryData<ProjectDoc[]>(
+        queryKeys.projectDocs.list(orgId, projectId),
+        (old) => old?.map(doc => 
+          doc.id === input.id 
+            ? { ...doc, ...input, updatedAt: new Date().toISOString() } 
+            : doc
+        )
+      );
+
+      // 4. Optimistically update detail cache
+      queryClient.setQueryData<ProjectDoc>(
+        queryKeys.projectDocs.detail(orgId, input.id),
+        (old) => old ? { ...old, ...input, updatedAt: new Date().toISOString() } : old
+      );
+
+      return { previousList, previousDetail };
+    },
     onSuccess: (data) => {
+      // Replace optimistic data with real server data
+      queryClient.setQueryData<ProjectDoc>(
+        queryKeys.projectDocs.detail(orgId, data.id),
+        data
+      );
       smartInvalidate(queryClient, queryKeys.projectDocs.list(orgId, projectId));
-      smartInvalidate(queryClient, queryKeys.projectDocs.detail(orgId, data.id));
       toast.success('Documento atualizado');
     },
-    onError: () => {
+    onError: (_, input, context) => {
+      // Rollback to previous values
+      if (context?.previousList) {
+        queryClient.setQueryData(
+          queryKeys.projectDocs.list(orgId, projectId),
+          context.previousList
+        );
+      }
+      if (context?.previousDetail) {
+        queryClient.setQueryData(
+          queryKeys.projectDocs.detail(orgId, input.id),
+          context.previousDetail
+        );
+      }
       toast.error('Erro ao atualizar documento');
     },
   });
 }
 
 /**
- * Delete a doc
+ * Delete a doc with optimistic update for instant removal from UI
  */
 export function useDeleteDoc(projectId: string) {
   const queryClient = useQueryClient();
@@ -167,13 +215,39 @@ export function useDeleteDoc(projectId: string) {
 
   return useMutation({
     mutationFn: deleteDoc,
+    onMutate: async (docId) => {
+      // 1. Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.projectDocs.list(orgId, projectId) });
+
+      // 2. Snapshot previous value for rollback
+      const previousList = queryClient.getQueryData<ProjectDoc[]>(
+        queryKeys.projectDocs.list(orgId, projectId)
+      );
+
+      // 3. Optimistically remove from list immediately
+      queryClient.setQueryData<ProjectDoc[]>(
+        queryKeys.projectDocs.list(orgId, projectId),
+        (old) => old?.filter(doc => doc.id !== docId)
+      );
+
+      // 4. Remove detail cache
+      queryClient.removeQueries({ queryKey: queryKeys.projectDocs.detail(orgId, docId) });
+
+      return { previousList, deletedId: docId };
+    },
     onSuccess: () => {
-      smartInvalidateImmediate(queryClient, queryKeys.projectDocs.list(orgId, projectId));
+      // No need to invalidate - optimistic update already done
       toast.success('Documento excluído');
     },
-    onError: () => {
+    onError: (_, __, context) => {
+      // Rollback to previous list
+      if (context?.previousList) {
+        queryClient.setQueryData(
+          queryKeys.projectDocs.list(orgId, projectId),
+          context.previousList
+        );
+      }
       toast.error('Erro ao excluir documento');
     },
   });
 }
-

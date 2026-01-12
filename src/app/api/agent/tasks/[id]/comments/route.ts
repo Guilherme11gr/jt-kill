@@ -1,16 +1,48 @@
 /**
  * Agent API - Task Comments
  *
+ * GET /api/agent/tasks/:id/comments - List comments for a task
  * POST /api/agent/tasks/:id/comments - Add a comment to a task
  */
 
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { extractAgentAuth } from '@/shared/http/agent-auth';
-import { agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
+import { agentSuccess, agentError, agentList, handleAgentError } from '@/shared/http/agent-responses';
 import { taskRepository, commentRepository } from '@/infra/adapters/prisma';
 
 export const dynamic = 'force-dynamic';
+
+// ============ GET - List Comments ============
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { orgId } = await extractAgentAuth();
+    const { id: taskId } = await params;
+
+    if (!z.string().uuid().safeParse(taskId).success) {
+      return agentError('VALIDATION_ERROR', 'Invalid task ID', 400);
+    }
+
+    // Verify task exists and belongs to org
+    const task = await taskRepository.findById(taskId, orgId);
+    if (!task) {
+      return agentError('NOT_FOUND', 'Task not found', 404);
+    }
+
+    // List comments ordered by creation date
+    const comments = await commentRepository.findByTaskId(taskId, orgId);
+
+    return agentList(comments, comments.length);
+  } catch (error) {
+    return handleAgentError(error);
+  }
+}
+
+// ============ POST - Create Comment ============
 
 const createCommentSchema = z.object({
   content: z.string().min(1, 'Content is required'),

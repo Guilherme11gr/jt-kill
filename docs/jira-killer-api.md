@@ -164,7 +164,62 @@ Sempre incluir:
 - `assigneeId`: `"b7d65a91-7cb6-4583-b46d-4f64713ffae2"` (Gepeto)
 - `description`: Atualizar com detalhes da implementação
 
-### 📋 Formato da Descrição Atualizada (OBRIGATÓRIO)
+### � Metadados de Agent (_metadata) - OBRIGATÓRIO
+
+**Em TODAS as chamadas de mutação (POST/PATCH/DELETE)**, inclua o campo `_metadata` para rastreabilidade:
+
+```json
+{
+  "status": "DONE",
+  "description": "...",
+  "_metadata": {
+    "source": "agent",
+    "agentName": "Copilot",
+    "changeReason": "Implementação da feature X conforme especificação",
+    "aiReasoning": "Análise: código seguiu padrões de arquitetura clean"
+  }
+}
+```
+
+**Campos do _metadata:**
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `source` | string | ✅ | Sempre `"agent"` para chamadas de AI |
+| `agentName` | string | ✅ | Nome do agent (ex: `"Copilot"`, `"Gepeto"`, `"Claude"`) |
+| `changeReason` | string | ✅ | Motivo da mudança em linguagem humana |
+| `aiReasoning` | string | ⚪ | Raciocínio/análise que levou à decisão (opcional) |
+| `relatedTaskIds` | string[] | ⚪ | IDs de tasks relacionadas (opcional) |
+
+**Exemplo completo de PATCH:**
+
+```bash
+cat > /tmp/update.json <<'EOF'
+{
+  "status": "DONE",
+  "description": "## Implementacao Realizada\n\nArquivos criados:\n- src/feature.ts\n\nQuality Gates: PASS",
+  "_metadata": {
+    "source": "agent",
+    "agentName": "Copilot",
+    "changeReason": "Task JKILL-123 implementada com sucesso",
+    "aiReasoning": "Seguiu arquitetura clean, testes passando, typecheck OK"
+  }
+}
+EOF
+
+curl -X PATCH "https://jt-kill.vercel.app/api/agent/tasks/TASK_UUID" \
+  -H "Authorization: Bearer agk_5f8d2e1b9c3a4b7d8e9f0a1b2c3d4e5f" \
+  -H "Content-Type: application/json; charset=utf-8" \
+  --data-binary @/tmp/update.json
+```
+
+**Por que usar _metadata?**
+- Audit logs registram quem/por que mudou cada task
+- Dashboard de atividades mostra ações do agent
+- Rastreabilidade completa de decisoes automatizadas
+- Facilita debug quando algo da errado
+
+### �📋 Formato da Descrição Atualizada (OBRIGATÓRIO)
 
 Ao finalizar uma task, **SEMPRE** enriqueça a descrição com detalhes completos.
 Isso cria histórico valioso para rastreabilidade e aprendizado.
@@ -402,6 +457,68 @@ Query params:
 ```
 GET /api/agent/epics/:id
 ```
+
+### Buscar Epic Completo (Agregado) ⭐ RECOMENDADO
+```
+GET /api/agent/epics/:id/full
+```
+
+Retorna epic com **todas as features, tasks e stats agregadas** em uma unica chamada.
+
+**Beneficios:**
+- **75% mais rapido** que fazer chamadas separadas (1 call vs 4 calls)
+- Ideal para agents que precisam de contexto completo
+- Stats pre-calculadas (nao precisa contar no client)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "epic": {
+      "id": "uuid",
+      "title": "Nome do Epic",
+      "description": "Descricao",
+      "status": "OPEN",
+      "projectId": "uuid",
+      "project": { "id": "uuid", "key": "JKILL", "name": "Projeto" }
+    },
+    "features": [
+      {
+        "id": "uuid",
+        "title": "Feature 1",
+        "status": "DOING",
+        "health": "healthy",
+        "tasks": [
+          {
+            "id": "uuid",
+            "readableId": "JKILL-123",
+            "title": "Task",
+            "status": "TODO",
+            "type": "TASK",
+            "priority": "HIGH",
+            "blocked": false,
+            "assignee": { "id": "uuid", "displayName": "User", "avatarUrl": null }
+          }
+        ]
+      }
+    ],
+    "stats": {
+      "totalFeatures": 15,
+      "totalTasks": 133,
+      "featuresByStatus": { "BACKLOG": 7, "TODO": 0, "DOING": 3, "DONE": 5 },
+      "tasksByStatus": { "BACKLOG": 62, "TODO": 0, "DOING": 9, "REVIEW": 9, "DONE": 53 },
+      "tasksByPriority": { "LOW": 20, "MEDIUM": 80, "HIGH": 30, "CRITICAL": 3 },
+      "blockedTasks": 2
+    }
+  }
+}
+```
+
+**Quando usar:**
+- Precisa entender contexto completo de um epic
+- Vai trabalhar em multiplas tasks do mesmo epic
+- Quer evitar multiplas chamadas de API
 
 ---
 

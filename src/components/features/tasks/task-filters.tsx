@@ -98,10 +98,24 @@ export function TaskFilters({
   }, [epics, filters.projectId]);
 
   // Filter features based on selected epic
+  // SPECIAL CASE: When filtering by assignee (me/specific user) without epic,
+  // show all features from selected project to allow filtering across epics
   const filteredFeatures = useMemo(() => {
-    if (filters.epicId === 'all') return [];
-    return features.filter(f => f.epicId === filters.epicId);
-  }, [features, filters.epicId]);
+    // If epic is selected, filter features normally
+    if (filters.epicId !== 'all') {
+      return features.filter(f => f.epicId === filters.epicId);
+    }
+    
+    // If no epic but has assignee filter and project selected,
+    // show all features from that project (user may have tasks in multiple epics)
+    if (filters.assigneeId !== 'all' && filters.projectId !== 'all') {
+      const projectEpicIds = filteredEpics.map(e => e.id);
+      return features.filter(f => projectEpicIds.includes(f.epicId));
+    }
+    
+    // Default: no features if no epic selected
+    return [];
+  }, [features, filters.epicId, filters.assigneeId, filters.projectId, filteredEpics]);
 
   // Check if hierarchy filters are active
   const hasHierarchyFilter = filters.projectId !== 'all' || filters.epicId !== 'all' || filters.featureId !== 'all';
@@ -159,7 +173,8 @@ export function TaskFilters({
 
   // Determine states
   const isEpicDisabled = filters.projectId === 'all';
-  const isFeatureDisabled = filters.epicId === 'all';
+  // Feature is enabled if: (1) epic is selected OR (2) assignee filter + project selected
+  const isFeatureDisabled = filters.epicId === 'all' && !(filters.assigneeId !== 'all' && filters.projectId !== 'all');
 
   // Get selected names for breadcrumb
   const selectedProject = projects.find(p => p.id === filters.projectId);
@@ -262,11 +277,19 @@ export function TaskFilters({
               )}>
                 <div className="flex items-center gap-2 truncate">
                   <Box className="w-4 h-4 opacity-50 flex-shrink-0" />
-                  <SelectValue placeholder={isFeatureDisabled ? "Escolha um Epic" : "Selecione a Feature"} />
+                  <SelectValue placeholder={
+                    isFeatureDisabled 
+                      ? (filters.projectId === 'all' ? "Escolha um Projeto" : "Escolha um Epic")
+                      : "Selecione a Feature"
+                  } />
                 </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas Features</SelectItem>
+                <SelectItem value="all">
+                  {filters.assigneeId !== 'all' && filters.epicId === 'all' 
+                    ? "Todas Features do Projeto" 
+                    : "Todas Features"}
+                </SelectItem>
                 {filteredFeatures.map((f) => (
                   <SelectItem key={f.id} value={f.id}>
                     <span className="truncate max-w-[500px] block" title={f.title}>{f.title}</span>

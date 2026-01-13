@@ -132,7 +132,7 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 md:mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">Projetos</h1>
           <p className="text-muted-foreground">Gerencie seus projetos e tarefas</p>
@@ -232,7 +232,7 @@ export default function ProjectsPage() {
           }
         />
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((project) => (
             <ProjectCard
               key={project.id}

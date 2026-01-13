@@ -131,7 +131,7 @@ export function TaskDetailModal({
 
         {/* Header Section */}
         <div className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b shadow-sm">
-          <div className="p-5 space-y-4">
+          <div className="p-6 space-y-4">
             {/* Breadcrumb & ID */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap leading-relaxed">
@@ -219,7 +219,7 @@ export function TaskDetailModal({
             {task.modules && task.modules.length > 0 && (
               <>
                 <Separator orientation="vertical" className="h-4" />
-                <div className="flex items-center gap-1.5 text-muted-foreground/80 flex-wrap">
+                <div className="flex items-center gap-2 text-muted-foreground/80 flex-wrap">
                   <Layers className="h-3.5 w-3.5 shrink-0" />
                   {task.modules.map((mod) => (
                     <Badge key={mod} variant="secondary" className="text-[10px] h-5 px-1.5">{mod}</Badge>
@@ -280,7 +280,7 @@ export function TaskDetailModal({
         </div>
 
         {/* Content - Scrollable */}
-        <div className="p-5 space-y-8 pb-20">
+        <div className="p-6 space-y-8 pb-20">
           {/* Description */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium flex items-center gap-2 text-foreground/80">

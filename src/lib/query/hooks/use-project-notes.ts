@@ -282,8 +282,16 @@ export function useConvertNote(projectId: string) {
   return useMutation({
     mutationFn: convertNote,
     onSuccess: (data) => {
-      smartInvalidate(queryClient, queryKeys.projectNotes.lists(orgId));
-      smartInvalidate(queryClient, queryKeys.features.all(orgId));
+      // Invalidate notes lists
+      smartInvalidateImmediate(queryClient, queryKeys.projectNotes.lists(orgId));
+      
+      // Invalidate features lists (both specific epic and all lists)
+      smartInvalidateImmediate(queryClient, queryKeys.features.lists(orgId));
+      smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
+      
+      // Invalidate epic detail to update counts
+      smartInvalidate(queryClient, queryKeys.epics.all(orgId));
+      
       toast.success(`Ideia convertida em Feature "${data.feature.title}"`);
     },
     onError: (error: Error) => {

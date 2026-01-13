@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { FileText, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,9 @@ export function DocContextSelector({
   onSelectionChange,
   disabled = false,
 }: DocContextSelectorProps) {
+  // ✅ Add state control to fix popover not closing properly
+  const [open, setOpen] = useState(false);
+  
   const { data: docs = [], isLoading } = useProjectDocs(projectId);
 
   const selectedSet = useMemo(
@@ -59,7 +62,7 @@ export function DocContextSelector({
   if (!projectId) return null;
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -121,7 +124,13 @@ export function DocContextSelector({
                   <button
                     key={doc.id}
                     type="button"
-                    onClick={() => toggleDoc(doc.id)}
+                    onClick={() => {
+                      toggleDoc(doc.id);
+                      // Auto-close on selection for better UX
+                      if (!selectedSet.has(doc.id)) {
+                        setTimeout(() => setOpen(false), 150);
+                      }
+                    }}
                     className={cn(
                       'w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent transition-colors',
                       selectedSet.has(doc.id) && 'bg-accent/50'

@@ -22,11 +22,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FeatureHealthBadge } from "@/components/features/features/feature-health-badge";
 import { cn } from "@/lib/utils";
 import type { FeatureHealth } from "@/shared/types/project.types";
 import Link from "next/link";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useUpdateFeature } from "@/lib/query";
 
 // Reuse the type matching the one in page.tsx but expanded with assignee data from our API update
 export interface FeatureTableItem {
@@ -64,6 +72,7 @@ export function FeaturesTableView({
   onEdit,
   onDelete
 }: FeaturesTableViewProps) {
+  const updateFeature = useUpdateFeature();
 
   // Helper to find active agents (assignees on DOING tasks)
   const getActiveAgents = (tasks: FeatureTableItem['tasks']) => {
@@ -136,12 +145,26 @@ export function FeaturesTableView({
                   </div>
                 </td>
                 <td className="p-4 align-middle">
-                  <Badge variant={
-                    feature.status === 'DONE' ? 'default' :
-                      feature.status === 'DOING' ? 'secondary' : 'outline'
-                  } className="capitalize text-xs font-normal">
-                    {feature.status.toLowerCase()}
-                  </Badge>
+                  <Select
+                    value={feature.status}
+                    onValueChange={(newStatus) => {
+                      updateFeature.mutate({
+                        id: feature.id,
+                        data: { status: newStatus as any },
+                      });
+                    }}
+                    disabled={updateFeature.isPending}
+                  >
+                    <SelectTrigger className="h-7 w-[110px] text-xs font-normal capitalize">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="BACKLOG">Backlog</SelectItem>
+                      <SelectItem value="TODO">To Do</SelectItem>
+                      <SelectItem value="DOING">Doing</SelectItem>
+                      <SelectItem value="DONE">Done</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </td>
                 <td className="p-4 align-middle">
                   {feature.health && (

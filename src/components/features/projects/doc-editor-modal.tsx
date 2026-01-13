@@ -12,8 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MarkdownEditor } from '@/components/ui/markdown-editor';
+import { TagSelector } from '@/components/features/tags/tag-selector';
 import { useCreateDoc, useUpdateDoc, type ProjectDoc } from '@/lib/query/hooks/use-project-docs';
 import { Loader2 } from 'lucide-react';
+import type { TagInfo } from '@/shared/types/tag.types';
 
 interface DocEditorModalProps {
   open: boolean;
@@ -33,6 +35,7 @@ export function DocEditorModal({
 }: DocEditorModalProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [selectedTags, setSelectedTags] = useState<TagInfo[]>([]);
 
   const createDoc = useCreateDoc();
   const updateDoc = useUpdateDoc(projectId);
@@ -46,9 +49,16 @@ export function DocEditorModal({
       if (doc) {
         setTitle(doc.title);
         setContent(doc.content);
+        // Load existing tags if doc has tags
+        setSelectedTags(doc.tags?.map(t => ({
+          id: t.tag.id,
+          name: t.tag.name,
+          color: '#6b7280', // Default gray for doc tags
+        })) || []);
       } else {
         setTitle('');
         setContent('');
+        setSelectedTags([]);
       }
     }
   }, [open, doc]);
@@ -112,6 +122,21 @@ export function DocEditorModal({
               placeholder="# Título&#10;&#10;Escreva o conteúdo do documento..."
               minHeight="400px"
             />
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Tags (opcional)</Label>
+            <TagSelector
+              projectId={projectId}
+              selectedTags={selectedTags}
+              onTagsChange={setSelectedTags}
+              disabled={isPending}
+              placeholder="Selecionar tags..."
+            />
+            <p className="text-xs text-muted-foreground">
+              Tags ajudam a organizar e filtrar documentos do projeto
+            </p>
           </div>
 
           {/* Actions */}

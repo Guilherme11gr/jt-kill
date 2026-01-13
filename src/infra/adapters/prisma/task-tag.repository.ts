@@ -2,7 +2,7 @@ import { PrismaClient, ProjectTag as PrismaProjectTag } from '@prisma/client';
 import type { TaskTag, TaskTagWithCounts, TagInfo, CreateTaskTagInput, UpdateTaskTagInput } from '@/shared/types/tag.types';
 import { NotFoundError, ValidationError } from '@/shared/errors';
 
-function toDomain(raw: PrismaTaskTag): TaskTag {
+function toDomain(raw: PrismaProjectTag): TaskTag {
   return {
     id: raw.id,
     orgId: raw.orgId,
@@ -129,7 +129,7 @@ export class TaskTagRepository {
 
       // Validate tags in same query (if provided)
       if (tagIds.length > 0) {
-        const validTagCount = await tx.taskTag.count({
+        const validTagCount = await tx.projectTag.count({
           where: { id: { in: tagIds }, projectId: task.projectId, orgId },
         });
         if (validTagCount !== tagIds.length) {
@@ -157,13 +157,13 @@ export class TaskTagRepository {
       throw new NotFoundError('Tarefa não encontrada');
     }
 
-    await this.prisma.projectTagAssignment.deleteMany({
+    await this.prisma.taskTagAssignment.deleteMany({
       where: { taskId, tagId },
     });
   }
 
   async getTagsForTask(taskId: string): Promise<TagInfo[]> {
-    const assignments = await this.prisma.projectTagAssignment.findMany({
+    const assignments = await this.prisma.taskTagAssignment.findMany({
       where: { taskId },
       select: {
         tag: {
@@ -192,7 +192,7 @@ export class TaskTagRepository {
 
       // Validate tags in same transaction (if provided)
       if (tagIds.length > 0) {
-        const validTagCount = await tx.taskTag.count({
+        const validTagCount = await tx.projectTag.count({
           where: { id: { in: tagIds }, projectId, orgId },
         });
         if (validTagCount !== tagIds.length) {

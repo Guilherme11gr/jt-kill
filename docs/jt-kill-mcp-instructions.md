@@ -1,4 +1,16 @@
-🤖 Guia do MCP Server para AI Agents
+# 🤖 Guia do MCP Server para AI Agents
+
+⚠️ **OBRIGATÓRIO**: Leia e compreenda este documento ANTES de executar qualquer feature.  
+O MCP do JT-Kill é a interface nativa de gerenciamento de tasks e DEVE ser usado para:
+- ✅ Pegar tasks do backlog (list_tasks, get_task)
+- ✅ Atualizar status e descrições (update_task)
+- ✅ Documentar implementações com quality gates
+- ✅ Operações em massa (bulk_update_tasks, block_tasks)
+
+**Não use API HTTP diretamente** - O MCP abstrai toda comunicação e garante consistência.
+
+---
+
 Este guia ensina como usar o MCP Server do JT-Kill para gerenciar projetos de forma nativa.
 
 🚀 Quick Start

@@ -1,8 +1,11 @@
 /**
  * DocTag Repository - Prisma Adapter
  * Handles CRUD operations for document tags and their assignments
+ * 
+ * Note: After tag unification, this uses ProjectTag model but keeps DocTag interface
+ * for backward compatibility. DocTags are just ProjectTags used in docs context.
  */
-import type { PrismaClient, DocTag as PrismaDocTag, DocTagAssignment as PrismaDocTagAssignment } from '@prisma/client';
+import type { PrismaClient, ProjectTag as PrismaProjectTag, DocTagAssignment as PrismaDocTagAssignment } from '@prisma/client';
 
 export interface DocTag {
     id: string;
@@ -31,11 +34,12 @@ export class DocTagRepository {
      * Create a new tag for a project
      */
     async create(data: CreateDocTagInput): Promise<DocTag> {
-        return this.prisma.docTag.create({
+        return this.prisma.projectTag.create({
             data: {
                 orgId: data.orgId,
                 projectId: data.projectId,
                 name: data.name.trim(),
+                color: '#6b7280', // Default gray for doc tags
             },
         });
     }
@@ -44,7 +48,7 @@ export class DocTagRepository {
      * Find tag by ID
      */
     async findById(id: string, orgId: string): Promise<DocTag | null> {
-        return this.prisma.docTag.findFirst({
+        return this.prisma.projectTag.findFirst({
             where: { id, orgId },
         });
     }
@@ -53,15 +57,27 @@ export class DocTagRepository {
      * Find all tags for a project
      */
     async findByProjectId(projectId: string, orgId: string): Promise<DocTagWithCount[]> {
-        return this.prisma.docTag.findMany({
+        const result = await this.prisma.projectTag.findMany({
             where: { projectId, orgId },
             include: {
                 _count: {
-                    select: { assignments: true },
+                    select: { docAssignments: true },
                 },
             },
             orderBy: { name: 'asc' },
         });
+
+        // Map ProjectTag to DocTag (drop color/description fields)
+        return result.map(tag => ({
+            id: tag.id,
+            name: tag.name,
+            projectId: tag.projectId,
+            orgId: tag.orgId,
+            createdAt: tag.createdAt,
+            _count: {
+                assignments: tag._count.docAssignments,
+            },
+        }));
     }
 
     /**
@@ -69,7 +85,7 @@ export class DocTagRepository {
      * Case-insensitive comparison
      */
     async findByName(name: string, projectId: string, orgId: string): Promise<DocTag | null> {
-        return this.prisma.docTag.findFirst({
+        return this.prisma.projectTag.findFirst({
             where: {
                 name: {
                     equals: name.trim(),
@@ -86,7 +102,7 @@ export class DocTagRepository {
      * Uses deleteMany for atomic tenant-safe deletion
      */
     async delete(id: string, orgId: string): Promise<void> {
-        const result = await this.prisma.docTag.deleteMany({
+        const result = await this.prisma.projectTag.deleteMany({
             where: { id, orgId },
         });
         if (result.count === 0) {

@@ -18,7 +18,6 @@ model Organization {
   updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   auditLogs     AuditLog[]
   comments      Comment[]
-  docTags       DocTag[]
   epics         Epic[]
   features      Feature[]
   invites       Invite[]
@@ -27,7 +26,7 @@ model Organization {
   projectNotes  ProjectNote[]
   projects      Project[]
   tasks         Task[]
-  taskTags      TaskTag[]
+  projectTags   ProjectTag[]
   userProfiles  UserProfile[]
   memberships   OrgMembership[]
 
@@ -121,14 +120,13 @@ model Project {
   createdBy    String?      @map("created_by") @db.Uuid
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  docTags      DocTag[]
   epics        Epic[]
   projectDocs  ProjectDoc[]
   projectNotes ProjectNote[]
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   creator      users?       @relation("ProjectCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   tasks        Task[]
-  taskTags     TaskTag[]
+  projectTags  ProjectTag[]
 
   @@unique([orgId, key])
   @@index([orgId], map: "idx_projects_org")
@@ -182,30 +180,13 @@ model ProjectNote {
   @@schema("public")
 }
 
-model DocTag {
-  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String             @map("org_id") @db.Uuid
-  projectId    String             @map("project_id") @db.Uuid
-  name         String
-  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  assignments  DocTagAssignment[]
-
-  @@unique([projectId, name], map: "uq_doc_tags_project_name")
-  @@index([orgId], map: "idx_doc_tags_org")
-  @@index([projectId], map: "idx_doc_tags_project")
-  @@map("doc_tags")
-  @@schema("public")
-}
-
 model DocTagAssignment {
   id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   docId     String     @map("doc_id") @db.Uuid
   tagId     String     @map("tag_id") @db.Uuid
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   doc       ProjectDoc @relation(fields: [docId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tag       DocTag     @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tag       ProjectTag @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([docId, tagId], map: "uq_doc_tag_assignments_doc_tag")
   @@index([docId], map: "idx_doc_tag_assignments_doc")
@@ -321,7 +302,7 @@ model Task {
   @@schema("public")
 }
 
-model TaskTag {
+model ProjectTag {
   id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orgId                String                 @map("org_id") @db.Uuid
   projectId            String                 @map("project_id") @db.Uuid
@@ -334,21 +315,22 @@ model TaskTag {
   project              Project                @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   taskAssignments      TaskTagAssignment[]
   featureAssignments   FeatureTagAssignment[]
+  docAssignments       DocTagAssignment[]
 
-  @@unique([projectId, name], map: "uq_task_tags_project_name")
-  @@index([orgId], map: "idx_task_tags_org")
-  @@index([projectId], map: "idx_task_tags_project")
-  @@map("task_tags")
+  @@unique([projectId, name], map: "uq_project_tags_project_name")
+  @@index([orgId], map: "idx_project_tags_org")
+  @@index([projectId], map: "idx_project_tags_project")
+  @@map("project_tags")
   @@schema("public")
 }
 
 model TaskTagAssignment {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  taskId    String   @map("task_id") @db.Uuid
-  tagId     String   @map("tag_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tag       TaskTag  @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId    String     @map("task_id") @db.Uuid
+  tagId     String     @map("tag_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  task      Task       @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tag       ProjectTag @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([taskId, tagId], map: "uq_task_tag_assignments_task_tag")
   @@index([taskId], map: "idx_task_tag_assignments_task")
@@ -358,12 +340,12 @@ model TaskTagAssignment {
 }
 
 model FeatureTagAssignment {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  featureId String   @map("feature_id") @db.Uuid
-  tagId     String   @map("tag_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  feature   Feature  @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tag       TaskTag  @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  featureId String     @map("feature_id") @db.Uuid
+  tagId     String     @map("tag_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  feature   Feature    @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tag       ProjectTag @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([featureId, tagId], map: "uq_feature_tag_assignments_feature_tag")
   @@index([featureId], map: "idx_feature_tag_assignments_feature")

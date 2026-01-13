@@ -68,14 +68,16 @@ export function DocEditorModal({
 
     if (!title.trim()) return;
 
+    const tagIds = selectedTags.map(t => t.id);
+
     if (isEditing && doc) {
       updateDoc.mutate(
-        { id: doc.id, title, content },
+        { id: doc.id, title, content, tagIds },
         { onSuccess: () => onOpenChange(false) }
       );
     } else {
       createDoc.mutate(
-        { projectId, title, content },
+        { projectId, title, content, tagIds },
         { onSuccess: () => onOpenChange(false) }
       );
     }

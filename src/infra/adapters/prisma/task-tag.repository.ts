@@ -1,4 +1,4 @@
-import { PrismaClient, TaskTag as PrismaTaskTag } from '@prisma/client';
+import { PrismaClient, ProjectTag as PrismaProjectTag } from '@prisma/client';
 import type { TaskTag, TaskTagWithCounts, TagInfo, CreateTaskTagInput, UpdateTaskTagInput } from '@/shared/types/tag.types';
 import { NotFoundError, ValidationError } from '@/shared/errors';
 
@@ -29,7 +29,7 @@ export class TaskTagRepository {
       throw new NotFoundError('Projeto não encontrado');
     }
 
-    const tag = await this.prisma.taskTag.create({
+    const tag = await this.prisma.projectTag.create({
       data: {
         orgId,
         projectId: input.projectId,
@@ -43,14 +43,14 @@ export class TaskTagRepository {
   }
 
   async findById(id: string, orgId: string): Promise<TaskTag | null> {
-    const tag = await this.prisma.taskTag.findFirst({
+    const tag = await this.prisma.projectTag.findFirst({
       where: { id, orgId },
     });
     return tag ? toDomain(tag) : null;
   }
 
   async findByProject(projectId: string, orgId: string): Promise<TaskTag[]> {
-    const tags = await this.prisma.taskTag.findMany({
+    const tags = await this.prisma.projectTag.findMany({
       where: { projectId, orgId },
       orderBy: { name: 'asc' },
     });
@@ -58,7 +58,7 @@ export class TaskTagRepository {
   }
 
   async findByProjectWithCounts(projectId: string, orgId: string): Promise<TaskTagWithCounts[]> {
-    const tags = await this.prisma.taskTag.findMany({
+    const tags = await this.prisma.projectTag.findMany({
       where: { projectId, orgId },
       include: {
         _count: {
@@ -80,14 +80,14 @@ export class TaskTagRepository {
 
   async update(id: string, orgId: string, input: UpdateTaskTagInput): Promise<TaskTag> {
     // Verify tag exists and belongs to org
-    const existing = await this.prisma.taskTag.findFirst({
+    const existing = await this.prisma.projectTag.findFirst({
       where: { id, orgId },
     });
     if (!existing) {
       throw new NotFoundError('Tag não encontrada');
     }
 
-    const updated = await this.prisma.taskTag.update({
+    const updated = await this.prisma.projectTag.update({
       where: { id },
       data: {
         name: input.name,
@@ -100,7 +100,7 @@ export class TaskTagRepository {
   }
 
   async delete(id: string, orgId: string): Promise<void> {
-    const existing = await this.prisma.taskTag.findFirst({
+    const existing = await this.prisma.projectTag.findFirst({
       where: { id, orgId },
     });
     if (!existing) {
@@ -108,7 +108,7 @@ export class TaskTagRepository {
     }
 
     // Cascade delete will remove all assignments
-    await this.prisma.taskTag.delete({
+    await this.prisma.projectTag.delete({
       where: { id },
     });
   }
@@ -157,13 +157,13 @@ export class TaskTagRepository {
       throw new NotFoundError('Tarefa não encontrada');
     }
 
-    await this.prisma.taskTagAssignment.deleteMany({
+    await this.prisma.projectTagAssignment.deleteMany({
       where: { taskId, tagId },
     });
   }
 
   async getTagsForTask(taskId: string): Promise<TagInfo[]> {
-    const assignments = await this.prisma.taskTagAssignment.findMany({
+    const assignments = await this.prisma.projectTagAssignment.findMany({
       where: { taskId },
       select: {
         tag: {

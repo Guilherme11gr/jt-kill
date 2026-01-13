@@ -28,12 +28,14 @@ interface CreateDocInput {
   projectId: string;
   title: string;
   content: string;
+  tagIds?: string[];
 }
 
 interface UpdateDocInput {
   id: string;
   title?: string;
   content?: string;
+  tagIds?: string[];
 }
 
 // API Functions
@@ -55,7 +57,11 @@ async function createDoc(input: CreateDocInput): Promise<ProjectDoc> {
   const res = await fetch(`/api/projects/${input.projectId}/docs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: input.title, content: input.content }),
+    body: JSON.stringify({ 
+      title: input.title, 
+      content: input.content,
+      tagIds: input.tagIds || []
+    }),
   });
   if (!res.ok) throw new Error('Failed to create doc');
   const json = await res.json();
@@ -67,7 +73,10 @@ async function updateDoc(input: UpdateDocInput): Promise<ProjectDoc> {
   const res = await fetch(`/api/docs/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      ...data,
+      tagIds: data.tagIds || undefined
+    }),
   });
   if (!res.ok) throw new Error('Failed to update doc');
   const json = await res.json();

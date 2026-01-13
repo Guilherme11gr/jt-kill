@@ -22,6 +22,9 @@ export interface Task {
   createdBy?: string | null; // Quem criou a tarefa
   // Health check fields
   blocked: boolean;
+  blockReason?: string | null; // Motivo obrigatório ao bloquear
+  blockedAt?: Date | null; // Timestamp do último bloqueio
+  blockedBy?: string | null; // User ID que bloqueou (audit trail)
   statusChangedAt: Date | null;
 }
 

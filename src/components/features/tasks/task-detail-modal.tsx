@@ -42,7 +42,8 @@ import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
 import { TaskComments } from './task-comments';
 import { UserAvatar } from '@/components/features/shared';
-import { useBlockTask } from '@/hooks/use-block-task';
+import { BlockTaskDialog } from './block-task-dialog';
+import { useBlockTaskDialog } from '@/hooks/use-block-task-dialog';
 import { useMoveTaskWithUndo } from '@/hooks/use-move-task-undo';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -83,7 +84,7 @@ export function TaskDetailModal({
   // 🔴 CRITICAL: Hooks devem ser chamados SEMPRE, mesmo se task for null
   // Early return só deve acontecer após todos os hooks
   const { profile } = useAuth();
-  const { toggleBlocked, isPending: isBlockPending } = useBlockTask(task?.id || '');
+  const blockDialog = useBlockTaskDialog(task || { id: '', blocked: false } as any); // Dummy para hooks
   const { moveWithUndo, isPending: isMovePending } = useMoveTaskWithUndo();
 
   // Get current org slug for deep links
@@ -108,10 +109,6 @@ export function TaskDetailModal({
       navigator.clipboard.writeText(task.readableId);
       toast.success('ID copiado para a área de transferência');
     }
-  };
-
-  const handleBlockedChange = (checked: boolean) => {
-    toggleBlocked(checked);
   };
 
   const handleStatusChange = (newStatus: TaskStatus) => {
@@ -250,8 +247,8 @@ export function TaskDetailModal({
                   <Checkbox
                     id="task-blocked"
                     checked={task.blocked}
-                    disabled={isBlockPending}
-                    onCheckedChange={handleBlockedChange}
+                    disabled={blockDialog.isPending}
+                    onCheckedChange={blockDialog.handleBlockedChange}
                     className={cn(
                       'h-4 w-4',
                       task.blocked && 'border-red-500 data-[state=checked]:bg-red-500'
@@ -281,6 +278,41 @@ export function TaskDetailModal({
 
         {/* Content - Scrollable */}
         <div className="p-6 space-y-8 pb-20">
+          {/* Block Reason - Se task estiver bloqueada */}
+          {task.blocked && task.blockReason?.trim() && (
+            <>
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium flex items-center gap-2 text-red-500">
+                  <Ban className="h-4 w-4" />
+                  Motivo do Bloqueio
+                </h3>
+                <div className="text-sm leading-relaxed bg-red-500/5 border border-red-500/20 p-4 rounded-lg">
+                  <p className="text-foreground/90 whitespace-pre-wrap">{task.blockReason}</p>
+                  {/* ✅ Exibir audit trail (quando disponível) */}
+                  {(task.blockedAt || task.blockedBy) && (
+                    <div className="mt-3 pt-3 border-t border-red-500/10 text-xs text-muted-foreground flex flex-wrap gap-3">
+                      {task.blockedAt && (
+                        <span>
+                          Bloqueada em {new Date(task.blockedAt).toLocaleDateString('pt-BR', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      )}
+                      {task.blockedBy && task.assignee && (
+                        <span>• Por {task.assignee.displayName || 'Usuário'}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <Separator />
+            </>
+          )}
+
           {/* Description */}
           <div className="space-y-3">
             <h3 className="text-sm font-medium flex items-center gap-2 text-foreground/80">
@@ -319,6 +351,12 @@ export function TaskDetailModal({
           Detalhes da task {task.readableId}
         </SheetDescription>
       </SheetContent>
+
+      {/* Modal de bloqueio */}
+      <BlockTaskDialog
+        {...blockDialog}
+        taskTitle={task.title}
+      />
     </Sheet>
   );
 }

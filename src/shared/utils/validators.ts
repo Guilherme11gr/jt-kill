@@ -92,6 +92,7 @@ export const updateTaskSchema = z.object({
   projectId: uuidSchema.optional(),
   status: taskStatusSchema.optional(),
   blocked: z.boolean().optional(),
+  blockReason: z.string().trim().min(10, 'Motivo deve ter no mínimo 10 caracteres').max(500, 'Motivo muito longo').optional().nullable(),
 });
 
 // Create comment validator

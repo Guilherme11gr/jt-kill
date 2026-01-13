@@ -16,7 +16,8 @@ import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
 import { TagBadge } from '@/components/features/tags';
 import { TaskHierarchyPath } from './task-hierarchy-path';
-import { useBlockTask } from '@/hooks/use-block-task';
+import { BlockTaskDialog } from './block-task-dialog';
+import { useBlockTaskDialog } from '@/hooks/use-block-task-dialog';
 import type { TaskWithReadableId } from '@/shared/types';
 
 // Generate consistent colors for modules based on hash (legacy fallback)
@@ -60,15 +61,11 @@ export function TaskCard({
   className,
 }: TaskCardProps) {
   const isBug = task.type === 'BUG';
-  const { toggleBlocked, isPending } = useBlockTask(task.id);
+  const blockDialog = useBlockTaskDialog(task);
 
   // Prefer new tags system, fallback to legacy modules
   const hasTags = task.tags && task.tags.length > 0;
   const hasModules = task.modules && task.modules.length > 0;
-
-  const handleBlockedChange = useCallback((checked: boolean) => {
-    toggleBlocked(checked);
-  }, [toggleBlocked]);
 
   const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation(); // Previne abertura do modal
@@ -169,8 +166,8 @@ export function TaskCard({
                 >
                   <Checkbox
                     checked={task.blocked}
-                    disabled={isPending}
-                    onCheckedChange={handleBlockedChange}
+                    disabled={blockDialog.isPending}
+                    onCheckedChange={blockDialog.handleBlockedChange}
                     aria-label="Marcar task como bloqueada"
                     className={cn(
                       'h-3.5 w-3.5',
@@ -182,15 +179,27 @@ export function TaskCard({
                   )}
                 </div>
               </TooltipTrigger>
-              <TooltipContent>
+              <TooltipContent className="max-w-[200px]">
                 <p className="text-xs">
                   {task.blocked ? 'Task bloqueada' : 'Marcar como bloqueada'}
                 </p>
+                {/* ✅ Guard: só mostra se blockReason não for vazio/null */}
+                {task.blocked && task.blockReason?.trim() && (
+                  <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap break-words">
+                    Motivo: {task.blockReason}
+                  </p>
+                )}
               </TooltipContent>
             </Tooltip>
           )}
         </div>
       </div>
+
+      {/* Modal de bloqueio */}
+      <BlockTaskDialog
+        {...blockDialog}
+        taskTitle={task.title}
+      />
     </Card>
   );
 }

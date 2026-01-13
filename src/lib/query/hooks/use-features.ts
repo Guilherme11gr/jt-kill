@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
-import { smartInvalidate } from '../helpers';
+import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
 import { toast } from 'sonner';
 
@@ -153,7 +153,7 @@ export function useFeaturesByEpic(epicId: string) {
 /**
  * Create a new feature
  * 
- * Strategy: Optimistic update + force refetch
+ * Strategy: Optimistic update + IMMEDIATE refetch (CREATE operation)
  */
 export function useCreateFeature() {
   const queryClient = useQueryClient();
@@ -177,9 +177,9 @@ export function useCreateFeature() {
         return [...old, newFeature];
       });
 
-      // 3. Invalidate with immediate refetch for active queries
-      smartInvalidate(queryClient, queryKeys.features.list(orgId, variables.epicId));
-      smartInvalidate(queryClient, queryKeys.features.allList(orgId));
+      // 3. IMMEDIATE refetch for CREATE operation (força atualização instantânea)
+      smartInvalidateImmediate(queryClient, queryKeys.features.list(orgId, variables.epicId));
+      smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
 
       // 4. Invalidate epic detail to update counters (e.g., features count)
       smartInvalidate(queryClient, queryKeys.epics.detail(orgId, variables.epicId));
@@ -195,7 +195,7 @@ export function useCreateFeature() {
 /**
  * Update a feature
  * 
- * Strategy: Optimistic update + targeted refetch
+ * Strategy: Optimistic update + IMMEDIATE refetch (garante UI instantânea)
  */
 export function useUpdateFeature() {
   const queryClient = useQueryClient();
@@ -207,7 +207,7 @@ export function useUpdateFeature() {
       // 1. Optimistic update: update the specific feature in cache
       queryClient.setQueryData<Feature>(queryKeys.features.detail(orgId, variables.id), updatedFeature);
 
-      // 2. Update in lists
+      // 2. Update in lists (optimistic)
       const updateInList = (old: Feature[] | undefined) => {
         if (!old) return old;
         return old.map(f => f.id === updatedFeature.id ? { ...f, ...updatedFeature } : f);
@@ -216,9 +216,9 @@ export function useUpdateFeature() {
       queryClient.setQueriesData<Feature[]>({ queryKey: queryKeys.features.lists(orgId) }, updateInList);
       queryClient.setQueryData<Feature[]>(queryKeys.features.allList(orgId), updateInList);
 
-      // 3. Invalidate with immediate refetch for active queries
-      smartInvalidate(queryClient, queryKeys.features.lists(orgId));
-      smartInvalidate(queryClient, queryKeys.features.allList(orgId));
+      // 3. IMMEDIATE refetch para garantir UI atualizada instantaneamente
+      smartInvalidateImmediate(queryClient, queryKeys.features.lists(orgId));
+      smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
 
       // 4. Invalidate epic detail (status/title changes may affect UI)
       smartInvalidate(queryClient, queryKeys.epics.detail(orgId, updatedFeature.epicId));
@@ -237,7 +237,7 @@ export function useUpdateFeature() {
 /**
  * Delete a feature
  * 
- * Strategy: Optimistic removal + force refetch
+ * Strategy: Optimistic removal + IMMEDIATE refetch (DELETE operation)
  */
 export function useDeleteFeature() {
   const queryClient = useQueryClient();
@@ -297,9 +297,9 @@ export function useDeleteFeature() {
       queryClient.removeQueries({ queryKey: queryKeys.features.detail(orgId, deletedFeatureId) });
       queryClient.removeQueries({ queryKey: queryKeys.tasks.list(orgId, { featureId: deletedFeatureId }) });
 
-      // Invalidate all feature lists (smartInvalidate handles active vs inactive)
-      smartInvalidate(queryClient, queryKeys.features.lists(orgId));
-      smartInvalidate(queryClient, queryKeys.features.allList(orgId));
+      // IMMEDIATE refetch for DELETE operation (força atualização instantânea)
+      smartInvalidateImmediate(queryClient, queryKeys.features.lists(orgId));
+      smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
 
       // Invalidate epic detail to update counters
       if (context?.epicId) {

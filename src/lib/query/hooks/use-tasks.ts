@@ -45,6 +45,9 @@ interface UpdateTaskInput {
     featureId: string;
     assigneeId: string | null;
     blocked: boolean;
+    blockReason: string | null; // ✅ null explícito (não undefined)
+    blockedAt: Date | null; // Timestamp do bloqueio
+    blockedBy: string | null; // User ID que bloqueou
   }>;
 }
 

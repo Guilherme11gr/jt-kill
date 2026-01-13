@@ -278,6 +278,9 @@ model Task {
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   // Health check fields
   blocked         Boolean       @default(false)
+  blockReason     String?       @map("block_reason") // Motivo obrigatório ao bloquear
+  blockedAt       DateTime?     @map("blocked_at") @db.Timestamptz(6) // Timestamp do último bloqueio
+  blockedBy       String?       @map("blocked_by") @db.Uuid // User que bloqueou (audit trail)
   statusChangedAt DateTime?     @map("status_changed_at") @db.Timestamptz(6)
   comments        Comment[]
   pokerSession    PokerSession?

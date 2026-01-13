@@ -5,6 +5,8 @@ import { queryKeys } from '@/lib/query/query-keys';
 import { smartInvalidate } from '@/lib/query/helpers';
 import { toast } from 'sonner';
 import type { TasksResponse } from '@/lib/query/hooks/use-tasks';
+import type { Task } from '@/shared/types/task.types';
+import { createClient } from '@/lib/supabase/client';
 
 interface UseBlockTaskOptions {
   onSuccess?: (blocked: boolean) => void;
@@ -18,33 +20,46 @@ interface UseBlockTaskOptions {
  * @example
  * const { toggleBlocked, isPending } = useBlockTask(taskId);
  * 
- * <Checkbox
- *   checked={task.blocked}
- *   disabled={isPending}
- *   onCheckedChange={toggleBlocked}
- * />
+ * // Bloquear com motivo
+ * toggleBlocked(true, 'Aguardando aprovação do cliente');
+ * 
+ * // Desbloquear (motivo permanece no histórico)
+ * toggleBlocked(false);
  */
 export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
   const { mutate, isPending } = useUpdateTask();
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
 
-  const toggleBlocked = async (blocked: boolean) => {
+  const toggleBlocked = async (blocked: boolean, blockReason?: string) => {
     // Guard: Previne mutação se taskId estiver vazio
     if (!taskId) {
       console.warn('[useBlockTask] toggleBlocked chamado sem taskId válido');
       return;
     }
 
+    // Validação: motivo obrigatório ao bloquear
+    if (blocked && !blockReason) {
+      console.error('[useBlockTask] blockReason é obrigatório ao bloquear uma task');
+      toast.error('Motivo de bloqueio é obrigatório');
+      return;
+    }
+
+    // Pegar userId atual para audit trail
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userId = user?.id;
+
     // 1. Cancel outgoing refetches
     await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists(orgId) });
 
-    // 2. Snapshot previous state
+    // 2. Snapshot previous state (para rollback completo)
     const previousTasks = queryClient.getQueriesData({
       queryKey: queryKeys.tasks.lists(orgId)
     });
 
-    // 3. Optimistically update UI
+    // 3. Optimistically update UI (com blockedAt e blockedBy)
+    const now = new Date();
     queryClient.setQueriesData(
       { queryKey: queryKeys.tasks.lists(orgId) },
       (old: TasksResponse | undefined) => {
@@ -52,7 +67,15 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
         return {
           ...old,
           items: old.items.map((task) =>
-            task.id === taskId ? { ...task, blocked } : task
+            task.id === taskId 
+              ? { 
+                  ...task, 
+                  blocked, 
+                  blockReason: blocked ? blockReason : null, // ✅ null explícito ao desbloquear
+                  blockedAt: blocked ? now : null,
+                  blockedBy: blocked ? userId : null,
+                } 
+              : task
           ),
         };
       }
@@ -60,7 +83,15 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
 
     // 4. Execute mutation
     mutate(
-      { id: taskId, data: { blocked } },
+      { 
+        id: taskId, 
+        data: { 
+          blocked, 
+          blockReason: blocked ? blockReason : null, // ✅ null explícito (não undefined)
+          blockedAt: blocked ? now : null,
+          blockedBy: blocked ? userId : null,
+        } 
+      },
       {
         onSuccess: () => {
           toast.success(blocked ? 'Task bloqueada' : 'Task desbloqueada');
@@ -73,7 +104,7 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
           options?.onSuccess?.(blocked);
         },
         onError: (error) => {
-          // 6. Rollback on error
+          // ✅ Rollback completo: restaura estado anterior (inclui blockReason/blockedAt/blockedBy)
           previousTasks.forEach(([queryKey, data]) => {
             queryClient.setQueryData(queryKey, data);
           });

@@ -10,4 +10,5 @@ export { TaskDialog } from './create-task-dialog';
 export { TaskDetailModal } from './task-detail-modal';
 export { TaskComments } from './task-comments';
 export { SuggestTasksModal } from './suggest-tasks-modal';
+export { BlockTaskDialog } from './block-task-dialog';
 

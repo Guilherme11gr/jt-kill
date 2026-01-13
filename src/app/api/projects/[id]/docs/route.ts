@@ -9,6 +9,7 @@ import { z } from 'zod';
 const createDocSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').max(200),
   content: z.string().max(100000), // 100KB max
+  tagIds: z.array(z.string().uuid()).optional().default([]),
 });
 
 /**
@@ -70,6 +71,7 @@ export async function POST(
       projectId,
       title: parsed.data.title,
       content: parsed.data.content,
+      tagIds: parsed.data.tagIds,
     });
 
     return jsonSuccess(doc, { status: 201 });

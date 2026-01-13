@@ -26,7 +26,11 @@ SELECT
 FROM "public"."doc_tags"
 ON CONFLICT ("project_id", name) DO NOTHING; -- Skip duplicates
 
--- Step 4: Migrate DocTagAssignments to use ProjectTag
+-- Step 4: Drop RLS policies that depend on tag_id column
+DROP POLICY IF EXISTS "Users can view doc tag assignments via org" ON "public"."doc_tag_assignments";
+DROP POLICY IF EXISTS "Users can manage doc tag assignments via org" ON "public"."doc_tag_assignments";
+
+-- Step 5: Migrate DocTagAssignments to use ProjectTag
 ALTER TABLE "public"."doc_tag_assignments" ADD COLUMN "new_tag_id" uuid;
 
 UPDATE "public"."doc_tag_assignments" dta
@@ -35,25 +39,52 @@ FROM "public"."doc_tags" dt
 JOIN "public"."project_tags" pt ON pt."project_id" = dt."project_id" AND pt.name = dt.name
 WHERE dta."tag_id" = dt.id;
 
--- Step 5: Drop old DocTag foreign key and rename column
+-- Step 6: Drop old DocTag foreign key and rename column
 ALTER TABLE "public"."doc_tag_assignments" DROP CONSTRAINT "doc_tag_assignments_tag_id_fkey";
 ALTER TABLE "public"."doc_tag_assignments" DROP COLUMN "tag_id";
 ALTER TABLE "public"."doc_tag_assignments" RENAME COLUMN "new_tag_id" TO "tag_id";
 
--- Step 6: Add new foreign key to ProjectTag
+-- Step 7: Add new foreign key to ProjectTag
 ALTER TABLE "public"."doc_tag_assignments" 
   ADD CONSTRAINT "doc_tag_assignments_tag_id_fkey" 
   FOREIGN KEY ("tag_id") REFERENCES "public"."project_tags"(id) 
   ON DELETE CASCADE ON UPDATE NO ACTION;
 
--- Step 7: Drop old DocTag table
+-- Step 8: Recreate RLS policies with updated references
+CREATE POLICY "Users can view doc tag assignments via org" ON "public"."doc_tag_assignments"
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM "public"."project_tags" pt
+      WHERE pt.id = "doc_tag_assignments"."tag_id"
+        AND pt."org_id" IN (
+          SELECT "org_id" FROM "public"."org_memberships" 
+          WHERE "user_id" = auth.uid()
+        )
+    )
+  );
+
+CREATE POLICY "Users can manage doc tag assignments via org" ON "public"."doc_tag_assignments"
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM "public"."project_tags" pt
+      WHERE pt.id = "doc_tag_assignments"."tag_id"
+        AND pt."org_id" IN (
+          SELECT "org_id" FROM "public"."org_memberships" 
+          WHERE "user_id" = auth.uid()
+        )
+    )
+  );
+
+-- Step 9: Drop old DocTag table
 DROP TABLE "public"."doc_tags" CASCADE;
 
--- Step 8: Update assignment table names
+-- Step 10: Update assignment table names
 ALTER TABLE "public"."task_tag_assignments_temp" RENAME TO "task_tag_assignments";
 ALTER TABLE "public"."feature_tag_assignments_temp" RENAME TO "feature_tag_assignments";
 
--- Step 9: Update foreign key names for clarity
+-- Step 11: Update foreign key names for clarity
 ALTER TABLE "public"."task_tag_assignments" DROP CONSTRAINT "task_tag_assignments_tag_id_fkey";
 ALTER TABLE "public"."task_tag_assignments" 
   ADD CONSTRAINT "task_tag_assignments_tag_id_fkey" 
@@ -66,4 +97,4 @@ ALTER TABLE "public"."feature_tag_assignments"
   FOREIGN KEY ("tag_id") REFERENCES "public"."project_tags"(id) 
   ON DELETE CASCADE ON UPDATE NO ACTION;
 
--- Step 10: Update map names in schema (handled by Prisma after schema update)
+-- Step 12: Update map names in schema (handled by Prisma after schema update)

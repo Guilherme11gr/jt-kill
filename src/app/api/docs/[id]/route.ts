@@ -9,6 +9,7 @@ import { z } from 'zod';
 const updateDocSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   content: z.string().max(100000).optional(),
+  tagIds: z.array(z.string().uuid()).optional(),
 });
 
 /**

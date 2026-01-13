@@ -23,11 +23,13 @@ export interface CreateProjectDocInput {
   projectId: string;
   title: string;
   content: string;
+  tagIds?: string[];
 }
 
 export interface UpdateProjectDocInput {
   title?: string;
   content?: string;
+  tagIds?: string[];
 }
 
 export class ProjectDocRepository {
@@ -37,13 +39,43 @@ export class ProjectDocRepository {
    * Create a new project doc
    */
   async create(data: CreateProjectDocInput): Promise<ProjectDoc> {
-    return this.prisma.projectDoc.create({
-      data: {
-        orgId: data.orgId,
-        projectId: data.projectId,
-        title: data.title,
-        content: data.content,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Create doc
+      const doc = await tx.projectDoc.create({
+        data: {
+          orgId: data.orgId,
+          projectId: data.projectId,
+          title: data.title,
+          content: data.content,
+        },
+      });
+
+      // 2. Validate and assign tags (if provided)
+      if (data.tagIds && data.tagIds.length > 0) {
+        // Validate tags belong to same project and org
+        const validTagCount = await tx.projectTag.count({
+          where: {
+            id: { in: data.tagIds },
+            projectId: data.projectId,
+            orgId: data.orgId,
+          },
+        });
+
+        if (validTagCount !== data.tagIds.length) {
+          throw new Error('Uma ou mais tags não pertencem a este projeto');
+        }
+
+        // Create tag assignments
+        await tx.docTagAssignment.createMany({
+          data: data.tagIds.map((tagId) => ({
+            docId: doc.id,
+            tagId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+
+      return doc;
     });
   }
 
@@ -106,15 +138,53 @@ export class ProjectDocRepository {
    * Update a project doc
    */
   async update(id: string, orgId: string, data: UpdateProjectDocInput): Promise<ProjectDoc> {
-    // Verify belongs to org
-    const existing = await this.findById(id, orgId);
-    if (!existing) {
-      throw new Error('ProjectDoc not found');
-    }
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Verify doc exists and get projectId
+      const existing = await tx.projectDoc.findFirst({
+        where: { id, orgId },
+        select: { id: true, projectId: true },
+      });
 
-    return this.prisma.projectDoc.update({
-      where: { id },
-      data,
+      if (!existing) {
+        throw new Error('ProjectDoc not found');
+      }
+
+      // 2. Update doc fields
+      const { tagIds, ...docData } = data;
+      const doc = await tx.projectDoc.update({
+        where: { id },
+        data: docData,
+      });
+
+      // 3. Update tags if provided
+      if (tagIds !== undefined) {
+        // Validate tags belong to same project and org
+        if (tagIds.length > 0) {
+          const validTagCount = await tx.projectTag.count({
+            where: {
+              id: { in: tagIds },
+              projectId: existing.projectId,
+              orgId,
+            },
+          });
+
+          if (validTagCount !== tagIds.length) {
+            throw new Error('Uma ou mais tags não pertencem a este projeto');
+          }
+        }
+
+        // Replace all tag assignments atomically
+        await tx.docTagAssignment.deleteMany({ where: { docId: id } });
+
+        if (tagIds.length > 0) {
+          await tx.docTagAssignment.createMany({
+            data: tagIds.map((tagId) => ({ docId: id, tagId })),
+            skipDuplicates: true,
+          });
+        }
+      }
+
+      return doc;
     });
   }
 

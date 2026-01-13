@@ -139,6 +139,8 @@ export function useCreateDoc() {
 
       // 2. Invalidate for consistency (CREATE = critical)
       smartInvalidateImmediate(queryClient, queryKeys.projectDocs.list(orgId, variables.projectId));
+      // 3. Invalidate tags to update usage counts
+      smartInvalidate(queryClient, queryKeys.docTags.list(orgId, variables.projectId));
       toast.success('Documento criado');
     },
     onError: () => {
@@ -194,6 +196,8 @@ export function useUpdateDoc(projectId: string) {
         data
       );
       smartInvalidate(queryClient, queryKeys.projectDocs.list(orgId, projectId));
+      // Invalidate tags to update usage counts
+      smartInvalidate(queryClient, queryKeys.docTags.list(orgId, projectId));
       toast.success('Documento atualizado');
     },
     onError: (_, input, context) => {

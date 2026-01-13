@@ -5,7 +5,7 @@
  * Note: After tag unification, this uses ProjectTag model but keeps DocTag interface
  * for backward compatibility. DocTags are just ProjectTags used in docs context.
  */
-import type { PrismaClient, ProjectTag as PrismaProjectTag, DocTagAssignment as PrismaDocTagAssignment } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 
 export interface DocTag {
     id: string;
@@ -68,7 +68,7 @@ export class DocTagRepository {
         });
 
         // Map ProjectTag to DocTag (drop color/description fields)
-        return result.map(tag => ({
+        return result.map((tag): DocTagWithCount => ({
             id: tag.id,
             name: tag.name,
             projectId: tag.projectId,

@@ -28,8 +28,8 @@ const USE_SMART_UPDATES = true;
 // Timeout adaptativo: produção precisa de mais tempo (serverless cold start + latência)
 const SMART_UPDATE_TIMEOUT =
   typeof window !== 'undefined' && process.env.NODE_ENV === 'production'
-    ? 1000  // Produção: 1s (permite API responder sem timeout)
-    : 500;  // Dev: 500ms (local mais rápido)
+    ? 3000  // Produção: 3s (serverless cold start + latência de rede)
+    : 1000; // Dev: 1s (local mais rápido mas realista)
 
 // Helper function for fetch with timeout (DRY principle)
 async function fetchWithTimeout<T>(
@@ -134,7 +134,31 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
       const gaps = detectSequenceGaps(uniqueEvents);
       if (gaps.length > 0) {
         console.warn(`[Realtime] Detected ${gaps.length} sequence gaps`, gaps);
-        // TODO: Could trigger catch-up query here
+        // ✅ FIX: Trigger catch-up invalidation for entities with gaps
+        // When events are missed or arrive out of order, we invalidate
+        // the entity's queries to force a full refetch and resync
+        const entitiesToSync = new Set<string>();
+        for (const gap of gaps) {
+          // Parse gap string: "task:abc123 (missing 123 to 456)"
+          const match = gap.match(/^(\w+):[\w-]+/);
+          if (match) {
+            entitiesToSync.add(match[1]); // Add entity type (task, feature, etc.)
+          }
+        }
+
+        // Invalidate queries for entities with gaps
+        for (const event of uniqueEvents) {
+          if (entitiesToSync.has(event.entityType)) {
+            const eventKeys = getInvalidationKeys(event);
+            for (const key of eventKeys) {
+              queryClient.invalidateQueries({
+                queryKey: key,
+                refetchType: 'active',
+              });
+            }
+          }
+        }
+        console.log(`[Realtime] 🔄 Synced ${gaps.length} entities with sequence gaps`);
       }
 
       // Get all invalidation keys and deduplicate

@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function LogoutButton() {
+interface LogoutButtonProps {
+  isCollapsed?: boolean;
+}
+
+export function LogoutButton({ isCollapsed = false }: LogoutButtonProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -14,6 +18,20 @@ export function LogoutButton() {
     router.push("/login");
     router.refresh();
   };
+
+  if (isCollapsed) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleLogout}
+        className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+        title="Sair"
+      >
+        <LogOut className="w-5 h-5" />
+      </Button>
+    );
+  }
 
   return (
     <Button

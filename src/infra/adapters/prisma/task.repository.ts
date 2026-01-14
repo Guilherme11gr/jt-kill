@@ -110,8 +110,6 @@ export class TaskRepository {
     orgId: string,
     filters: TaskFilterParams = {}
   ): Promise<TaskWithReadableId[]> {
-    const start = performance.now();
-    
     const {
       page = 1,
       pageSize = 20,
@@ -120,9 +118,6 @@ export class TaskRepository {
     } = filters;
 
     const where = this.buildWhereClause(orgId, filters);
-
-    const whereTime = performance.now();
-    console.log(`[Repository] ⏱️ buildWhereClause took ${(whereTime - start).toFixed(2)}ms`);
 
     const tasks = await this.prisma.task.findMany({
       where,
@@ -188,9 +183,6 @@ export class TaskRepository {
       orderBy: { [sortBy]: sortOrder },
     });
 
-    const queryTime = performance.now();
-    console.log(`[Repository] ⏱️ Prisma query took ${(queryTime - whereTime).toFixed(2)}ms`);
-
     // Build readable IDs using direct project.key
     const result = tasks.map((task) => ({
       ...task,
@@ -210,10 +202,6 @@ export class TaskRepository {
         avatarUrl: task.assignee.user_profiles.avatarUrl,
       } : undefined,
     })) as TaskWithReadableId[];
-
-    const mapTime = performance.now();
-    console.log(`[Repository] ⏱️ Mapping took ${(mapTime - queryTime).toFixed(2)}ms`);
-    console.log(`[Repository] ⏱️ TOTAL findMany took ${(mapTime - start).toFixed(2)}ms`);
 
     return result;
   }

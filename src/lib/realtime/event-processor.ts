@@ -15,20 +15,32 @@ import { getInvalidationKeys, deduplicateInvalidationKeys } from './invalidation
 import type { BroadcastEvent } from './types';
 import { fetchTaskById, type TasksResponse } from '@/lib/query/hooks/use-tasks';
 import { fetchFeatureById } from '@/lib/query/hooks/use-features';
+import type { TaskWithReadableId } from '@/shared/types/task.types';
 
 // Constants for memory management
 const PROCESSED_EVENTS_TTL = 60 * 1000; // 1 minute
 const MAX_PROCESSED_EVENTS = 500; // Smaller limit
 const MAX_MUTATION_RETRIES = 10; // 2 seconds (10 * 200ms)
 
-// ✅ Feature flag for smart updates (vs full invalidation)
+// Feature flag for smart updates (vs full invalidation)
 const USE_SMART_UPDATES = true;
 
-// ✅ Timeout adaptativo: produção precisa de mais tempo (serverless cold start + latência)
-const SMART_UPDATE_TIMEOUT = 
-  typeof window !== 'undefined' && process.env.NODE_ENV === 'production' 
+// Timeout adaptativo: produção precisa de mais tempo (serverless cold start + latência)
+const SMART_UPDATE_TIMEOUT =
+  typeof window !== 'undefined' && process.env.NODE_ENV === 'production'
     ? 1000  // Produção: 1s (permite API responder sem timeout)
     : 500;  // Dev: 500ms (local mais rápido)
+
+// Helper function for fetch with timeout (DRY principle)
+async function fetchWithTimeout<T>(
+  fetchFn: () => Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
+  );
+  return Promise.race([fetchFn(), timeoutPromise]);
+}
 
 interface EventProcessorOptions {
   /** Debounce delay in ms (default: 300ms) */
@@ -137,75 +149,51 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
       const invalidateStart = performance.now();
       
       if (USE_SMART_UPDATES) {
-        // ✅ SMART UPDATE: Tenta fetch seletivo, mas com timeout
-        // Se demorar >500ms, fallback para invalidação normal
-        
-        const SMART_UPDATE_TIMEOUT = 500; // 500ms max para fetch
+        // Smart update: Tenta fetch seletivo, mas com timeout
+        // Se demorar muito, fallback para invalidação normal
         let updatedCount = 0;
-        
+
+        // Track only events that failed smart update (not entire batch)
+        const failedEvents = new Set<string>();
+
         for (const event of uniqueEvents) {
           const entityType = event.entityType;
           const entityId = event.entityId;
-          
-          // Para cada tipo de evento, decide estratégia
+          const eventKey = `${entityType}:${entityId}`;
+
+          // Decide estratégia por tipo de evento
           switch (event.eventType) {
             case 'updated':
             case 'status_changed': {
-              // ✅ SMART: Busca task/feature com timeout
-              if (entityType === 'task' || entityType === 'feature') {
+              // Smart update: busca task/feature com timeout
+              if (entityType === 'task') {
                 try {
-                  console.log(`[Realtime] 🎯 Smart update: fetching ${entityType} ${entityId} (timeout=${SMART_UPDATE_TIMEOUT}ms)`);
-                  
-                  // Fetch com timeout (race condition)
-                  const fetchPromise = entityType === 'task' 
-                    ? fetchTaskById(entityId) 
-                    : fetchFeatureById(entityId);
-                    
-                  const timeoutPromise = new Promise((_, reject) => 
-                    setTimeout(() => reject(new Error('Timeout')), SMART_UPDATE_TIMEOUT)
+                  console.log(`[Realtime] 🎯 Smart update: fetching task ${entityId} (timeout=${SMART_UPDATE_TIMEOUT}ms)`);
+
+                  const updated = await fetchWithTimeout(
+                    () => fetchTaskById(entityId),
+                    SMART_UPDATE_TIMEOUT
                   );
-                  
-                  const updated = await Promise.race([fetchPromise, timeoutPromise]) as any;
-                  
-                  if (entityType === 'task') {
-                    // Atualiza task em cache
-                    const listQueries = queryClient.getQueriesData<TasksResponse>({ 
-                      queryKey: [event.orgId, 'tasks', 'list']
-                    });
-                    
-                    for (const [queryKey, data] of listQueries) {
-                      if (data?.items) {
-                        const index = data.items.findIndex(t => t.id === entityId);
-                        if (index !== -1) {
-                          const newItems = [...data.items];
-                          newItems[index] = updated;
-                          queryClient.setQueryData(queryKey, { ...data, items: newItems });
-                          console.log(`[Realtime] ✅ Updated task in cache`);
-                          updatedCount++;
-                        }
-                      }
-                    }
-                  } else if (entityType === 'feature') {
-                    // Atualiza feature em cache
-                    const listQueries = queryClient.getQueriesData({ 
-                      queryKey: [event.orgId, 'features', 'list']
-                    });
-                    
-                    for (const [queryKey, data] of listQueries) {
-                      if (Array.isArray(data)) {
-                        const index = data.findIndex((f: any) => f.id === entityId);
-                        if (index !== -1) {
-                          const newData = [...data];
-                          newData[index] = updated;
-                          queryClient.setQueryData(queryKey, newData);
-                          console.log(`[Realtime] ✅ Updated feature in cache`);
-                          updatedCount++;
-                        }
+
+                  // Update cache with fetched data
+                  const listQueries = queryClient.getQueriesData<TasksResponse>({
+                    queryKey: [event.orgId, 'tasks', 'list']
+                  });
+
+                  for (const [queryKey, data] of listQueries) {
+                    if (data?.items) {
+                      const index = data.items.findIndex(t => t.id === entityId);
+                      if (index !== -1) {
+                        const newItems = [...data.items];
+                        newItems[index] = updated;
+                        queryClient.setQueryData(queryKey, { ...data, items: newItems });
+                        console.log(`[Realtime] ✅ Updated task in cache`);
+                        updatedCount++;
                       }
                     }
                   }
-                  
-                  // Atualiza parents (não bloqueia)
+
+                  // Update parents (non-blocking)
                   if (event.featureId) {
                     queryClient.invalidateQueries({
                       queryKey: [event.orgId, 'features', 'detail', event.featureId],
@@ -218,27 +206,53 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
                       refetchType: 'active',
                     });
                   }
-                  
+
                 } catch (error) {
-                  // Timeout ou erro: fallback para invalidação
-                  console.warn(`[Realtime] ⚠️ Smart update failed (${error}), using invalidation fallback`);
-                  for (const keyString of keySet) {
-                    const key = JSON.parse(keyString);
-                    queryClient.invalidateQueries({ 
-                      queryKey: key,
+                  console.warn(`[Realtime] ⚠️ Smart update failed for task:${entityId} (${error}), will invalidate only this event`);
+                  failedEvents.add(`task:${entityId}`);
+                }
+              } else if (entityType === 'feature') {
+                try {
+                  console.log(`[Realtime] 🎯 Smart update: fetching feature ${entityId} (timeout=${SMART_UPDATE_TIMEOUT}ms)`);
+
+                  const updated = await fetchWithTimeout(
+                    () => fetchFeatureById(entityId),
+                    SMART_UPDATE_TIMEOUT
+                  );
+
+                  // Feature
+                  const listQueries = queryClient.getQueriesData({
+                    queryKey: [event.orgId, 'features', 'list']
+                  });
+
+                  for (const [queryKey, data] of listQueries) {
+                    if (Array.isArray(data)) {
+                      const index = data.findIndex((f: { id: string }) => f.id === entityId);
+                      if (index !== -1) {
+                        const newData = [...data];
+                        newData[index] = updated;
+                        queryClient.setQueryData(queryKey, newData);
+                        console.log(`[Realtime] ✅ Updated feature in cache`);
+                        updatedCount++;
+                      }
+                    }
+                  }
+
+                  // Update parents (non-blocking)
+                  if (event.epicId) {
+                    queryClient.invalidateQueries({
+                      queryKey: [event.orgId, 'epics', 'detail', event.epicId],
                       refetchType: 'active',
                     });
                   }
+
+                } catch (error) {
+                  console.warn(`[Realtime] ⚠️ Smart update failed for feature:${entityId} (${error}), will invalidate only this event`);
+                  failedEvents.add(`feature:${entityId}`);
                 }
               } else {
-                // Outros entity types: invalida normalmente
-                for (const keyString of keySet) {
-                  const key = JSON.parse(keyString);
-                  queryClient.invalidateQueries({ 
-                    queryKey: key,
-                    refetchType: 'active',
-                  });
-                }
+                // Other entity types: mark for normal invalidation
+                failedEvents.add(eventKey);
               }
               break;
             }
@@ -246,9 +260,10 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
             case 'created':
             case 'deleted': {
               // Esses precisam invalidar listas (item novo/removido muda total)
-              for (const keyString of keySet) {
-                const key = JSON.parse(keyString);
-                queryClient.invalidateQueries({ 
+              // ✅ FIX: Only invalidate keys for THIS event, not entire keySet
+              const eventKeys = getInvalidationKeys(event);
+              for (const key of eventKeys) {
+                queryClient.invalidateQueries({
                   queryKey: key,
                   refetchType: 'active',
                 });
@@ -256,7 +271,7 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
               }
               break;
             }
-            
+
             case 'commented': {
               // Invalida apenas query de comments da task
               queryClient.invalidateQueries({
@@ -268,7 +283,32 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
             }
           }
         }
-        
+
+        // ✅ FIX: Invalidate ONLY failed events, not entire batch
+        if (failedEvents.size > 0) {
+          console.log(`[Realtime] ⚠️ Invalidating ${failedEvents.size} failed events individually`);
+          for (const eventKey of failedEvents) {
+            const parts = eventKey.split(':');
+            if (parts.length !== 2) {
+              console.warn(`[Realtime] Invalid eventKey format: ${eventKey}, skipping`);
+              continue;
+            }
+            const [entityType, entityId] = parts;
+            const failedEvent = uniqueEvents.find(
+              e => e.entityType === entityType && e.entityId === entityId
+            );
+            if (failedEvent) {
+              const eventKeys = getInvalidationKeys(failedEvent);
+              for (const key of eventKeys) {
+                queryClient.invalidateQueries({
+                  queryKey: key,
+                  refetchType: 'active',
+                });
+              }
+            }
+          }
+        }
+
         console.log(`[Realtime] ⏱️ Smart updates: ${updatedCount} cache updates performed`);
         
       } else {

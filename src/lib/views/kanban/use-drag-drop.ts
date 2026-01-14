@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -35,6 +35,12 @@ interface UseDragDropReturn {
 export function useDragDrop({ tasks, onDragEnd }: UseDragDropOptions): UseDragDropReturn {
   const [activeTask, setActiveTask] = useState<TaskWithReadableId | null>(null);
 
+  // ✅ FIX: Create Map for O(1) lookup instead of O(n) array.find()
+  const tasksMap = useMemo(() =>
+    new Map(tasks.map(t => [t.id, t])),
+    [tasks]
+  );
+
   // Sensors for mouse, touch and keyboard
   // Using Mouse/Touch instead of Pointer fixes issues with click propagation
   const sensors = useSensors(
@@ -54,12 +60,12 @@ export function useDragDrop({ tasks, onDragEnd }: UseDragDropOptions): UseDragDr
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
-      const task = tasks.find((t) => t.id === event.active.id);
+      const task = tasksMap.get(String(event.active.id));
       if (task) {
         setActiveTask(task);
       }
     },
-    [tasks]
+    [tasksMap]
   );
 
   const handleDragEnd = useCallback(

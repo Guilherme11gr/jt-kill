@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash(git log:*)"
       "mcp__jt-kill__update_task"
     ]
   }

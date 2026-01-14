@@ -2,18 +2,21 @@ import { prisma } from './index';
 
 /**
  * getUserProjectIds - Busca IDs dos projetos onde o usuário participa
- * 
+ *
  * Um usuário "participa" de um projeto se:
  * - É assignee de alguma task do projeto
  * - Criou alguma task do projeto
- * 
+ *
  * Usado para calcular "zona de influência" na dashboard.
+ *
+ * ✅ Otimizado: usa groupBy ao invés de distinct para evitar buscar todos os registros
  */
 export async function getUserProjectIds(
   orgId: string,
   userId: string
 ): Promise<string[]> {
-  const projects = await prisma.task.findMany({
+  const result = await prisma.task.groupBy({
+    by: ['projectId'],
     where: {
       orgId,
       OR: [
@@ -21,9 +24,7 @@ export async function getUserProjectIds(
         { createdBy: userId },
       ],
     },
-    select: { projectId: true },
-    distinct: ['projectId'],
   });
 
-  return projects.map((p) => p.projectId);
+  return result.map((r) => r.projectId);
 }

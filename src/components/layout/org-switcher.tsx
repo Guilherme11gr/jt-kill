@@ -12,15 +12,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function OrgSwitcher() {
+interface OrgSwitcherProps {
+  isCollapsed?: boolean;
+}
+
+export function OrgSwitcher({ isCollapsed = false }: OrgSwitcherProps) {
   const { profile, isLoading, switchOrg } = useAuth();
   const [isSwitching, setIsSwitching] = useState(false);
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 px-2">
+      <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2 px-2'}`}>
         <Skeleton className="h-8 w-8 rounded-md" />
-        <Skeleton className="h-4 w-24" />
+        {!isCollapsed && <Skeleton className="h-4 w-24" />}
       </div>
     );
   }
@@ -42,6 +46,46 @@ export function OrgSwitcher() {
       setIsSwitching(false);
     }
   };
+
+  // Collapsed mode: icon-only with tooltip
+  if (isCollapsed) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10"
+            disabled={isSwitching}
+            title={currentOrg?.orgName}
+          >
+            {isSwitching ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Building2 className="w-5 h-5 text-muted-foreground" />
+            )}
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" side="right" className="w-56">
+          {profile.memberships.map((membership) => (
+            <DropdownMenuItem
+              key={membership.orgId}
+              onSelect={() => handleSwitchOrg(membership.orgId)}
+              className="flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-muted-foreground" />
+                <span className="truncate">{membership.orgName}</span>
+              </div>
+              {membership.orgId === profile.currentOrgId && (
+                <Check className="w-4 h-4 text-primary" />
+              )}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
 
   // If only one org, just show it without dropdown
   if (!hasMultipleOrgs) {

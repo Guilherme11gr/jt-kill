@@ -97,25 +97,25 @@ export function TaskFilters({
     return epics.filter(e => e.projectId === filters.projectId);
   }, [epics, filters.projectId]);
 
-  // Filter features based on selected epic
-  // SPECIAL CASE: When filtering by assignee (me/specific user) without epic,
-  // show all features from selected project to allow filtering across epics
+  // Filter features based on selected epic or project
+  // FIX: Enable feature filter when project is selected (without requiring epic or assignee)
+  // This allows users to filter tasks by feature across all epics within a project
   const filteredFeatures = useMemo(() => {
-    // If epic is selected, filter features normally
+    // If epic is selected, filter features normally (most specific)
     if (filters.epicId !== 'all') {
       return features.filter(f => f.epicId === filters.epicId);
     }
     
-    // If no epic but has assignee filter and project selected,
-    // show all features from that project (user may have tasks in multiple epics)
-    if (filters.assigneeId !== 'all' && filters.projectId !== 'all') {
+    // If project is selected (but no epic), show ALL features from that project
+    // This enables filtering by feature without forcing epic selection first
+    if (filters.projectId !== 'all') {
       const projectEpicIds = filteredEpics.map(e => e.id);
       return features.filter(f => projectEpicIds.includes(f.epicId));
     }
     
-    // Default: no features if no epic selected
+    // Default: no features if no project selected
     return [];
-  }, [features, filters.epicId, filters.assigneeId, filters.projectId, filteredEpics]);
+  }, [features, filters.epicId, filters.projectId, filteredEpics]);
 
   // Check if hierarchy filters are active
   const hasHierarchyFilter = filters.projectId !== 'all' || filters.epicId !== 'all' || filters.featureId !== 'all';
@@ -173,8 +173,9 @@ export function TaskFilters({
 
   // Determine states
   const isEpicDisabled = filters.projectId === 'all';
-  // Feature is enabled if: (1) epic is selected OR (2) assignee filter + project selected
-  const isFeatureDisabled = filters.epicId === 'all' && !(filters.assigneeId !== 'all' && filters.projectId !== 'all');
+  // FIX: Feature is enabled if project is selected (epic selection not required)
+  // This allows filtering by feature across all epics within a project
+  const isFeatureDisabled = filters.projectId === 'all';
 
   // Get selected names for breadcrumb
   const selectedProject = projects.find(p => p.id === filters.projectId);

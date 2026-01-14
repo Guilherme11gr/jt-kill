@@ -53,7 +53,7 @@ const updateTaskSchema = z.object({
   description: z.string().optional(),
   type: z.enum(['TASK', 'BUG']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
-  status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'DONE']).optional(),
+  status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE']).optional(),
   blocked: z.boolean().optional(),
   assigneeId: z.string().uuid().nullable().optional(),
   // Agent-provided metadata (optional)

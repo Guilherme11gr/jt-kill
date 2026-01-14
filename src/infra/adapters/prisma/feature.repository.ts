@@ -112,6 +112,9 @@ export class FeatureRepository {
 
   /**
    * Ligthweight list for dropdowns
+   * 
+   * Note: Returns epicId at root level for compatibility with task-filters.tsx
+   * which expects { id, title, epicId } format
    */
   async findOptions(orgId: string) {
     return await this.prisma.feature.findMany({
@@ -119,6 +122,7 @@ export class FeatureRepository {
       select: {
         id: true,
         title: true,
+        epicId: true, // ✅ FIX: Include epicId at root level for dropdown filtering
         epic: {
           select: {
             id: true,

@@ -19,7 +19,7 @@ const listQuerySchema = z.object({
   featureId: z.string().uuid().optional(),
   epicId: z.string().uuid().optional(),
   projectId: z.string().uuid().optional(),
-  status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'DONE']).optional(),
+  status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE']).optional(),
   type: z.enum(['TASK', 'BUG']).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
   assigneeId: z.string().uuid().optional(),
@@ -97,7 +97,7 @@ const createTaskSchema = z.object({
   description: z.string().optional(),
   type: z.enum(['TASK', 'BUG']).default('TASK'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
-  status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'DONE']).default('BACKLOG'),
+  status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE']).default('BACKLOG'),
   _metadata: agentMetadataSchema,
 });
 

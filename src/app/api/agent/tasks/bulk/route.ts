@@ -22,7 +22,7 @@ const agentMetadataSchema = z.object({
 const bulkUpdateSchema = z.object({
   ids: z.array(z.string().uuid()).min(1, 'At least one task ID is required'),
   update: z.object({
-    status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'DONE']).optional(),
+    status: z.enum(['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE']).optional(),
     type: z.enum(['TASK', 'BUG']).optional(),
     priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).optional(),
     blocked: z.boolean().optional(),

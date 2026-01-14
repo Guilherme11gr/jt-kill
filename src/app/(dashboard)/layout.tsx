@@ -21,6 +21,7 @@ import {
 import { LogoutButton } from "@/components/layout/logout-button";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
 import { TaskModalProvider } from "@/providers/task-modal-provider";
+import { ConnectionBadge } from "@/components/ui/connection-badge";
 
 export default function DashboardLayout({
   children,
@@ -54,6 +55,11 @@ export default function DashboardLayout({
         {/* Org Switcher */}
         <div className="px-4 py-3 border-b border-border">
           <OrgSwitcher />
+        </div>
+
+        {/* Connection Status */}
+        <div className="px-4 py-2 border-b border-border">
+          <ConnectionBadge size="sm" />
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -100,6 +106,11 @@ export default function DashboardLayout({
             {/* Org Switcher - Mobile */}
             <div className="px-4 py-3 border-b border-border">
               <OrgSwitcher />
+            </div>
+
+            {/* Connection Status - Mobile */}
+            <div className="px-4 py-2 border-b border-border">
+              <ConnectionBadge size="sm" />
             </div>
             <nav className="flex-1 p-4 space-y-1">
               {sidebarItems.map((item) => (

@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { commentRepository, taskRepository } from '@/infra/adapters/prisma';
+import { commentRepository, taskRepository, userProfileRepository } from '@/infra/adapters/prisma';
+import { broadcastCommentEvent } from '@/lib/supabase/broadcast';
 import { z } from 'zod';
 
 const createCommentSchema = z.object({
@@ -75,6 +76,21 @@ export async function POST(
       userId,
       content: parsed.data.content,
     });
+
+    // Broadcast event for real-time updates
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    await broadcastCommentEvent(
+      tenantId,
+      task.projectId,
+      'created',
+      comment.id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      },
+      { taskId }
+    );
 
     return jsonSuccess(comment, { status: 201 });
 

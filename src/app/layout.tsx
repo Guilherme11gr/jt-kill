@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/query";
 import { AuthProvider } from "@/providers/auth-provider";
 import { PermissionsProvider } from "@/providers/permissions-provider";
+import { RealtimeProvider } from "@/providers/realtime-provider";
+import { ActivityToastsProvider } from "@/providers/activity-toasts-provider";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -41,8 +43,12 @@ export default function RootLayout({
                 enableSystem={false}
                 disableTransitionOnChange
               >
-                {children}
-                <Toaster />
+                <RealtimeProvider>
+                  <ActivityToastsProvider>
+                    {children}
+                    <Toaster />
+                  </ActivityToastsProvider>
+                </RealtimeProvider>
               </ThemeProvider>
             </PermissionsProvider>
           </AuthProvider>
@@ -51,4 +57,3 @@ export default function RootLayout({
     </html>
   );
 }
-

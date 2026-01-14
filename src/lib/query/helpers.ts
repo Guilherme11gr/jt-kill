@@ -12,11 +12,41 @@ import { queryKeys } from './query-keys';
  * - Queries ATIVAS (montadas na UI) → refetch IMEDIATO
  * - Queries INATIVAS → marcadas como STALE (refetch quando montadas)
  * 
+ * REAL-TIME AWARE:
+ * - Se real-time estiver CONECTADO, PULA invalidação (o próprio RT cuida)
+ * - Se real-time estiver DESCONECTADO, invalida normalmente (fallback)
+ * 
  * IMPORTANTE: Todos os helpers que invalidam entidades específicas
  * precisam receber orgId para garantir isolamento de cache multi-org.
  * 
  * @see docs/guides/cache-invalidation-patterns.md
+ * @see docs/planning/realtime/IMPLEMENTATION-PROGRESS.md
  */
+
+/**
+ * Check if real-time is active and skip invalidation if so.
+ * This prevents duplicate refetches when real-time is already handling updates.
+ * 
+ * @param isRealtimeActive - Whether real-time connection is active
+ * @param shouldInvalidate - Whether to perform invalidation
+ * @returns true if invalidation should be performed
+ */
+function shouldPerformInvalidation(isRealtimeActive?: boolean): boolean {
+  // If real-time is undefined (not initialized), always invalidate
+  if (isRealtimeActive === undefined) {
+    return true;
+  }
+  
+  // If real-time is connected, skip invalidation (RT will handle it)
+  if (isRealtimeActive) {
+    console.log('[Cache] Skipping invalidation - real-time is active');
+    return false;
+  }
+  
+  // Real-time is disconnected, perform invalidation (fallback)
+  console.log('[Cache] Performing invalidation - real-time is disconnected');
+  return true;
+}
 
 /**
  * Invalidação inteligente de queries.

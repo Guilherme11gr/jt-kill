@@ -18,6 +18,8 @@ import { TagBadge } from '@/components/features/tags';
 import { TaskHierarchyPath } from './task-hierarchy-path';
 import { BlockTaskDialog } from './block-task-dialog';
 import { useBlockTaskDialog } from '@/hooks/use-block-task-dialog';
+import { SyncIndicator } from '@/components/ui/sync-indicator';
+import { OptimisticWrapper } from '@/components/ui/optimistic-wrapper';
 import type { TaskWithReadableId } from '@/shared/types';
 
 // Generate consistent colors for modules based on hash (legacy fallback)
@@ -49,6 +51,8 @@ interface TaskCardProps {
   task: TaskWithReadableId;
   variant?: 'kanban' | 'compact';
   isDragging?: boolean;
+  isFetching?: boolean;
+  isOptimistic?: boolean;
   onClick?: () => void;
   className?: string;
 }
@@ -57,6 +61,8 @@ export function TaskCard({
   task,
   variant = 'kanban',
   isDragging = false,
+  isFetching = false,
+  isOptimistic = false,
   onClick,
   className,
 }: TaskCardProps) {
@@ -72,17 +78,21 @@ export function TaskCard({
   }, []);
 
   return (
-    <Card
-      onClick={onClick}
-      className={cn(
-        'p-4 cursor-pointer transition-all duration-200',
-        'hover:bg-accent/50 hover:border-primary/30',
-        isBug && 'border-l-2 border-l-red-500',
-        task.blocked && 'border-red-500/50 bg-red-500/5',
-        isDragging && 'rotate-2 scale-[1.02] shadow-lg opacity-90',
-        className
-      )}
-    >
+    <OptimisticWrapper isOptimistic={isOptimistic}>
+      <Card
+        onClick={onClick}
+        className={cn(
+          'p-4 cursor-pointer transition-all duration-200 relative',
+          'hover:bg-accent/50 hover:border-primary/30',
+          isBug && 'border-l-2 border-l-red-500',
+          task.blocked && 'border-red-500/50 bg-red-500/5',
+          isDragging && 'rotate-2 scale-[1.02] shadow-lg opacity-90',
+          className
+        )}
+      >
+      {/* Sync Indicator - shows when data is being updated */}
+      <SyncIndicator isFetching={isFetching} />
+      
       {/* Header: Tags/Modules + ID + Priority */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -200,6 +210,7 @@ export function TaskCard({
         {...blockDialog}
         taskTitle={task.title}
       />
-    </Card>
+      </Card>
+    </OptimisticWrapper>
   );
 }

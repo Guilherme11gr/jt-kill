@@ -3,6 +3,7 @@ import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import { smartInvalidate } from '../helpers';
 import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
+import { useRealtimeActive } from '@/hooks/use-realtime-status';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -142,11 +143,12 @@ export function useAllEpics() {
  * Create a new epic
  * 
  * Strategy: Optimistic update + background refetch
- * We add the epic immediately to cache, then refetch to ensure consistency.
+ * We add epic immediately to cache, then refetch to ensure consistency.
  */
 export function useCreateEpic() {
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
+  const isRealtimeActive = useRealtimeActive();
 
   return useMutation({
     mutationFn: createEpic,
@@ -166,12 +168,15 @@ export function useCreateEpic() {
         return [...old, newEpic];
       });
 
-      // 3. Invalidate with immediate refetch for active queries
-      smartInvalidate(queryClient, queryKeys.epics.list(orgId, variables.projectId));
-      smartInvalidate(queryClient, queryKeys.epics.allList(orgId));
+      // 3. Only invalidate if real-time is disconnected
+      // If RT is active, broadcast will handle invalidation
+      if (!isRealtimeActive) {
+        smartInvalidate(queryClient, queryKeys.epics.list(orgId, variables.projectId));
+        smartInvalidate(queryClient, queryKeys.epics.allList(orgId));
 
-      // 4. Invalidate project detail to update counters (e.g., epic count)
-      smartInvalidate(queryClient, queryKeys.projects.detail(orgId, variables.projectId));
+        // 4. Invalidate project detail to update counters (e.g., epic count)
+        smartInvalidate(queryClient, queryKeys.projects.detail(orgId, variables.projectId));
+      }
 
       toast.success('Epic criado');
     },
@@ -189,11 +194,12 @@ export function useCreateEpic() {
 export function useUpdateEpic() {
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
+  const isRealtimeActive = useRealtimeActive();
 
   return useMutation({
     mutationFn: updateEpic,
     onSuccess: (updatedEpic, variables) => {
-      // 1. Optimistic update: update the specific epic detail in cache
+      // 1. Optimistic update: update specific epic detail in cache
       queryClient.setQueryData<Epic>(queryKeys.epics.detail(orgId, variables.id), updatedEpic);
 
       // 2. Update in lists (project-specific and all-list)
@@ -206,16 +212,19 @@ export function useUpdateEpic() {
       queryClient.setQueriesData<Epic[]>({ queryKey: queryKeys.epics.lists(orgId) }, updateInList);
       queryClient.setQueryData<Epic[]>(queryKeys.epics.allList(orgId), updateInList);
 
-      // 3. Invalidate epic lists (smartInvalidate handles active vs inactive)
-      smartInvalidate(queryClient, queryKeys.epics.lists(orgId));
-      smartInvalidate(queryClient, queryKeys.epics.allList(orgId));
+      // 3. Only invalidate if real-time is disconnected
+      // If RT is active, broadcast will handle invalidation
+      if (!isRealtimeActive) {
+        smartInvalidate(queryClient, queryKeys.epics.lists(orgId));
+        smartInvalidate(queryClient, queryKeys.epics.allList(orgId));
 
-      // 4. Invalidate features of this epic (title change may affect UI)
-      smartInvalidate(queryClient, queryKeys.features.list(orgId, updatedEpic.id));
+        // 4. Invalidate features of this epic (title change may affect UI)
+        smartInvalidate(queryClient, queryKeys.features.list(orgId, updatedEpic.id));
 
-      // 5. Invalidate project detail if epic has projectId
-      if (updatedEpic.projectId) {
-        smartInvalidate(queryClient, queryKeys.projects.detail(orgId, updatedEpic.projectId));
+        // 5. Invalidate project detail if epic has projectId
+        if (updatedEpic.projectId) {
+          smartInvalidate(queryClient, queryKeys.projects.detail(orgId, updatedEpic.projectId));
+        }
       }
 
       toast.success('Epic atualizado');

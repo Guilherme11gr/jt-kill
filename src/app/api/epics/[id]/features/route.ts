@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
+import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { epicRepository, featureRepository } from '@/infra/adapters/prisma';
+import { epicRepository, featureRepository, userProfileRepository } from '@/infra/adapters/prisma';
 import { getEpicById } from '@/domain/use-cases/epics/get-epic-by-id';
 import { getFeatures } from '@/domain/use-cases/features/get-features';
 import { createFeature } from '@/domain/use-cases/features/create-feature';
+import { broadcastFeatureEvent } from '@/lib/supabase/broadcast';
 import { z } from 'zod';
 
 const createFeatureSchema = z.object({
@@ -44,8 +45,8 @@ export async function POST(
     const supabase = await createClient();
     const { tenantId } = await extractAuthenticatedTenant(supabase);
 
-    await getEpicById(epicId, tenantId, { epicRepository });
-    
+    const epic = await getEpicById(epicId, tenantId, { epicRepository });
+
     const body = await request.json();
     const parsed = createFeatureSchema.safeParse(body);
     if (!parsed.success) {
@@ -55,6 +56,23 @@ export async function POST(
     }
 
     const feature = await createFeature({ orgId: tenantId, epicId, ...parsed.data }, { featureRepository });
+
+    // Broadcast event for real-time updates
+    const userId = await extractUserId(supabase);
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    await broadcastFeatureEvent(
+      tenantId,
+      epic.projectId,
+      'created',
+      feature.id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      },
+      { epicId }
+    );
+
     return jsonSuccess(feature, { status: 201 });
 
   } catch (error) {

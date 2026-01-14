@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
+import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { featureRepository } from '@/infra/adapters/prisma';
+import { featureRepository, userProfileRepository, epicRepository } from '@/infra/adapters/prisma';
 import { updateFeature } from '@/domain/use-cases/features/update-feature';
 import { deleteFeature } from '@/domain/use-cases/features/delete-feature';
+import { broadcastFeatureEvent } from '@/lib/supabase/broadcast';
 import { z } from 'zod';
 
 const updateFeatureSchema = z.object({
@@ -60,6 +61,30 @@ export async function PATCH(
     }
 
     const feature = await updateFeature(id, tenantId, parsed.data, { featureRepository });
+
+    // Broadcast event for real-time updates
+    const userId = await extractUserId(supabase);
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    
+    // Get epic to retrieve projectId
+    const epic = await epicRepository.findByIdWithProject(feature.epicId, tenantId);
+    if (!epic) {
+      return jsonError('NOT_FOUND', 'Epic não encontrado', 404);
+    }
+    
+    await broadcastFeatureEvent(
+      tenantId,
+      epic.projectId,
+      'updated',
+      feature.id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      },
+      { epicId: feature.epicId }
+    );
+
     return jsonSuccess(feature);
 
   } catch (error) {
@@ -76,8 +101,38 @@ export async function DELETE(
     const { id } = await params;
     const supabase = await createClient();
     const { tenantId } = await extractAuthenticatedTenant(supabase);
+    const userId = await extractUserId(supabase);
+
+    // Get feature before deletion for broadcast
+    const feature = await featureRepository.findById(id, tenantId);
+    if (!feature) {
+      return jsonError('NOT_FOUND', 'Feature não encontrada', 404);
+    }
 
     await deleteFeature(id, tenantId, { featureRepository });
+
+    // Broadcast deletion event
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    
+    // Get epic to retrieve projectId
+    const epic = await epicRepository.findByIdWithProject(feature.epicId, tenantId);
+    if (!epic) {
+      return jsonError('NOT_FOUND', 'Epic não encontrado', 404);
+    }
+    
+    await broadcastFeatureEvent(
+      tenantId,
+      epic.projectId,
+      'deleted',
+      id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      },
+      { epicId: feature.epicId }
+    );
+
     return new Response(null, { status: 204 });
 
   } catch (error) {

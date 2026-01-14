@@ -3,8 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { taskRepository, auditLogRepository } from '@/infra/adapters/prisma';
+import { taskRepository, auditLogRepository, userProfileRepository } from '@/infra/adapters/prisma';
 import { updateTaskStatus } from '@/domain/use-cases/tasks/update-task-status';
+import { broadcastTaskEvent } from '@/lib/supabase/broadcast';
 import { z } from 'zod';
 
 const updateStatusSchema = z.object({
@@ -37,6 +38,22 @@ export async function PATCH(
       userId,
       { taskRepository, auditLogRepository }
     );
+
+    // Broadcast for real-time updates
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    await broadcastTaskEvent(
+      tenantId,
+      task.projectId,
+      'updated',
+      id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      },
+      { featureId: task.featureId }
+    );
+
     return jsonSuccess(task);
 
   } catch (error) {

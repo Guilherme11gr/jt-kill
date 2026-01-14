@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
+import { CACHE_TIMES } from '../cache-config';
 import type { TaskTag, TaskTagWithCounts, TagInfo, CreateTaskTagInput, UpdateTaskTagInput } from '@/shared/types/tag.types';
 
 // ==================== Types ====================
@@ -34,7 +35,7 @@ export function useTaskTags(projectId: string | undefined) {
       return json.data;
     },
     enabled: !!projectId,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    ...CACHE_TIMES.STANDARD,
   });
 }
 
@@ -52,7 +53,7 @@ export function useTaskTagsForTask(taskId: string | undefined) {
       return json.data;
     },
     enabled: !!taskId,
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    ...CACHE_TIMES.FRESH,
   });
 }
 

@@ -69,3 +69,27 @@ export type CacheTier = keyof typeof CACHE_TIMES;
 export function getCacheConfig(tier: CacheTier) {
   return CACHE_TIMES[tier];
 }
+
+/**
+ * Cache Tier Guidelines
+ * 
+ * REALTIME  - tasks, comments (with RT), poker votes, notifications
+ * FRESH     - tasks, comments (without RT), features list, dashboard stats
+ * STANDARD  - projects, epics list, features detail, epics detail
+ * STABLE    - user profile, org settings, users list
+ * STATIC    - enums, config, project modules
+ * 
+ * @note After real-time is implemented, migrate tasks/comments from FRESH to REALTIME
+ */
+export const CACHE_TIER_GUIDELINES = {
+  tasks: 'FRESH', // Will be REALTIME after RT implementation
+  comments: 'FRESH', // Will be REALTIME after RT implementation
+  features: 'STANDARD',
+  epics: 'STANDARD',
+  projects: 'STANDARD',
+  users: 'STABLE',
+  orgSettings: 'STABLE',
+  enums: 'STATIC',
+  pokerVotes: 'REALTIME',
+  notifications: 'REALTIME',
+} as const;

@@ -383,6 +383,15 @@ const { data: currentUser } = useCurrentUser();
     tags: editingTask.tags,
   } : null;
 
+  // JKILL-214: Memoize defaultValues to prevent useEffect reset on every render
+  // This ensures deep links and filters work correctly
+  const defaultValues = useMemo(() => ({
+    status: filters.status !== 'all' ? filters.status : undefined,
+    priority: filters.priority !== 'all' ? filters.priority : undefined,
+    modules: filters.module !== 'all' ? [filters.module] : undefined,
+    featureId: filters.featureId !== 'all' ? filters.featureId : undefined,
+  }), [filters.status, filters.priority, filters.module, filters.featureId]);
+
   // Only show full-page skeleton on FIRST load ever (no data at all)
   // When changing filters, we keep showing previous data (placeholderData)
   const isFirstLoad = isLoading && !tasksData;
@@ -447,12 +456,7 @@ const { data: currentUser } = useCurrentUser();
         projectId={filters.projectId !== 'all' ? filters.projectId : undefined}
         features={features}
         modules={modules} // This is fallback fallbackModules, kept for comp
-        defaultValues={{
-          status: filters.status !== 'all' ? filters.status : undefined,
-          priority: filters.priority !== 'all' ? filters.priority : undefined,
-          modules: filters.module !== 'all' ? [filters.module] : undefined,
-          featureId: filters.featureId !== 'all' ? filters.featureId : undefined,
-        }}
+        defaultValues={defaultValues}
         taskToEdit={taskToEditForDialog}
         onSuccess={refetch}
       />

@@ -103,7 +103,6 @@ export function QuickTaskDialog({
   }, [allFeatures, projectId]);
 
   // Reset form when dialog opens
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       setTitle('');
@@ -113,11 +112,13 @@ export function QuickTaskDialog({
       setAssignedTo(null);
     }
   }, [open, defaultProjectId, projects]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Auto-selecionar primeira feature quando projeto muda
-  /* eslint-disable react-hooks/set-state-in-effect */
+  // ✅ FIX JKILL-214: Auto-select ONLY when projectFeatures becomes available for the FIRST time
+  // Don't reset featureId if user has already made a selection
   useEffect(() => {
+    // Only auto-select if:
+    // 1. Features are loaded for this project
+    // 2. No feature is currently selected (user hasn't picked yet)
     if (projectFeatures.length > 0 && !featureId) {
       // Preferir feature "Sustentação" ou primeira disponível
       const sustentacao = projectFeatures.find((f) =>
@@ -127,8 +128,9 @@ export function QuickTaskDialog({
       );
       setFeatureId(sustentacao?.id || projectFeatures[0].id);
     }
-  }, [projectFeatures, featureId]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+    // JKILL-214: Depends on length AND projectId to handle projects with same feature count
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectFeatures.length, projectId]); // Trigger when project changes OR features load
 
   const mutation = useMutation({
     mutationFn: createQuickTask,

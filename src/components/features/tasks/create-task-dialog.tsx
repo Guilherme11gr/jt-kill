@@ -151,7 +151,7 @@ export function TaskDialog({
           assigneeId: taskToEdit.assigneeId || null,
         });
       } else {
-        // Merge defaults
+        // Merge defaults (reset form when dialog opens for new task)
         setFormData({
           ...INITIAL_FORM_DATA,
           status: (defaultValues?.status as any) || INITIAL_FORM_DATA.status,
@@ -162,7 +162,11 @@ export function TaskDialog({
         });
       }
     }
-  }, [open, taskToEdit, defaultFeatureId, filteredFeatures, defaultValues]);
+    // JKILL-214: Use filteredFeatures.length + projectId to prevent reset when features reference changes
+    // CRITICAL: Keep defaultValues in deps for deep links and filter integration to work
+    // Only triggers when: dialog opens, projectId changes, features load/unload, OR defaultValues change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, taskToEdit, defaultFeatureId, filteredFeatures.length, projectId, defaultValues]);
 
   // Memoized AI handler to prevent recreation on each render
   const handleAIGenerate = useCallback(async () => {

@@ -130,12 +130,22 @@ export function smartInvalidateMany(
  * Invalidate all dashboard-related queries for an org.
  * Use this when an entity change might affect the dashboard (tasks, projects, comments).
  * 
+ * ✅ FIX JKILL-214: Invalidate ALL variants of myTasks (with/without includeDone, teamView)
+ * 
  * @param queryClient - React Query client
  * @param orgId - Organization ID for cache isolation
  */
 export function invalidateDashboardQueries(queryClient: QueryClient, orgId: string) {
+  // Invalidate ALL myTasks variants (4 combinations: 2×2 boolean matrix)
+  const myTasksKeys = [
+    queryKeys.dashboard.myTasks(orgId, false, false), // default
+    queryKeys.dashboard.myTasks(orgId, true, false),  // includeDone
+    queryKeys.dashboard.myTasks(orgId, false, true),  // teamView
+    queryKeys.dashboard.myTasks(orgId, true, true),   // both
+  ];
+  
   smartInvalidateMany(queryClient, [
-    queryKeys.dashboard.myTasks(orgId),
+    ...myTasksKeys,
     queryKeys.dashboard.activity(orgId),
     queryKeys.dashboard.activeProjects(orgId),
   ]);

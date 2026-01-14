@@ -72,18 +72,20 @@ export function getCacheConfig(tier: CacheTier) {
 
 /**
  * Cache Tier Guidelines
- * 
+ *
  * REALTIME  - tasks, comments (with RT), poker votes, notifications
- * FRESH     - tasks, comments (without RT), features list, dashboard stats
+ * FRESH     - features list, dashboard stats
  * STANDARD  - projects, epics list, features detail, epics detail
  * STABLE    - user profile, org settings, users list
  * STATIC    - enums, config, project modules
- * 
- * @note After real-time is implemented, migrate tasks/comments from FRESH to REALTIME
+ *
+ * ✅ Real-time is implemented - tasks/comments use REALTIME tier (staleTime: 0)
+ * This ensures stale data is refetched immediately when needed while benefiting
+ * from real-time broadcasts for updates from other clients.
  */
 export const CACHE_TIER_GUIDELINES = {
-  tasks: 'FRESH', // Will be REALTIME after RT implementation
-  comments: 'FRESH', // Will be REALTIME after RT implementation
+  tasks: 'REALTIME', // ✅ Real-time enabled - immediate refetch + live updates
+  comments: 'REALTIME', // ✅ Real-time enabled - immediate refetch + live updates
   features: 'STANDARD',
   epics: 'STANDARD',
   projects: 'STANDARD',

@@ -10,7 +10,8 @@
       "mcp__jt-kill__get_task",
       "Bash(ADMIN_SECRET=nGt1Ks81NmePXnzriYfDZg== npx tsx:*)",
       "Bash(npx prisma@5.8.1 db push:*)",
-      "Bash(npx next build:*)"
+      "Bash(npx next build:*)",
+      "mcp__jt-kill__list_features"
     ]
   }
 }

@@ -31,10 +31,16 @@ export function KanbanBoard({
   // Group by status - optimistic updates are handled by useMoveTask hook
   const tasksByStatus = useMemo(() => groupTasksByStatus(tasks), [tasks]);
 
+  // ✅ FIX: Create Map for O(1) lookup instead of O(n) array.find()
+  const tasksMap = useMemo(() =>
+    new Map(tasks.map(t => [t.id, t])),
+    [tasks]
+  );
+
   // Handle drag end with validation
   const handleDragEnd = useCallback(
     async (taskId: string, newStatus: TaskStatus) => {
-      const task = tasks.find((t) => t.id === taskId);
+      const task = tasksMap.get(taskId);
       if (!task || task.status === newStatus) return;
 
       // Validation: Prevent direct move from BACKLOG to DONE
@@ -51,7 +57,7 @@ export function KanbanBoard({
         console.error('Failed to move task:', error);
       }
     },
-    [tasks, onTaskMove]
+    [tasksMap, onTaskMove]
   );
 
   const {

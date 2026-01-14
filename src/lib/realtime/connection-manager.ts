@@ -8,7 +8,7 @@
  * - Automatic disconnect/reconnect
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
 import type { ConnectionStatus, BroadcastEvent, ConnectionManagerConfig } from './types';
 
@@ -27,17 +27,20 @@ export class RealtimeConnectionManager {
   private orgId!: string; // Assigned in connect()
   private userId!: string; // Assigned in connect()
   private tabId: string;
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: ReturnType<typeof createSupabaseClient>;
   private shouldReconnect = true;
   private lastHeartbeat = 0;
   private heartbeatInterval = 30000; // 30 seconds
   private hasReachedMaxAttempts = false; // Prevent infinite reconnection loops
 
+  // ✅ Singleton: Shared Supabase client across all RealtimeConnectionManager instances
+  private static supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null;
+
   constructor(config: ConnectionManagerConfig) {
     this.config = config;
     this.tabId = config.tabId || this.generateTabId();
 
-    // Validate and create Supabase client ONCE (shared across all connections)
+    // Validate env vars
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -45,7 +48,13 @@ export class RealtimeConnectionManager {
       throw new Error('NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be configured');
     }
 
-    this.supabase = createClient(supabaseUrl, supabaseAnonKey);
+    // ✅ Use singleton to prevent multiple GoTrueClient instances
+    if (!RealtimeConnectionManager.supabaseInstance) {
+      RealtimeConnectionManager.supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey);
+      console.log('[RealtimeConnectionManager] Created shared Supabase client instance');
+    }
+
+    this.supabase = RealtimeConnectionManager.supabaseInstance;
   }
 
   /**

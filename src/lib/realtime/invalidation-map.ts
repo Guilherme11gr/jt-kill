@@ -25,6 +25,9 @@ export function getInvalidationKeys(event: BroadcastEvent): QueryKey[] {
       // Creation: invalidate lists by prefix (catches all filter variations)
       keys.push([...orgPrefix, getListKey(event.entityType), 'list']);
       
+      // Invalidate dashboard activity feed (new task = new activity)
+      keys.push([...orgPrefix, 'dashboard', 'activity']);
+      
       // Invalidate parent entities by prefix
       if (event.featureId) {
         keys.push([...orgPrefix, 'features', 'detail', event.featureId]);
@@ -38,6 +41,9 @@ export function getInvalidationKeys(event: BroadcastEvent): QueryKey[] {
       // Deletion: invalidate entity detail + lists
       keys.push([...orgPrefix, getListKey(event.entityType), 'detail', event.entityId]);
       keys.push([...orgPrefix, getListKey(event.entityType), 'list']);
+      
+      // Invalidate dashboard activity feed (deleted task = new activity)
+      keys.push([...orgPrefix, 'dashboard', 'activity']);
       
       // Invalidate parent entities
       if (event.featureId) {
@@ -53,6 +59,9 @@ export function getInvalidationKeys(event: BroadcastEvent): QueryKey[] {
       keys.push([...orgPrefix, getListKey(event.entityType), 'detail', event.entityId]);
       keys.push([...orgPrefix, getListKey(event.entityType), 'list']); // ✅ FIX: Invalidar lists também
       
+      // Invalidate dashboard activity feed (updated task = new activity)
+      keys.push([...orgPrefix, 'dashboard', 'activity']);
+      
       if (event.featureId) {
         keys.push([...orgPrefix, 'features', 'detail', event.featureId]);
       }
@@ -63,6 +72,9 @@ export function getInvalidationKeys(event: BroadcastEvent): QueryKey[] {
       keys.push([...orgPrefix, getListKey(event.entityType), 'detail', event.entityId]);
       keys.push([...orgPrefix, getListKey(event.entityType), 'list']);
       
+      // Invalidate dashboard activity feed (status change = new activity)
+      keys.push([...orgPrefix, 'dashboard', 'activity']);
+      
       // Invalidate parent feature
       if (event.featureId) {
         keys.push([...orgPrefix, 'features', 'detail', event.featureId]);
@@ -72,6 +84,9 @@ export function getInvalidationKeys(event: BroadcastEvent): QueryKey[] {
     case 'commented':
       // Comment: invalidate task entity (will refetch with comments)
       keys.push([...orgPrefix, 'tasks', 'detail', event.entityId]);
+      
+      // Invalidate dashboard activity feed (new comment = new activity)
+      keys.push([...orgPrefix, 'dashboard', 'activity']);
       break;
   }
 

@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
+import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { projectRepository, epicRepository } from '@/infra/adapters/prisma';
+import { projectRepository, epicRepository, userProfileRepository } from '@/infra/adapters/prisma';
 import { getProjectById } from '@/domain/use-cases/projects/get-project-by-id';
 import { getEpics } from '@/domain/use-cases/epics/get-epics';
 import { createEpic } from '@/domain/use-cases/epics/create-epic';
+import { broadcastEpicEvent } from '@/lib/supabase/broadcast';
 import { z } from 'zod';
 
 const createEpicSchema = z.object({
@@ -49,9 +50,10 @@ export async function POST(
     const { id: projectId } = await params;
     const supabase = await createClient();
     const { tenantId } = await extractAuthenticatedTenant(supabase);
+    const userId = await extractUserId(supabase);
 
     await getProjectById(projectId, tenantId, { projectRepository });
-    
+
     const body = await request.json();
     const parsed = createEpicSchema.safeParse(body);
     if (!parsed.success) {
@@ -61,6 +63,21 @@ export async function POST(
     }
 
     const epic = await createEpic({ orgId: tenantId, projectId, ...parsed.data }, { epicRepository });
+
+    // Broadcast for real-time updates
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    await broadcastEpicEvent(
+      tenantId,
+      projectId,
+      'created',
+      epic.id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      }
+    );
+
     return jsonSuccess(epic, { status: 201 });
 
   } catch (error) {

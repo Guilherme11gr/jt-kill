@@ -5,10 +5,11 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { taskRepository, featureRepository, auditLogRepository } from '@/infra/adapters/prisma';
+import { taskRepository, featureRepository, auditLogRepository, userProfileRepository } from '@/infra/adapters/prisma';
 import { AUDIT_ACTIONS } from '@/infra/adapters/prisma/audit-log.repository';
 import { searchTasks } from '@/domain/use-cases/tasks/search-tasks';
 import { createTask } from '@/domain/use-cases/tasks/create-task';
+import { broadcastTaskEvent } from '@/lib/supabase/broadcast';
 import { z } from 'zod';
 import { createTaskSchema } from '@/shared/utils';
 
@@ -77,6 +78,21 @@ export async function POST(request: NextRequest) {
       createdBy: userId,
       ...parsed.data,
     }, { taskRepository, featureRepository });
+
+    // Broadcast event for real-time updates
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    await broadcastTaskEvent(
+      tenantId,
+      task.projectId,
+      'created',
+      task.id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      },
+      { featureId: task.featureId }
+    );
 
     // Registra auditoria
     await auditLogRepository.log({

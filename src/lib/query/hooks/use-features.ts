@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '../query-keys';
-import { CACHE_TIMES } from '../cache-config';
+import { CACHE_TIMES, getCacheConfig } from '../cache-config';
 import { smartInvalidate, smartInvalidateImmediate } from '../helpers';
 import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
+import { useRealtimeActive } from '@/hooks/use-realtime-status';
+import { useRealtimeBroadcast } from '@/hooks/use-realtime-sync';
+import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 
 // ============ Types ============
@@ -59,6 +62,9 @@ async function fetchFeature(id: string): Promise<Feature> {
   return json.data;
 }
 
+// Export for use in event processor
+export { fetchFeature as fetchFeatureById };
+
 async function fetchFeatures(): Promise<Feature[]> {
   const res = await fetch('/api/features');
   if (!res.ok) throw new Error('Failed to fetch features');
@@ -107,50 +113,6 @@ async function deleteFeature(id: string): Promise<void> {
 // ============ Hooks ============
 
 /**
- * Fetch a single feature by ID
- */
-export function useFeature(id: string) {
-  const orgId = useCurrentOrgId();
-  
-  return useQuery({
-    queryKey: queryKeys.features.detail(orgId, id),
-    queryFn: () => fetchFeature(id),
-    enabled: Boolean(id) && isOrgIdValid(orgId),
-    ...CACHE_TIMES.STANDARD,
-  });
-}
-
-/**
- * Fetch all features (for dropdowns)
- */
-export function useAllFeatures() {
-  const orgId = useCurrentOrgId();
-  
-  return useQuery({
-    queryKey: queryKeys.features.list(orgId),
-    queryFn: fetchFeatures,
-    enabled: isOrgIdValid(orgId),
-    ...CACHE_TIMES.STANDARD,
-  });
-}
-
-/**
- * Fetch features for a specific epic
- */
-export function useFeaturesByEpic(epicId: string) {
-  const orgId = useCurrentOrgId();
-  
-  return useQuery({
-    queryKey: queryKeys.features.list(orgId, epicId),
-    queryFn: () => fetchFeaturesByEpic(epicId),
-    enabled: Boolean(epicId) && isOrgIdValid(orgId),
-    ...CACHE_TIMES.STANDARD,
-  });
-}
-
-// ============ Mutations ============
-
-/**
  * Create a new feature
  * 
  * Strategy: Optimistic update + IMMEDIATE refetch (CREATE operation)
@@ -158,6 +120,7 @@ export function useFeaturesByEpic(epicId: string) {
 export function useCreateFeature() {
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
+  const isRealtimeActive = useRealtimeActive();
 
   return useMutation({
     mutationFn: createFeature,
@@ -177,12 +140,15 @@ export function useCreateFeature() {
         return [...old, newFeature];
       });
 
-      // 3. IMMEDIATE refetch for CREATE operation (força atualização instantânea)
-      smartInvalidateImmediate(queryClient, queryKeys.features.list(orgId, variables.epicId));
-      smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
+      // 3. Only invalidate if real-time is disconnected
+      // If RT is active, broadcast will handle invalidation
+      if (!isRealtimeActive) {
+        smartInvalidateImmediate(queryClient, queryKeys.features.list(orgId, variables.epicId));
+        smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
 
-      // 4. Invalidate epic detail to update counters (e.g., features count)
-      smartInvalidate(queryClient, queryKeys.epics.detail(orgId, variables.epicId));
+        // 4. Invalidate epic detail to update counters (e.g., features count)
+        smartInvalidate(queryClient, queryKeys.epics.detail(orgId, variables.epicId));
+      }
 
       toast.success('Feature criada');
     },
@@ -192,6 +158,52 @@ export function useCreateFeature() {
   });
 }
 
+// ============ Query Hooks ============
+
+/**
+ * Fetch a specific feature by ID
+ */
+export function useFeature(id: string) {
+  const orgId = useCurrentOrgId();
+  
+  return useQuery({
+    queryKey: queryKeys.features.detail(orgId, id),
+    queryFn: () => fetchFeature(id),
+    enabled: isOrgIdValid(orgId) && !!id,
+    ...getCacheConfig('STABLE'),
+  });
+}
+
+/**
+ * Fetch all features (for quick task dialog, etc.)
+ */
+export function useAllFeatures() {
+  const orgId = useCurrentOrgId();
+  
+  return useQuery({
+    queryKey: queryKeys.features.allList(orgId),
+    queryFn: fetchFeatures,
+    enabled: isOrgIdValid(orgId),
+    ...getCacheConfig('STANDARD'),
+  });
+}
+
+/**
+ * Fetch features by epic ID
+ */
+export function useFeaturesByEpic(epicId: string) {
+  const orgId = useCurrentOrgId();
+  
+  return useQuery({
+    queryKey: queryKeys.features.list(orgId, epicId),
+    queryFn: () => fetchFeaturesByEpic(epicId),
+    enabled: isOrgIdValid(orgId) && !!epicId,
+    ...getCacheConfig('STANDARD'),
+  });
+}
+
+// ============ Mutations ============
+
 /**
  * Update a feature
  * 
@@ -200,14 +212,32 @@ export function useCreateFeature() {
 export function useUpdateFeature() {
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
+  const isRealtimeActive = useRealtimeActive();
+  const broadcast = useRealtimeBroadcast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: updateFeature,
     onSuccess: (updatedFeature, variables) => {
-      // 1. Optimistic update: update the specific feature in cache
+      // 1. Broadcast to other clients (ALWAYS)
+      broadcast({
+        eventId: crypto.randomUUID(),
+        orgId,
+        entityType: 'feature',
+        entityId: updatedFeature.id,
+        projectId: updatedFeature.epic?.project?.id || 'unknown',
+        epicId: updatedFeature.epicId,
+        eventType: 'updated',
+        actorType: 'user',
+        actorName: user?.user_metadata?.full_name?.trim() || user?.email?.split('@')[0] || 'Unknown',
+        actorId: user?.id || 'system',
+        timestamp: new Date().toISOString(),
+      });
+
+      // 2. Optimistic update: update specific feature in cache
       queryClient.setQueryData<Feature>(queryKeys.features.detail(orgId, variables.id), updatedFeature);
 
-      // 2. Update in lists (optimistic)
+      // 3. Update in lists (optimistic)
       const updateInList = (old: Feature[] | undefined) => {
         if (!old) return old;
         return old.map(f => f.id === updatedFeature.id ? { ...f, ...updatedFeature } : f);
@@ -216,15 +246,18 @@ export function useUpdateFeature() {
       queryClient.setQueriesData<Feature[]>({ queryKey: queryKeys.features.lists(orgId) }, updateInList);
       queryClient.setQueryData<Feature[]>(queryKeys.features.allList(orgId), updateInList);
 
-      // 3. IMMEDIATE refetch para garantir UI atualizada instantaneamente
-      smartInvalidateImmediate(queryClient, queryKeys.features.lists(orgId));
-      smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
+      // 4. Only invalidate if real-time is disconnected
+      // If RT is active, broadcast will handle invalidation
+      if (!isRealtimeActive) {
+        smartInvalidateImmediate(queryClient, queryKeys.features.lists(orgId));
+        smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
 
-      // 4. Invalidate epic detail (status/title changes may affect UI)
-      smartInvalidate(queryClient, queryKeys.epics.detail(orgId, updatedFeature.epicId));
+        // 5. Invalidate epic detail (status/title changes may affect UI)
+        smartInvalidate(queryClient, queryKeys.epics.detail(orgId, updatedFeature.epicId));
 
-      // 5. Invalidate tasks for this feature (tasks depend on feature.status)
-      smartInvalidate(queryClient, queryKeys.tasks.list(orgId, { featureId: variables.id }));
+        // 6. Invalidate tasks for this feature (tasks depend on feature.status)
+        smartInvalidate(queryClient, queryKeys.tasks.list(orgId, { featureId: variables.id }));
+      }
 
       toast.success('Feature atualizada');
     },

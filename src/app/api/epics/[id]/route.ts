@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
+import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
-import { epicRepository } from '@/infra/adapters/prisma';
+import { epicRepository, userProfileRepository } from '@/infra/adapters/prisma';
 import { getEpicById } from '@/domain/use-cases/epics/get-epic-by-id';
 import { updateEpic } from '@/domain/use-cases/epics/update-epic';
 import { deleteEpic } from '@/domain/use-cases/epics/delete-epic';
+import { broadcastEpicEvent } from '@/lib/supabase/broadcast';
 import { z } from 'zod';
 
 const updateEpicSchema = z.object({
@@ -56,6 +57,22 @@ export async function PATCH(
     }
 
     const epic = await updateEpic(id, tenantId, parsed.data, { epicRepository });
+
+    // Broadcast event for real-time updates
+    const userId = await extractUserId(supabase);
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    await broadcastEpicEvent(
+      tenantId,
+      epic.projectId,
+      'updated',
+      epic.id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      }
+    );
+
     return jsonSuccess(epic);
 
   } catch (error) {
@@ -72,8 +89,30 @@ export async function DELETE(
     const { id } = await params;
     const supabase = await createClient();
     const { tenantId } = await extractAuthenticatedTenant(supabase);
+    const userId = await extractUserId(supabase);
+
+    // Get epic before deletion for broadcast
+    const epic = await epicRepository.findById(id, tenantId);
+    if (!epic) {
+      return jsonError('NOT_FOUND', 'Epic não encontrado', 404);
+    }
 
     await deleteEpic(id, tenantId, { epicRepository });
+
+    // Broadcast deletion event
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    await broadcastEpicEvent(
+      tenantId,
+      epic.projectId,
+      'deleted',
+      id,
+      {
+        type: 'user',
+        name: userProfile?.displayName || 'Unknown',
+        id: userId,
+      }
+    );
+
     return new Response(null, { status: 204 });
 
   } catch (error) {

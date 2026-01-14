@@ -3,7 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError, ForbiddenError } from '@/shared/errors';
-import { commentRepository } from '@/infra/adapters/prisma';
+import { commentRepository, userProfileRepository, taskRepository } from '@/infra/adapters/prisma';
+import { broadcastCommentEvent } from '@/lib/supabase/broadcast';
 import { z } from 'zod';
 
 const updateCommentSchema = z.object({
@@ -44,6 +45,25 @@ export async function PATCH(
     }
 
     const updated = await commentRepository.update(id, tenantId, parsed.data.content);
+
+    // Broadcast event for real-time updates
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    const task = await taskRepository.findById(comment.taskId, tenantId);
+    if (task) {
+      await broadcastCommentEvent(
+        tenantId,
+        task.projectId,
+        'updated',
+        id,
+        {
+          type: 'user',
+          name: userProfile?.displayName || 'Unknown',
+          id: userId,
+        },
+        { taskId: comment.taskId }
+      );
+    }
+
     return jsonSuccess(updated);
 
   } catch (error) {
@@ -76,7 +96,28 @@ export async function DELETE(
       throw new ForbiddenError('Só o autor pode excluir este comentário');
     }
 
+    const taskId = comment.taskId;
+
     await commentRepository.delete(id, tenantId);
+
+    // Broadcast deletion event
+    const userProfile = await userProfileRepository.findByIdGlobal(userId);
+    const task = await taskRepository.findById(taskId, tenantId);
+    if (task) {
+      await broadcastCommentEvent(
+        tenantId,
+        task.projectId,
+        'deleted',
+        id,
+        {
+          type: 'user',
+          name: userProfile?.displayName || 'Unknown',
+          id: userId,
+        },
+        { taskId }
+      );
+    }
+
     return new Response(null, { status: 204 });
 
   } catch (error) {

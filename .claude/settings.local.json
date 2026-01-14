@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(node mcp-server/dist/index.js:*)",
+      "Bash(claude mcp add:*)",
+      "mcp__jt-kill__list_projects",
+      "mcp__jt-kill__list_epics",
+      "mcp__jt-kill__get_epic_full",
+      "mcp__jt-kill__get_task",
+      "Bash(ADMIN_SECRET=nGt1Ks81NmePXnzriYfDZg== npx tsx:*)",
+      "Bash(npx prisma@5.8.1 db push:*)",
+      "Bash(npx next build:*)"
+    ]
+  }
+}

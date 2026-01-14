@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
@@ -93,19 +94,23 @@ model Invite {
 }
 
 model AuditLog {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String       @map("org_id") @db.Uuid
-  userId       String       @map("user_id") @db.Uuid
-  action       String       // e.g., "user.invite.created", "user.role.changed"
-  targetType   String?      @map("target_type") // e.g., "user", "project"
-  targetId     String?      @map("target_id") @db.Uuid
-  metadata     Json?        // Additional context
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId          String       @map("org_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  action         String       // e.g., "user.invite.created", "user.role.changed"
+  targetType     String?      @map("target_type") // e.g., "user", "project"
+  targetId       String?      @map("target_id") @db.Uuid
+  metadata       Json?        // Additional context
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  sequenceNumber BigInt?      @map("sequence_number") // Monotonically increasing number for event ordering
+  actorType      String?      @map("actor_type") @default("user") // 'user' | 'agent' | 'system'
+  clientId       String?      @map("client_id") @db.Uuid // For deduplication across tabs
+  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([orgId], map: "idx_audit_logs_org")
   @@index([orgId, createdAt(sort: Desc)], map: "idx_audit_logs_org_created")
   @@index([userId], map: "idx_audit_logs_user")
+  @@index([orgId, sequenceNumber(sort: Desc)], map: "idx_audit_logs_sequence")
   @@map("audit_logs")
   @@schema("public")
 }

@@ -3,6 +3,9 @@ import { invalidateDashboardQueries, smartInvalidate } from '../helpers';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
+import { useRealtimeActive } from '@/hooks/use-realtime-status';
+import { useRealtimeBroadcast } from '@/hooks/use-realtime-sync';
+import { useAuth } from '@/hooks/use-auth';
 import type { TaskWithReadableId, TaskStatus } from '@/shared/types';
 import type { TaskFiltersState } from '@/components/features/tasks';
 import { toast } from 'sonner';
@@ -84,6 +87,20 @@ async function fetchTasks(filters?: Partial<TaskFiltersState>): Promise<TasksRes
   return json.data;
 }
 
+/**
+ * Fetch single task by ID
+ * Used for selective cache updates in real-time events
+ */
+async function fetchTaskById(id: string): Promise<TaskWithReadableId> {
+  const res = await fetch(`/api/tasks/${id}`);
+  if (!res.ok) throw new Error(`Failed to fetch task ${id}`);
+  const json = await res.json();
+  return json.data;
+}
+
+// Export for use in event processor
+export { fetchTaskById };
+
 async function createTask(data: CreateTaskInput): Promise<TaskWithReadableId> {
   const res = await fetch('/api/tasks', {
     method: 'POST',
@@ -148,7 +165,13 @@ export function useTasks(options: UseTasksOptions = {}) {
 
   return useQuery({
     queryKey: queryKeys.tasks.list(orgId, resolvedFilters),
-    queryFn: () => fetchTasks(resolvedFilters),
+    queryFn: async () => {
+      const start = performance.now();
+      const result = await fetchTasks(resolvedFilters);
+      const end = performance.now();
+      console.log(`[Query] 🔍 fetchTasks took ${(end - start).toFixed(2)}ms`);
+      return result;
+    },
     // Don't fetch if 'me' filter is set but user isn't loaded yet
     // Also don't fetch if orgId is unknown (not authenticated yet)
     enabled: !(filters?.assigneeId === 'me' && !currentUserId) && isOrgIdValid(orgId),
@@ -157,8 +180,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     placeholderData: keepPreviousData,
     // Cache tasks for 5s - short to ensure UI stays fresh after mutations
     // Trade-off: more requests vs better UX consistency
-    staleTime: 5_000, // 5 seconds (was 30s - caused stale UI issues)
-    gcTime: 5 * 60 * 1000, // 5 minutes
+    ...CACHE_TIMES.FRESH,
   });
 }
 
@@ -168,6 +190,7 @@ export function useTasks(options: UseTasksOptions = {}) {
 export function useCreateTask() {
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
+  const isRealtimeActive = useRealtimeActive();
 
   return useMutation({
     mutationFn: createTask,
@@ -186,16 +209,19 @@ export function useCreateTask() {
         }
       );
 
-      // 2. Force immediate refetch to ensure consistency
-      smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+      // 2. Only invalidate if real-time is disconnected
+      // If RT is active, the broadcast will handle invalidation
+      if (!isRealtimeActive) {
+        smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+        
+        // 3. Invalidate feature detail to update task count
+        if (newTask.featureId) {
+          smartInvalidate(queryClient, queryKeys.features.detail(orgId, newTask.featureId));
+        }
 
-      // 3. Invalidate feature detail to update task count
-      if (newTask.featureId) {
-        smartInvalidate(queryClient, queryKeys.features.detail(orgId, newTask.featureId));
+        // 4. Invalidate Dashboard using helper
+        invalidateDashboardQueries(queryClient, orgId);
       }
-
-      // 4. Invalidate Dashboard using helper
-      invalidateDashboardQueries(queryClient, orgId);
 
       toast.success('Task criada com sucesso!');
     },
@@ -216,11 +242,30 @@ export function useCreateTask() {
 export function useUpdateTask() {
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
+  const isRealtimeActive = useRealtimeActive();
+  const broadcast = useRealtimeBroadcast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: updateTask,
     onSuccess: (updatedTask) => {
-      // 1. Optimistic update: update task in all lists immediately
+      // 1. Broadcast to other clients (ALWAYS, even if RT active)
+      broadcast({
+        eventId: crypto.randomUUID(),
+        orgId,
+        entityType: 'task',
+        entityId: updatedTask.id,
+        projectId: updatedTask.feature?.epic?.project?.id || updatedTask.projectId || 'unknown',
+        featureId: updatedTask.featureId || undefined,
+        epicId: updatedTask.feature?.epic?.id || undefined,
+        eventType: 'updated',
+        actorType: 'user',
+        actorName: user?.user_metadata?.full_name?.trim() || user?.email?.split('@')[0] || 'Unknown',
+        actorId: user?.id || 'system',
+        timestamp: new Date().toISOString(),
+      });
+
+      // 2. Optimistic update: update task in all lists immediately
       queryClient.setQueriesData<TasksResponse>(
         { queryKey: queryKeys.tasks.lists(orgId) },
         (old) => {
@@ -234,16 +279,19 @@ export function useUpdateTask() {
         }
       );
 
-      // 2. Invalidate with immediate refetch for active queries
-      smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+      // 3. Only invalidate if real-time is disconnected
+      // If RT is active, broadcast will handle invalidation
+      if (!isRealtimeActive) {
+        smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
 
-      // 3. Update feature detail if task belongs to a feature (for count updates)
-      if (updatedTask.featureId) {
-        smartInvalidate(queryClient, queryKeys.features.detail(orgId, updatedTask.featureId));
+        // 4. Update feature detail if task belongs to a feature (for count updates)
+        if (updatedTask.featureId) {
+          smartInvalidate(queryClient, queryKeys.features.detail(orgId, updatedTask.featureId));
+        }
+
+        // 5. Invalidate Dashboard
+        invalidateDashboardQueries(queryClient, orgId);
       }
-
-      // 4. Invalidate Dashboard
-      invalidateDashboardQueries(queryClient, orgId);
 
       toast.success('Task atualizada');
     },
@@ -318,6 +366,9 @@ export function useDeleteTask() {
 export function useMoveTask() {
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
+  const isRealtimeActive = useRealtimeActive();
+  const broadcast = useRealtimeBroadcast();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: TaskStatus }) => {
@@ -366,12 +417,32 @@ export function useMoveTask() {
       toast.error('Erro ao mover task');
     },
 
-    onSettled: () => {
-      // Force immediate refetch after mutation settles
-      smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+    onSuccess: (movedTask, { status }) => {
+      // Broadcast to other clients
+      broadcast({
+        eventId: crypto.randomUUID(),
+        orgId,
+        entityType: 'task',
+        entityId: movedTask.id,
+        projectId: movedTask.feature?.epic?.project?.id || movedTask.projectId || 'unknown',
+        featureId: movedTask.featureId || undefined,
+        epicId: movedTask.feature?.epic?.id || undefined,
+        eventType: 'status_changed',
+        actorType: 'user',
+        actorName: user?.user_metadata?.full_name?.trim() || user?.email?.split('@')[0] || 'Unknown',
+        actorId: user?.id || 'system',
+        timestamp: new Date().toISOString(),
+        metadata: { newStatus: status },
+      });
+    },
 
-      // Invalidate Dashboard using helper
-      invalidateDashboardQueries(queryClient, orgId);
+    onSettled: () => {
+      // Only invalidate if real-time is disconnected
+      // If RT is active, broadcast will handle invalidation
+      if (!isRealtimeActive) {
+        smartInvalidate(queryClient, queryKeys.tasks.lists(orgId));
+        invalidateDashboardQueries(queryClient, orgId);
+      }
     },
   });
 }

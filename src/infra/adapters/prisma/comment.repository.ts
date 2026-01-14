@@ -90,7 +90,7 @@ export class CommentRepository {
    */
   async findByTaskId(taskId: string, orgId: string): Promise<CommentWithUser[]> {
     const results = await this.prisma.$queryRaw<CommentWithUserRaw[]>`
-      SELECT 
+      SELECT
         c.id,
         c.task_id,
         c.user_id,
@@ -100,10 +100,9 @@ export class CommentRepository {
         u.display_name,
         u.avatar_url
       FROM public.comments c
-      LEFT JOIN public.user_profiles u 
-        ON c.user_id = u.id 
-        AND u.org_id = ${orgId}::uuid
-      WHERE c.task_id = ${taskId}::uuid 
+      LEFT JOIN public.user_profiles u
+        ON c.user_id = u.id
+      WHERE c.task_id = ${taskId}::uuid
         AND c.org_id = ${orgId}::uuid
       ORDER BY c.created_at ASC
     `;

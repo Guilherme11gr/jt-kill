@@ -1,11 +1,15 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { RealtimeConnectionManager } from '@/lib/realtime/connection-manager';
 import type { ConnectionStatus, BroadcastEvent, ConnectionManagerConfig } from '@/lib/realtime/types';
 import { useCurrentOrgId } from '@/lib/query/hooks/use-org-id';
 import { useAuth } from '@/hooks/use-auth';
 import { useRealtimeEventProcessor } from '@/lib/realtime/event-processor';
+import { createClient } from '@/lib/supabase/client';
+
+// ✅ Constants moved outside component to avoid recreation on each render
+const MAX_QUEUED_BROADCASTS = 100;
 
 /**
  * Context for sharing a single RealtimeConnectionManager instance
@@ -60,10 +64,15 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const queuedBroadcastsRef = useRef<Array<Omit<BroadcastEvent, 'sequence' | 'tabId'>>>([]);
   const orgId = useCurrentOrgId();
   const { user } = useAuth();
+  
+  // ✅ Use app's shared Supabase singleton (same auth state across entire app)
+  const supabase = useMemo(() => createClient(), []);
 
   // Initialize event processor
   const onEventsProcessed = useCallback((events: BroadcastEvent[], keys: Set<string>) => {
-    console.log(`[RealtimeProvider] Processed ${events.length} events, ${keys.size} keys`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[RealtimeProvider] Processed ${events.length} events, ${keys.size} keys`);
+    }
   }, []);
 
   const { processEvent } = useRealtimeEventProcessor({
@@ -84,17 +93,23 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         const eventTime = new Date(event.timestamp).getTime();
         const eventAge = receiveTime - eventTime;
         
-        console.log(`[RealtimeProvider] ⏱️ Event received (age: ${eventAge.toFixed(0)}ms)`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[RealtimeProvider] ⏱️ Event received (age: ${eventAge.toFixed(0)}ms)`);
+        }
         
         // ✅ Filter own events to prevent infinite loop
         // If we receive our own broadcast (self: true), skip processing
         // We already did optimistic update locally
         if (managerRef.current && event.tabId === managerRef.current.getTabId()) {
-          console.log('[RealtimeProvider] Ignoring own event:', event.eventId);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[RealtimeProvider] Ignoring own event:', event.eventId);
+          }
           return;
         }
         
-        console.log('[RealtimeProvider] Received event from other client:', event);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[RealtimeProvider] Received event from other client:', event);
+        }
         processEventRef.current(event); // ✅ Use ref instead of direct call
       };
 
@@ -105,8 +120,10 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
         onEvent,
       };
 
-      managerRef.current = new RealtimeConnectionManager(config);
-      console.log('[RealtimeProvider] Manager created');
+      managerRef.current = new RealtimeConnectionManager(config, supabase);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[RealtimeProvider] Manager created with shared Supabase client');
+      }
     }
 
     // Cleanup on unmount
@@ -114,7 +131,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       if (managerRef.current) {
         managerRef.current.disconnect();
         managerRef.current = null;
-        console.log('[RealtimeProvider] Manager destroyed');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[RealtimeProvider] Manager destroyed');
+        }
       }
     };
   }, []); // ✅ Empty deps - no recreation
@@ -122,35 +141,44 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   // Connect/disconnect when orgId or userId changes
   useEffect(() => {
     if (!orgId || !user?.id || !managerRef.current) {
-      console.log('[RealtimeProvider] Waiting for orgId and user...');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[RealtimeProvider] Waiting for orgId and user...');
+      }
       return;
     }
 
-    console.log(`[RealtimeProvider] Connecting to org ${orgId}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[RealtimeProvider] Connecting to org ${orgId}`);
+    }
     managerRef.current.connect(orgId, user.id);
     
-    // ✅ Flush queued broadcasts after connection
-    if (queuedBroadcastsRef.current.length > 0) {
-      console.log(`[RealtimeProvider] Flushing ${queuedBroadcastsRef.current.length} queued broadcasts`);
-      const queued = queuedBroadcastsRef.current.splice(0);
-      for (const event of queued) {
-        managerRef.current.broadcast(event);
-      }
-    }
+    // ✅ NOTE: Don't flush here! connect() is async, status is still 'connecting'
+    // Queued broadcasts will be flushed when broadcast() is called after connection
 
     return () => {
       if (managerRef.current) {
-        console.log(`[RealtimeProvider] Disconnecting from org ${orgId}`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[RealtimeProvider] Disconnecting from org ${orgId}`);
+        }
         managerRef.current.disconnect();
       }
     };
   }, [orgId, user?.id]);
 
-  // Broadcast helper
-  const broadcast = (event: Omit<BroadcastEvent, 'sequence' | 'tabId'>) => {
-    if (!managerRef.current) {
-      console.warn('[RealtimeProvider] Manager not ready, queueing broadcast');
-      queuedBroadcastsRef.current.push(event); // ✅ Queue para depois
+  // Broadcast helper - queues if not connected, flushes queue when connected
+  const broadcast = useCallback((event: Omit<BroadcastEvent, 'sequence' | 'tabId'>) => {
+    if (!managerRef.current || status !== 'connected') {
+      // ✅ FIX: Limit queue size to prevent unbounded memory growth
+      if (queuedBroadcastsRef.current.length >= MAX_QUEUED_BROADCASTS) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[RealtimeProvider] Queue full, dropping oldest broadcast');
+        }
+        queuedBroadcastsRef.current.shift(); // Remove oldest
+      }
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[RealtimeProvider] Manager not ready, queueing broadcast');
+      }
+      queuedBroadcastsRef.current.push(event);
       return;
     }
     
@@ -164,7 +192,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     
     // ✅ Broadcast current event
     managerRef.current.broadcast(event);
-  };
+  }, [status]); // ✅ Re-create when status changes to flush queue on connect
 
   const contextValue: RealtimeContextValue = {
     manager: managerRef.current,

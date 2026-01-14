@@ -26,7 +26,7 @@ export const CACHE_TIMES = {
   /** Live data - always refetch on focus/mount */
   REALTIME: {
     staleTime: 0,
-    gcTime: 1 * MINUTE,
+    gcTime: 10 * SECOND, // ✅ Reduced from 1min to 10s to prevent memory buildup
   },
 
   /** Frequently changing - 5s fresh, 5min cache

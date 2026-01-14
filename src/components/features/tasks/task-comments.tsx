@@ -11,6 +11,8 @@ import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface TaskCommentsProps {
   taskId: string;
@@ -71,7 +73,7 @@ export function TaskComments({ taskId, className }: TaskCommentsProps) {
   };
 
   return (
-    <div className={cn('flex flex-col h-full min-h-[400px]', className)}>
+    <div className={cn('flex flex-col h-full', className)}>
       {/* Header with improved styling */}
       <div className="flex items-center justify-between pb-4">
         <div className="flex items-center gap-2">
@@ -96,7 +98,7 @@ export function TaskComments({ taskId, className }: TaskCommentsProps) {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 space-y-6 overflow-y-auto pr-2 -mr-2 mb-4 custom-scrollbar">
+      <div className="space-y-6 overflow-y-auto pr-2 -mr-2 mb-4 custom-scrollbar">
         {isLoading ? (
           <div className="space-y-6 pt-2">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -170,8 +172,51 @@ export function TaskComments({ taskId, className }: TaskCommentsProps) {
                     </Button>
                   </div>
 
-                  <div className="relative bg-muted/40 hover:bg-muted/60 transition-colors p-3.5 rounded-2xl rounded-tl-none text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap break-words border border-border/50 shadow-sm">
-                    {comment.content}
+                  <div className="relative bg-muted/40 hover:bg-muted/60 transition-colors p-3.5 rounded-2xl rounded-tl-none text-sm text-foreground/90 leading-relaxed break-words border border-border/50 shadow-sm">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ children }) => <p className="m-0 mb-2 last:mb-0">{children}</p>,
+                        a: ({ children, href }) => (
+                          <a
+                            href={href}
+                            className="text-primary hover:text-primary/80 underline underline-offset-2"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {children}
+                          </a>
+                        ),
+                        strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                        em: ({ children }) => <em className="italic text-foreground/80">{children}</em>,
+                        code: ({ children, className }) => {
+                          const isInline = !className;
+                          return isInline ? (
+                            <code className="px-1.5 py-0.5 rounded text-xs bg-muted-foreground/10 text-foreground/90 font-mono border border-border/50">
+                              {children}
+                            </code>
+                          ) : (
+                            <code className={cn("block p-2 rounded-lg bg-muted-foreground/10 text-foreground font-mono text-xs overflow-x-auto border border-border/50", className)}>
+                              {children}
+                            </code>
+                          );
+                        },
+                        ul: ({ children }) => <ul className="m-0 mb-2 pl-4 space-y-1 list-disc">{children}</ul>,
+                        ol: ({ children }) => <ol className="m-0 mb-2 pl-4 space-y-1 list-decimal">{children}</ol>,
+                        li: ({ children }) => <li className="text-foreground/90">{children}</li>,
+                        h1: ({ children }) => <h1 className="text-base font-semibold text-foreground mt-0 mb-2">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-sm font-semibold text-foreground mt-0 mb-2">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-sm font-medium text-foreground mt-0 mb-1">{children}</h3>,
+                        blockquote: ({ children }) => (
+                          <blockquote className="m-0 mb-2 pl-3 border-l-2 border-border/50 text-foreground/70 italic">
+                            {children}
+                          </blockquote>
+                        ),
+                        hr: () => <hr className="my-2 border-border/50" />,
+                      }}
+                    >
+                      {comment.content}
+                    </ReactMarkdown>
                   </div>
                 </div>
               </div>
@@ -181,10 +226,8 @@ export function TaskComments({ taskId, className }: TaskCommentsProps) {
       </div>
 
       {/* Footer / Input */}
-      <div className="relative pt-2">
+      <div className="relative">
         <div className="flex gap-3 items-end">
-          <UserAvatar size="sm" className="hidden sm:flex mb-2 ring-2 ring-background shadow-sm" />
-
           <div className="flex-1 relative group rounded-2xl border bg-background/50 hover:bg-background focus-within:bg-background focus-within:ring-2 focus-within:ring-primary/10 focus-within:border-primary/50 transition-all shadow-sm">
             <Textarea
               ref={textareaRef}
@@ -204,7 +247,7 @@ export function TaskComments({ taskId, className }: TaskCommentsProps) {
                   "size-8 rounded-xl transition-all duration-200",
                   newComment.trim()
                     ? "opacity-100 scale-100 shadow-sm"
-                    : "opacity-0 scale-90 pointer-events-none"
+                    : "opacity-40 scale-90"
                 )}
                 disabled={!newComment.trim() || addComment.isPending}
                 onClick={() => handleSubmit()}
@@ -218,9 +261,14 @@ export function TaskComments({ taskId, className }: TaskCommentsProps) {
             </div>
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground/50 mt-2 text-center sm:text-right hidden sm:block">
-          <strong>Enter</strong> para enviar • <strong>Shift + Enter</strong> para quebra de linha
-        </p>
+        <div className="flex justify-between items-center mt-2">
+          <p className="text-[10px] text-muted-foreground/50">
+            <span className="hidden sm:inline">Markdown: **negrito** *itálico* `código` [link](url)</span>
+          </p>
+          <p className="text-[10px] text-muted-foreground/50 text-right">
+            <strong>Enter</strong> para enviar • <strong>Shift + Enter</strong> para quebra de linha
+          </p>
+        </div>
       </div>
     </div>
   );

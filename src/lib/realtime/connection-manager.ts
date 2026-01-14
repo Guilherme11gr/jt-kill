@@ -8,8 +8,7 @@
  * - Automatic disconnect/reconnect
  */
 
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import type { RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
+import type { SupabaseClient, RealtimeChannel, RealtimePresenceState } from '@supabase/supabase-js';
 import type { ConnectionStatus, BroadcastEvent, ConnectionManagerConfig } from './types';
 
 export class RealtimeConnectionManager {
@@ -27,34 +26,32 @@ export class RealtimeConnectionManager {
   private orgId!: string; // Assigned in connect()
   private userId!: string; // Assigned in connect()
   private tabId: string;
-  private supabase: ReturnType<typeof createSupabaseClient>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private supabase: SupabaseClient<any, any, any>;
   private shouldReconnect = true;
   private lastHeartbeat = 0;
   private heartbeatInterval = 30000; // 30 seconds
   private hasReachedMaxAttempts = false; // Prevent infinite reconnection loops
 
-  // ✅ Singleton: Shared Supabase client across all RealtimeConnectionManager instances
-  private static supabaseInstance: ReturnType<typeof createSupabaseClient> | null = null;
-
-  constructor(config: ConnectionManagerConfig) {
+  /**
+   * Create a new RealtimeConnectionManager
+   * 
+   * @param config - Connection configuration (callbacks)
+   * @param supabase - Supabase client instance (injected from app's singleton)
+   * 
+   * ✅ Uses injected client to share auth state with rest of app
+   * ✅ No duplicate GoTrueClient instances
+   * ✅ Single WebSocket connection for auth + realtime
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  constructor(config: ConnectionManagerConfig, supabase: SupabaseClient<any, any, any>) {
     this.config = config;
     this.tabId = config.tabId || this.generateTabId();
+    this.supabase = supabase;
 
-    // Validate env vars
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be configured');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[RealtimeConnectionManager] Initialized with injected Supabase client');
     }
-
-    // ✅ Use singleton to prevent multiple GoTrueClient instances
-    if (!RealtimeConnectionManager.supabaseInstance) {
-      RealtimeConnectionManager.supabaseInstance = createSupabaseClient(supabaseUrl, supabaseAnonKey);
-      console.log('[RealtimeConnectionManager] Created shared Supabase client instance');
-    }
-
-    this.supabase = RealtimeConnectionManager.supabaseInstance;
   }
 
   /**
@@ -63,19 +60,25 @@ export class RealtimeConnectionManager {
   connect(orgId: string, userId: string) {
     // ✅ If connecting to different org, cancel previous connection
     if (this.currentStatus === 'connecting' && this.orgId && this.orgId !== orgId) {
-      console.log(`[Realtime] Canceling connection to ${this.orgId}, switching to ${orgId}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] Canceling connection to ${this.orgId}, switching to ${orgId}`);
+      }
       this.disconnect();
     }
     
     // If already connected to the same org, skip reconnection
     if (this.currentStatus === 'connected' && this.orgId === orgId && this.userId === userId) {
-      console.log('[Realtime] Already connected to org, skipping reconnection');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Realtime] Already connected to org, skipping reconnection');
+      }
       return;
     }
 
     // If currently connecting to the same org, skip
     if (this.currentStatus === 'connecting' && this.orgId === orgId && this.userId === userId) {
-      console.log('[Realtime] Already connecting to org, skipping');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Realtime] Already connecting to org, skipping');
+      }
       return;
     }
 
@@ -93,7 +96,8 @@ export class RealtimeConnectionManager {
 
     // Clean up previous channel if exists (prevent memory leak)
     if (this.channel) {
-      this.channel.unsubscribe();
+      // ✅ FIX: removeChannel() properly cleans up (unsubscribe only detaches listeners)
+      this.supabase.removeChannel(this.channel);
       this.channel = null;
     }
 
@@ -122,7 +126,9 @@ export class RealtimeConnectionManager {
           this.config.onEvent(event);
         }
       } catch (error) {
-        console.error('[Realtime] Failed to parse broadcast event:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[Realtime] Failed to parse broadcast event:', error);
+        }
       }
     });
 
@@ -146,36 +152,50 @@ export class RealtimeConnectionManager {
     this.adminChannel.on('broadcast', { event: 'admin_command' }, (payload) => {
       try {
         const command = payload.payload as { command: string; timestamp: string; reason: string };
-        console.log('[Realtime] Received admin command:', command);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[Realtime] Received admin command:', command);
+        }
 
         if (command.command === 'force_reconnect') {
-          console.log('[Realtime] Force reconnect requested by admin:', command.reason);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[Realtime] Force reconnect requested by admin:', command.reason);
+          }
           // Disconnect cleanly - will reconnect automatically
           this.disconnect();
         }
       } catch (error) {
-        console.error('[Realtime] Failed to process admin command:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[Realtime] Failed to process admin command:', error);
+        }
       }
     });
 
     // Subscribe to admin channel
     this.adminChannel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('[Realtime] Admin commands channel subscribed');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('[Realtime] Admin commands channel subscribed');
+        }
       } else if (status === 'CHANNEL_ERROR') {
-        console.warn('[Realtime] Admin commands channel error');
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[Realtime] Admin commands channel error');
+        }
       }
     });
 
     // Set connection timeout (10s)
     this.connectTimeout = setTimeout(() => {
       if (this.currentStatus === 'connecting') {
-        console.warn('[Realtime] Connection timeout');
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[Realtime] Connection timeout');
+        }
         this.onDisconnected('Connection timeout');
       }
     }, 10000);
 
-    console.log(`[Realtime] Connecting to org:${orgId} as user:${userId} tab:${this.tabId}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Realtime] Connecting to org:${orgId} as user:${userId} tab:${this.tabId}`);
+    }
   }
 
   /**
@@ -201,13 +221,17 @@ export class RealtimeConnectionManager {
     }
 
     if (this.adminChannel) {
-      this.adminChannel.unsubscribe();
+      // ✅ FIX: removeChannel() properly cleans up (unsubscribe only detaches listeners)
+      this.supabase.removeChannel(this.adminChannel);
       this.adminChannel = null;
     }
 
     if (this.channel) {
-      console.log(`[Realtime] Disconnecting from org:${this.orgId}`);
-      this.channel.unsubscribe();
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] Disconnecting from org:${this.orgId}`);
+      }
+      // ✅ FIX: removeChannel() properly cleans up (unsubscribe only detaches listeners)
+      this.supabase.removeChannel(this.channel);
       this.channel = null;
     }
 
@@ -221,7 +245,9 @@ export class RealtimeConnectionManager {
    */
   broadcast(event: Omit<BroadcastEvent, 'sequence' | 'tabId'>) {
     if (!this.channel || this.currentStatus !== 'connected') {
-      console.warn('[Realtime] Cannot broadcast: not connected');
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Realtime] Cannot broadcast: not connected');
+      }
       return;
     }
 
@@ -231,7 +257,9 @@ export class RealtimeConnectionManager {
       tabId: this.tabId,
     };
 
-    console.log(`[Realtime] 📤 Broadcasting event with sequence=${enrichedEvent.sequence}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Realtime] 📤 Broadcasting event with sequence=${enrichedEvent.sequence}`);
+    }
 
     this.channel.send({
       type: 'broadcast',
@@ -263,7 +291,9 @@ export class RealtimeConnectionManager {
       this.connectTimeout = undefined;
     }
 
-    console.log(`[Realtime] Connected to org:${this.orgId}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Realtime] Connected to org:${this.orgId}`);
+    }
     this.currentStatus = 'connected';
     this.reconnectAttempts = 0; // Reset on successful connection
     this.hasReachedMaxAttempts = false; // Reset max attempts flag
@@ -286,7 +316,9 @@ export class RealtimeConnectionManager {
       this.heartbeatTimer = undefined;
     }
 
-    console.log(`[Realtime] Disconnected from org:${this.orgId}: ${reason}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Realtime] Disconnected from org:${this.orgId}: ${reason}`);
+    }
 
     this.currentStatus = 'disconnected';
     this.config.onStatusChange('disconnected');
@@ -301,20 +333,26 @@ export class RealtimeConnectionManager {
   private scheduleReconnect() {
     // Prevent reconnection if we've already reached max attempts
     if (this.hasReachedMaxAttempts) {
-      console.warn('[Realtime] Already reached max attempts. Skipping reconnection.');
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Realtime] Already reached max attempts. Skipping reconnection.');
+      }
       return;
     }
 
     const delay = this.getReconnectDelay();
 
-    console.log(`[Realtime] Scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxAttempts})`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Realtime] Scheduling reconnect in ${delay}ms (attempt ${this.reconnectAttempts + 1}/${this.maxAttempts})`);
+    }
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++;
 
       // Check BEFORE proceeding
       if (this.reconnectAttempts > this.maxAttempts) {
-        console.error('[Realtime] Max reconnection attempts reached. Giving up.');
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[Realtime] Max reconnection attempts reached. Giving up.');
+        }
         this.hasReachedMaxAttempts = true;
         this.currentStatus = 'failed';
         this.config.onStatusChange('failed');
@@ -403,11 +441,15 @@ export class RealtimeConnectionManager {
 
         this.lastHeartbeat = Date.now();
       } catch (error) {
-        console.error('[Realtime] Heartbeat error:', error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[Realtime] Heartbeat error:', error);
+        }
         // Don't stop heartbeat on error - it might be transient
       }
     }, this.heartbeatInterval);
 
-    console.log(`[Realtime] Heartbeat started (${this.heartbeatInterval}ms interval)`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Realtime] Heartbeat started (${this.heartbeatInterval}ms interval)`);
+    }
   }
 }

@@ -114,7 +114,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
       // Clear queue
       eventQueueRef.current = [];
 
-      console.log(`[Realtime] ⏱️ Processing batch of ${events.length} events (started at ${startTime.toFixed(2)}ms)`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] ⏱️ Processing batch of ${events.length} events (started at ${startTime.toFixed(2)}ms)`);
+      }
 
       // Deduplicate events by eventId - O(n) using Set instead of O(n²) filter+findIndex
       const seenEventIds = new Set<string>();
@@ -128,7 +130,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
       }
 
       const dedupeTime = performance.now();
-      console.log(`[Realtime] ⏱️ Deduplication took ${(dedupeTime - startTime).toFixed(2)}ms`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] ⏱️ Deduplication took ${(dedupeTime - startTime).toFixed(2)}ms`);
+      }
 
       // Detect sequence gaps
       const gaps = detectSequenceGaps(uniqueEvents);
@@ -158,17 +162,21 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
             }
           }
         }
-        console.log(`[Realtime] 🔄 Synced ${gaps.length} entities with sequence gaps`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[Realtime] 🔄 Synced ${gaps.length} entities with sequence gaps`);
+        }
       }
 
       // Get all invalidation keys and deduplicate
       const keySet = deduplicateInvalidationKeys(uniqueEvents);
 
       const keysTime = performance.now();
-      console.log(`[Realtime] ⏱️ Key generation took ${(keysTime - dedupeTime).toFixed(2)}ms`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] ⏱️ Key generation took ${(keysTime - dedupeTime).toFixed(2)}ms`);
 
-      const parsedKeys = Array.from(keySet).map(k => JSON.parse(k));
-      console.log('[Realtime] Invalidating keys (expanded):', parsedKeys);
+        const parsedKeys = Array.from(keySet).map(k => JSON.parse(k));
+        console.log('[Realtime] Invalidating keys (expanded):', parsedKeys);
+      }
       
       const invalidateStart = performance.now();
       
@@ -192,7 +200,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
               // Smart update: busca task/feature com timeout
               if (entityType === 'task') {
                 try {
-                  console.log(`[Realtime] 🎯 Smart update: fetching task ${entityId} (timeout=${SMART_UPDATE_TIMEOUT}ms)`);
+                  if (process.env.NODE_ENV !== 'production') {
+                    console.log(`[Realtime] 🎯 Smart update: fetching task ${entityId} (timeout=${SMART_UPDATE_TIMEOUT}ms)`);
+                  }
 
                   const updated = await fetchWithTimeout(
                     () => fetchTaskById(entityId),
@@ -211,7 +221,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
                         const newItems = [...data.items];
                         newItems[index] = updated;
                         queryClient.setQueryData(queryKey, { ...data, items: newItems });
-                        console.log(`[Realtime] ✅ Updated task in cache`);
+                        if (process.env.NODE_ENV !== 'production') {
+                          console.log(`[Realtime] ✅ Updated task in cache`);
+                        }
                         updatedCount++;
                       }
                     }
@@ -232,12 +244,16 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
                   }
 
                 } catch (error) {
-                  console.warn(`[Realtime] ⚠️ Smart update failed for task:${entityId} (${error}), will invalidate only this event`);
+                  if (process.env.NODE_ENV !== 'production') {
+                    console.warn(`[Realtime] ⚠️ Smart update failed for task:${entityId} (${error}), will invalidate only this event`);
+                  }
                   failedEvents.add(`task:${entityId}`);
                 }
               } else if (entityType === 'feature') {
                 try {
-                  console.log(`[Realtime] 🎯 Smart update: fetching feature ${entityId} (timeout=${SMART_UPDATE_TIMEOUT}ms)`);
+                  if (process.env.NODE_ENV !== 'production') {
+                    console.log(`[Realtime] 🎯 Smart update: fetching feature ${entityId} (timeout=${SMART_UPDATE_TIMEOUT}ms)`);
+                  }
 
                   const updated = await fetchWithTimeout(
                     () => fetchFeatureById(entityId),
@@ -256,7 +272,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
                         const newData = [...data];
                         newData[index] = updated;
                         queryClient.setQueryData(queryKey, newData);
-                        console.log(`[Realtime] ✅ Updated feature in cache`);
+                        if (process.env.NODE_ENV !== 'production') {
+                          console.log(`[Realtime] ✅ Updated feature in cache`);
+                        }
                         updatedCount++;
                       }
                     }
@@ -271,7 +289,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
                   }
 
                 } catch (error) {
-                  console.warn(`[Realtime] ⚠️ Smart update failed for feature:${entityId} (${error}), will invalidate only this event`);
+                  if (process.env.NODE_ENV !== 'production') {
+                    console.warn(`[Realtime] ⚠️ Smart update failed for feature:${entityId} (${error}), will invalidate only this event`);
+                  }
                   failedEvents.add(`feature:${entityId}`);
                 }
               } else {
@@ -310,11 +330,15 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
 
         // ✅ FIX: Invalidate ONLY failed events, not entire batch
         if (failedEvents.size > 0) {
-          console.log(`[Realtime] ⚠️ Invalidating ${failedEvents.size} failed events individually`);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[Realtime] ⚠️ Invalidating ${failedEvents.size} failed events individually`);
+          }
           for (const eventKey of failedEvents) {
             const parts = eventKey.split(':');
             if (parts.length !== 2) {
-              console.warn(`[Realtime] Invalid eventKey format: ${eventKey}, skipping`);
+              if (process.env.NODE_ENV !== 'production') {
+                console.warn(`[Realtime] Invalid eventKey format: ${eventKey}, skipping`);
+              }
               continue;
             }
             const [entityType, entityId] = parts;
@@ -333,7 +357,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
           }
         }
 
-        console.log(`[Realtime] ⏱️ Smart updates: ${updatedCount} cache updates performed`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[Realtime] ⏱️ Smart updates: ${updatedCount} cache updates performed`);
+        }
         
       } else {
         // ❌ FALLBACK: Invalidação tradicional (refetch tudo)
@@ -347,8 +373,10 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
       }
       
       const invalidateEnd = performance.now();
-      console.log(`[Realtime] ⏱️ Invalidation took ${(invalidateEnd - invalidateStart).toFixed(2)}ms`);
-      console.log(`[Realtime] ⏱️ TOTAL processing time: ${(invalidateEnd - startTime).toFixed(2)}ms`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] ⏱️ Invalidation took ${(invalidateEnd - invalidateStart).toFixed(2)}ms`);
+        console.log(`[Realtime] ⏱️ TOTAL processing time: ${(invalidateEnd - startTime).toFixed(2)}ms`);
+      }
 
       // Mark events as processed with timestamp
       const now = Date.now();
@@ -386,17 +414,33 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
             processedEventsRef.current.delete(eventId);
           }
           
-          console.log(`[Realtime] Cleaned up ${toRemove.length} old events`);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[Realtime] Cleaned up ${toRemove.length} old events`);
+          }
         }
       }
 
-      console.log(`[Realtime] Invalidated ${keySet.size} query keys`);
+      // ✅ FIX: Cleanup lastSequenceRef to prevent unbounded growth
+      const MAX_SEQUENCE_ENTRIES = 1000;
+      if (lastSequenceRef.current.size > MAX_SEQUENCE_ENTRIES) {
+        const sequenceEntries = Array.from(lastSequenceRef.current.entries());
+        lastSequenceRef.current = new Map(sequenceEntries.slice(-500));
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[Realtime] Cleaned up ${sequenceEntries.length - 500} old sequence entries`);
+        }
+      }
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] Invalidated ${keySet.size} query keys`);
+      }
 
       // Debug callback
       options?.onEventsProcessed?.(uniqueEvents, keySet);
 
     } catch (error) {
-      console.error('[Realtime] Failed to process event batch:', error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[Realtime] Failed to process event batch:', error);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -409,7 +453,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
   const processEvent = useCallback((event: BroadcastEvent) => {
     // Dedup: ignore if we've already processed this event
     if (processedEventsRef.current.has(event.eventId)) {
-      console.log(`[Realtime] Ignoring duplicate event: ${event.eventId}`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] Ignoring duplicate event: ${event.eventId}`);
+      }
       return;
     }
 
@@ -425,8 +471,14 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
       const retries = retryCountRef.current.get(event.eventId) || 0;
       
       if (retries >= MAX_MUTATION_RETRIES) {
-        console.warn(`[Realtime] Giving up on event ${event.eventId} after ${retries} retries`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(`[Realtime] Giving up on event ${event.eventId} after ${retries} retries`);
+        }
         retryCountRef.current.delete(event.eventId);
+        // ✅ FIX: Also cleanup any stale entries in retryCountRef
+        if (retryCountRef.current.size > 100) {
+          retryCountRef.current.clear();
+        }
         // Process anyway - mutation might be stuck
         eventQueueRef.current.push(event);
         
@@ -438,7 +490,9 @@ export function useRealtimeEventProcessor(options?: EventProcessorOptions) {
         return;
       }
       
-      console.log(`[Realtime] Delaying event ${event.eventId} - mutation pending (retry ${retries + 1}/${MAX_MUTATION_RETRIES})`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Realtime] Delaying event ${event.eventId} - mutation pending (retry ${retries + 1}/${MAX_MUTATION_RETRIES})`);
+      }
       retryCountRef.current.set(event.eventId, retries + 1);
       
       // ✅ Cancel existing debounce timer before retry

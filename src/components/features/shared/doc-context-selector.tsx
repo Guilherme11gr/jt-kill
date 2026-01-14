@@ -81,14 +81,14 @@ export function DocContextSelector({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-72 p-2 z-[100]" align="end">
+      <PopoverContent className="w-80 p-2 z-[9999] overflow-hidden" align="end">
         <div className="space-y-2">
           {/* Header with select all */}
           {docs.length > 0 && (
             <button
               type="button"
               onClick={toggleAll}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent transition-colors border-b pb-2"
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent transition-colors border-b pb-2 -mx-2"
             >
               <div className={cn(
                 "w-4 h-4 rounded border flex items-center justify-center",

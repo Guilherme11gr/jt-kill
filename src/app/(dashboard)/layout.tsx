@@ -7,7 +7,6 @@ import {
   FolderKanban,
   CheckSquare,
   Settings,
-  LogOut,
   Zap,
   Menu,
   Users,
@@ -18,18 +17,20 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
 import { TaskModalProvider } from "@/providers/task-modal-provider";
 import { ConnectionBadge } from "@/components/ui/connection-badge";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { profile } = useAuth();
+  
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
     { icon: FolderKanban, label: "Projetos", href: "/projects" },
@@ -40,7 +41,22 @@ export default function DashboardLayout({
   ];
 
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
-  const [isDesktopCollapsed, setIsDesktopCollapsed] = React.useState(false);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = React.useState(() => {
+    if (typeof window !== 'undefined' && profile?.id && profile?.currentOrgId) {
+      const key = `sidebar-collapsed-${profile.currentOrgId}-${profile.id}`;
+      const saved = localStorage.getItem(key);
+      return saved === 'true';
+    }
+    return false;
+  });
+
+  // Persist sidebar state per org+user
+  React.useEffect(() => {
+    if (profile?.id && profile?.currentOrgId) {
+      const key = `sidebar-collapsed-${profile.currentOrgId}-${profile.id}`;
+      localStorage.setItem(key, String(isDesktopCollapsed));
+    }
+  }, [isDesktopCollapsed, profile?.id, profile?.currentOrgId]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">

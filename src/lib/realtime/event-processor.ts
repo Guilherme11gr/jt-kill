@@ -24,6 +24,12 @@ const MAX_MUTATION_RETRIES = 10; // 2 seconds (10 * 200ms)
 // ✅ Feature flag for smart updates (vs full invalidation)
 const USE_SMART_UPDATES = true;
 
+// ✅ Timeout adaptativo: produção precisa de mais tempo (serverless cold start + latência)
+const SMART_UPDATE_TIMEOUT = 
+  typeof window !== 'undefined' && process.env.NODE_ENV === 'production' 
+    ? 1000  // Produção: 1s (permite API responder sem timeout)
+    : 500;  // Dev: 500ms (local mais rápido)
+
 interface EventProcessorOptions {
   /** Debounce delay in ms (default: 300ms) */
   debounceDelay?: number;

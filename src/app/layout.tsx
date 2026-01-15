@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { QueryProvider } from "@/lib/query";
 import { AuthProvider } from "@/providers/auth-provider";
+import { UserCacheProvider } from "@/providers/user-cache-provider";
 import { PermissionsProvider } from "@/providers/permissions-provider";
 import { RealtimeProvider } from "@/providers/realtime-provider";
 import { ActivityToastsProvider } from "@/providers/activity-toasts-provider";
@@ -36,7 +37,8 @@ export default function RootLayout({
       >
         <QueryProvider>
           <AuthProvider>
-            <PermissionsProvider>
+            <UserCacheProvider>
+              <PermissionsProvider>
               <ThemeProvider
                 attribute="class"
                 defaultTheme="dark"
@@ -51,6 +53,7 @@ export default function RootLayout({
                 </RealtimeProvider>
               </ThemeProvider>
             </PermissionsProvider>
+            </UserCacheProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

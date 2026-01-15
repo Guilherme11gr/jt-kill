@@ -15,12 +15,13 @@ const HOUR = 60 * MINUTE;
 
 /**
  * Cache Tiers
- * 
- * REALTIME  - Live data that needs constant updates (poker votes, notifications)
- * FRESH     - Frequently changing data (tasks, comments)
- * STANDARD  - Regular data (projects, epics, features)
- * STABLE    - Rarely changing data (user profile, org settings)
- * STATIC    - Almost never changes (enums, static config)
+ *
+ * REALTIME     - Live data that needs constant updates (poker votes, notifications)
+ * FRESH        - Frequently changing data (tasks, comments)
+ * STANDARD     - Regular data (projects, epics, features)
+ * STABLE       - Rarely changing data (user profile, org settings)
+ * ULTRA_STABLE - Almost never changes, called frequently (current user profile)
+ * STATIC       - Never changes (enums, static config)
  */
 export const CACHE_TIMES = {
   /** Live data - always refetch on focus/mount */
@@ -51,6 +52,15 @@ export const CACHE_TIMES = {
     gcTime: 30 * MINUTE,
   },
 
+  /** Almost never changes - 30min fresh, 2hr cache
+   * For data that barely changes but is called very frequently (e.g., /api/users/me)
+   * Reduces API calls to Vercel by aggressive client-side caching
+   */
+  ULTRA_STABLE: {
+    staleTime: 30 * MINUTE,
+    gcTime: 2 * HOUR,
+  },
+
   /** Almost static - 1hr fresh, 24hr cache */
   STATIC: {
     staleTime: 1 * HOUR,
@@ -73,11 +83,12 @@ export function getCacheConfig(tier: CacheTier) {
 /**
  * Cache Tier Guidelines
  *
- * REALTIME  - tasks, comments (with RT), poker votes, notifications
- * FRESH     - features list, dashboard stats
- * STANDARD  - projects, epics list, features detail, epics detail
- * STABLE    - user profile, org settings, users list
- * STATIC    - enums, config, project modules
+ * REALTIME     - tasks, comments (with RT), poker votes, notifications
+ * FRESH        - features list, dashboard stats
+ * STANDARD     - projects, epics list, features detail, epics detail
+ * STABLE       - user profile, org settings, users list
+ * ULTRA_STABLE - current user profile (/api/users/me) - rarely changes, most called endpoint
+ * STATIC       - enums, config, project modules
  *
  * ✅ Real-time is implemented - tasks/comments use REALTIME tier (staleTime: 0)
  * This ensures stale data is refetched immediately when needed while benefiting
@@ -90,6 +101,7 @@ export const CACHE_TIER_GUIDELINES = {
   epics: 'STANDARD',
   projects: 'STANDARD',
   users: 'STABLE',
+  currentUser: 'ULTRA_STABLE', // ✅ Aggressive caching for /api/users/me - most called endpoint
   orgSettings: 'STABLE',
   enums: 'STATIC',
   pokerVotes: 'REALTIME',

@@ -76,6 +76,38 @@ export function useCurrentUser() {
 }
 
 /**
+ * Fetch current user profile with ULTRA_STABLE cache (aggressive caching)
+ *
+ * Use this for components that need user data but don't need immediate updates.
+ * This hook uses a 30min staleTime and 2hr gcTime to significantly reduce
+ * API calls to Vercel for the /api/users/me endpoint.
+ *
+ * NOTE: The cache is populated by UserCacheProvider from AuthProvider's data.
+ * The queryFn only runs as a fallback if data is not in cache.
+ *
+ * @example
+ * const { data: user, isLoading } = useCachedCurrentUser();
+ *
+ * @remarks
+ * - Data barely changes but is the most called endpoint
+ * - Cache invalidates automatically on profile updates
+ * - Use invalidateUserCache() to manually refresh after mutations
+ */
+export function useCachedCurrentUser() {
+  return useQuery({
+    queryKey: queryKeys.users.current(),
+    queryFn: fetchCurrentUser, // Fallback: only runs if data not in cache
+    ...CACHE_TIMES.ULTRA_STABLE,
+    // Don't refetch on window focus (data barely changes)
+    refetchOnWindowFocus: false,
+    // Don't refetch on reconnect (data barely changes)
+    refetchOnReconnect: false,
+    // Don't refetch on mount if data is fresh in cache
+    staleTime: CACHE_TIMES.ULTRA_STABLE.staleTime,
+  });
+}
+
+/**
  * Update current user profile
  */
 export function useUpdateProfile() {
@@ -103,5 +135,23 @@ export function useUpdateProfile() {
       toast.error('Erro ao atualizar perfil');
     },
   });
+}
+
+/**
+ * Invalidate the current user cache
+ *
+ * Call this after mutations that affect user profile data:
+ * - Profile updates (displayName, avatarUrl)
+ * - Role changes
+ * - Membership changes
+ *
+ * @example
+ * invalidateUserCache(queryClient);
+ *
+ * @param queryClient - React Query client instance
+ */
+export function invalidateUserCache(queryClient: ReturnType<typeof useQueryClient>): void {
+  console.log('[use-users] Invalidating user cache');
+  smartInvalidate(queryClient, queryKeys.users.current());
 }
 

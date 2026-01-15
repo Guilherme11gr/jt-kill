@@ -1,8 +1,8 @@
 {
   "servers": {
     "jt-kill": {
-      "command": "node",
-      "args": ["D:/Users/Guilherme/Documents/development/jt-kill/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@guilherme11gr/jt-kill-mcp"],
       "env": {
         "AGENT_API_KEY": "agk_5f8d2e1b9c3a4b7d8e9f0a1b2c3d4e5f",
         "AGENT_USER_ID": "b7d65a91-7cb6-4583-b46d-4f64713ffae2",

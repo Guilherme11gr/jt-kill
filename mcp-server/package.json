@@ -1,13 +1,27 @@
 {
-  "name": "@jt-kill/mcp-server",
+  "name": "@guilherme11gr/jt-kill-mcp",
   "version": "1.0.0",
-  "description": "MCP Server for JT-Kill Agent API",
+  "description": "MCP Server for JT-Kill Agent API - 27 tools for task management automation",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "jt-kill-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": ["mcp", "model-context-protocol", "task-management", "jt-kill"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Guilherme11gr/jt-kill.git",
+    "directory": "mcp-server"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0"

@@ -1,13 +1,44 @@
 # JT-Kill MCP Server
 
+[![npm version](https://img.shields.io/npm/v/@guilherme11gr/jt-kill-mcp.svg)](https://www.npmjs.com/package/@guilherme11gr/jt-kill-mcp)
+
 MCP (Model Context Protocol) server para a JT-Kill Agent API. Permite que AI agents (Claude, etc) interajam diretamente com o sistema de gestão de projetos.
 
-## 🚀 Quick Start
+**✨ 27 ferramentas** para automação completa de tasks, features, epics, docs e tags.
 
-### 1. Instalar dependências
+---
+
+## 🚀 Installation (NPM - Recomendado)
+
+A forma mais simples de usar o MCP Server:
+
+```json
+// Claude Desktop config
+{
+  "mcpServers": {
+    "jt-kill": {
+      "command": "npx",
+      "args": ["-y", "@guilherme11gr/jt-kill-mcp"],
+      "env": {
+        "AGENT_API_KEY": "agk_seu_token_aqui",
+        "AGENT_USER_ID": "seu_user_id_aqui"
+      }
+    }
+  }
+}
+```
+
+**Pronto!** O `npx` baixa e executa automaticamente. Sem build, sem dependências locais.
+
+---
+
+## 🛠️ Development (Local)
+
+### 1. Clone e instale
 
 ```bash
-cd mcp-server
+git clone https://github.com/Guilherme11gr/jt-kill.git
+cd jt-kill/mcp-server
 npm install
 ```
 
@@ -17,9 +48,7 @@ npm install
 npm run build
 ```
 
-### 3. Configurar Claude Desktop
-
-Adicione ao arquivo de configuração do Claude Desktop:
+### 3. Configure localmente
 
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
@@ -30,20 +59,15 @@ Adicione ao arquivo de configuração do Claude Desktop:
   "mcpServers": {
     "jt-kill": {
       "command": "node",
-      "args": ["D:/Users/Guilherme/Documents/development/jt-kill/mcp-server/dist/index.js"],
+      "args": ["D:/caminho/absoluto/jt-kill/mcp-server/dist/index.js"],
       "env": {
         "AGENT_API_KEY": "agk_5f8d2e1b9c3a4b7d8e9f0a1b2c3d4e5f",
-        "AGENT_USER_ID": "b7d65a91-7cb6-4583-b46d-4f64713ffae2",
-        "AGENT_API_URL": "https://jt-kill.vercel.app/api/agent"
+        "AGENT_USER_ID": "b7d65a91-7cb6-4583-b46d-4f64713ffae2"
       }
     }
   }
 }
 ```
-
-### 4. Reiniciar Claude Desktop
-
-Feche e abra o Claude Desktop. O servidor MCP estará disponível.
 
 ---
 

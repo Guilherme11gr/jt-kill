@@ -149,6 +149,12 @@ model ProjectDoc {
   createdBy    String?            @map("created_by") @db.Uuid
   createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  // JKILL-63: Public sharing fields with expiration and audit
+  shareToken      String?            @unique @map("share_token") @db.Uuid // UUID token for public access
+  isPublic        Boolean            @default(false) @map("is_public") // Whether doc is publicly shared
+  sharedAt        DateTime?          @map("shared_at") @db.Timestamptz(6) // When sharing was enabled
+  shareExpiresAt  DateTime?          @map("share_expires_at") @db.Timestamptz(6) // Token expiration date
+  sharedBy        String?            @map("shared_by") @db.Uuid // User who enabled sharing
   organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   creator      users?             @relation("DocCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
@@ -156,6 +162,8 @@ model ProjectDoc {
 
   @@index([orgId], map: "idx_project_docs_org")
   @@index([projectId], map: "idx_project_docs_project")
+  @@index([shareToken], map: "idx_project_docs_share_token")
+  @@index([shareExpiresAt], map: "idx_project_docs_share_expires_at")
   @@map("project_docs")
   @@schema("public")
 }

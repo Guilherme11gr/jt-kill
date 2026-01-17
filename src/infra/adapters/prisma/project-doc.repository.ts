@@ -294,5 +294,138 @@ export class ProjectDocRepository {
 
     return result;
   }
+
+  /**
+   * JKILL-63: Generate a share token and enable public sharing for a doc
+   * @param docId - The ID of the doc to share
+   * @param orgId - The organization ID (for security check)
+   * @param userId - The ID of the user enabling sharing (for audit trail)
+   * @param expiresIn - Optional expiration time in milliseconds (default: 30 days)
+   * @returns The generated share token
+   */
+  async generateShareToken(
+    docId: string,
+    orgId: string,
+    userId: string,
+    expiresIn?: number
+  ): Promise<string> {
+    // Check if already shared - return existing token if still valid
+    const existing = await this.prisma.projectDoc.findFirst({
+      where: { id: docId, orgId },
+      select: { id: true, shareToken: true, isPublic: true, shareExpiresAt: true },
+    });
+
+    if (!existing) {
+      throw new Error('Doc not found');
+    }
+
+    // If already shared and token is still valid, return existing token
+    if (existing.isPublic && existing.shareToken) {
+      if (!existing.shareExpiresAt || existing.shareExpiresAt > new Date()) {
+        return existing.shareToken; // Return existing valid token
+      }
+      // Token expired, will regenerate below
+    }
+
+    // Calculate expiration (default 30 days)
+    const shareExpiresAt = expiresIn
+      ? new Date(Date.now() + expiresIn)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    // Generate new token
+    const shareToken = crypto.randomUUID();
+
+    // Update doc with share token and enable public sharing
+    await this.prisma.projectDoc.update({
+      where: { id: docId },
+      data: {
+        shareToken,
+        isPublic: true,
+        sharedAt: new Date(),
+        shareExpiresAt,
+        sharedBy: userId,
+      },
+    });
+
+    return shareToken;
+  }
+
+  /**
+   * JKILL-63: Disable public sharing for a doc
+   * @param docId - The ID of the doc to stop sharing
+   * @param orgId - The organization ID (for security check)
+   */
+  async disableSharing(docId: string, orgId: string): Promise<void> {
+    // Verify doc exists and belongs to org
+    const doc = await this.prisma.projectDoc.findFirst({
+      where: { id: docId, orgId },
+      select: { id: true },
+    });
+
+    if (!doc) {
+      throw new Error('Doc not found');
+    }
+
+    // Remove share token and disable public sharing
+    await this.prisma.projectDoc.update({
+      where: { id: docId },
+      data: {
+        shareToken: null,
+        isPublic: false,
+        sharedAt: null,
+        shareExpiresAt: null,
+        sharedBy: null,
+      },
+    });
+  }
+
+  /**
+   * JKILL-63: Find a publicly shared doc by its share token
+   * Used for public access without authentication
+   * @param token - The share token
+   * @returns The doc with project info, or null if not found/not public/expired
+   */
+  async findByShareToken(token: string): Promise<{
+    id: string;
+    title: string;
+    content: string;
+    projectName: string;
+    sharedAt: Date | null;
+  } | null> {
+    const doc = await this.prisma.projectDoc.findUnique({
+      where: { shareToken: token },
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        isPublic: true,
+        sharedAt: true,
+        shareExpiresAt: true,
+        project: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    // Only return if doc exists, is marked as public, and not expired
+    if (!doc || !doc.isPublic) {
+      return null;
+    }
+
+    // Check if token has expired
+    if (doc.shareExpiresAt && doc.shareExpiresAt < new Date()) {
+      return null;
+    }
+
+    return {
+      id: doc.id,
+      title: doc.title,
+      content: doc.content,
+      projectName: doc.project.name,
+      sharedAt: doc.sharedAt,
+    };
+  }
 }
 

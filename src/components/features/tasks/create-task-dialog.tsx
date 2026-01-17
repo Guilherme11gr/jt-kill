@@ -15,6 +15,8 @@ import { ModuleTagInput } from "@/components/ui/module-tag-input";
 import { AIImproveButton } from "@/components/ui/ai-improve-button";
 import { useProjects, useCreateTask, useUpdateTask, useGenerateDescription, useImproveDescription } from "@/lib/query";
 import { useAssignTaskTags } from "@/lib/query/hooks/use-task-tags";
+import { useTaskStreaming } from "@/lib/hooks/use-task-streaming";
+import { StopCircle } from "lucide-react";
 import { TaskStatus } from "@/shared/types";
 import type { TagInfo } from "@/shared/types/tag.types";
 
@@ -108,8 +110,17 @@ export function TaskDialog({
   const generateDescription = useGenerateDescription();
   const improveDescription = useImproveDescription();
 
+  // JKILL-224: Streaming hook for new task description generation
+  const {
+    description: streamedDescription,
+    isLoading: isStreamingLoading,
+    isStreaming,
+    generateDescription: generateDescriptionStream,
+    stopGeneration
+  } = useTaskStreaming();
+
   const isSaving = createTaskMutation.isPending || updateTaskMutation.isPending || assignTagsMutation.isPending;
-  const isGeneratingAI = generateDescription.isPending || improveDescription.isPending;
+  const isGeneratingAI = generateDescription.isPending || improveDescription.isPending || isStreaming || isStreamingLoading;
 
   const isEditing = !!taskToEdit;
 
@@ -168,6 +179,13 @@ export function TaskDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, taskToEdit, defaultFeatureId, filteredFeatures.length, projectId, defaultValues]);
 
+  // JKILL-224: Sync streamed description to form data in real-time
+  useEffect(() => {
+    if (streamedDescription) {
+      setFormData(prev => ({ ...prev, description: streamedDescription }));
+    }
+  }, [streamedDescription]);
+
   // Memoized AI handler to prevent recreation on each render
   const handleAIGenerate = useCallback(async () => {
     // Guard against double-clicks
@@ -188,8 +206,8 @@ export function TaskDialog({
         setFormData(prev => ({ ...prev, description: result.description }));
         toast.success('Descrição melhorada com sucesso!');
       } else {
-        // Para nova task, usar generate com contexto inline
-        const result = await generateDescription.mutateAsync({
+        // JKILL-224: Para nova task, usar streaming com contexto inline
+        await generateDescriptionStream({
           title: formData.title,
           featureId: formData.featureId,
           currentDescription: formData.description || undefined,
@@ -198,7 +216,7 @@ export function TaskDialog({
           docIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
           projectId: resolvedProjectId || undefined,
         });
-        setFormData(prev => ({ ...prev, description: result.description }));
+        // Description is synced via useEffect from streamedDescription
         toast.success('Descrição gerada com sucesso!');
       }
     } catch {
@@ -216,7 +234,7 @@ export function TaskDialog({
     selectedDocIds,
     resolvedProjectId,
     improveDescription,
-    generateDescription,
+    generateDescriptionStream,
   ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -230,6 +248,12 @@ export function TaskDialog({
     // Validate project can be determined for new tasks
     if (!isEditing && !resolvedProjectId) {
       toast.error("Não foi possível determinar o projeto. Selecione uma feature válida.");
+      return;
+    }
+
+    // JKILL-215: Validate assignee is required for new tasks
+    if (!isEditing && !formData.assigneeId) {
+      toast.error("O campo Responsável é obrigatório");
       return;
     }
 
@@ -337,7 +361,10 @@ export function TaskDialog({
           {/* Description with Markdown + AI Button */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Descrição (Markdown)</Label>
+              <Label className="text-sm font-medium">
+                Descrição (Markdown)
+                {isStreaming && <span className="ml-2 text-xs text-violet-500 animate-pulse">• Gerando...</span>}
+              </Label>
               <div className="flex items-center gap-2">
                 {resolvedProjectId && (
                   <DocContextSelector
@@ -347,13 +374,27 @@ export function TaskDialog({
                     disabled={isGeneratingAI}
                   />
                 )}
-                <AIImproveButton
-                  onClick={handleAIGenerate}
-                  isLoading={isGeneratingAI}
-                  disabled={!formData.title.trim() || !formData.featureId}
-                  label={formData.description?.trim() ? 'Melhorar' : 'Gerar'}
-                  title={formData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
-                />
+                {isStreaming ? (
+                  // JKILL-224: Stop button when streaming
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={stopGeneration}
+                    className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <StopCircle className="w-3.5 h-3.5 mr-1" />
+                    Parar
+                  </Button>
+                ) : (
+                  <AIImproveButton
+                    onClick={handleAIGenerate}
+                    isLoading={isGeneratingAI}
+                    disabled={!formData.title.trim() || !formData.featureId}
+                    label={formData.description?.trim() ? 'Melhorar' : 'Gerar'}
+                    title={formData.description?.trim() ? 'Melhorar descrição com IA' : 'Gerar descrição com IA'}
+                  />
+                )}
               </div>
             </div>
             <MarkdownEditor
@@ -478,7 +519,9 @@ export function TaskDialog({
 
           {/* Assignee */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Responsável</Label>
+            <Label className="text-sm font-medium">
+              Responsável <span className="text-red-500">*</span>
+            </Label>
             <AssigneeSelect
               value={formData.assigneeId}
               onChange={(v) => setFormData({ ...formData, assigneeId: v })}

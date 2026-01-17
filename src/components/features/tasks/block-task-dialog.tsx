@@ -54,7 +54,8 @@ export function BlockTaskDialog({
     }
   }, [open]);
 
-  const handleConfirm = () => {
+  const handleConfirm = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default form submission behavior
     if (isReasonValid && !isPending) {
       onConfirm(reason.trim());
       setReason(''); // Reset para próxima abertura

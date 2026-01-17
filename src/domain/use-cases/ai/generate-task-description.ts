@@ -157,11 +157,76 @@ ${cleanFeature}
 }
 
 /**
+ * Streaming: Two-stage approach (Chat filter → Reasoner generate) with streaming
+ * JKILL-224: Streaming version for real-time AI generation
+ */
+async function* generateTaskDescriptionWithStream(
+    input: GenerateTaskDescriptionInput,
+    deps: GenerateTaskDescriptionDeps
+): AsyncGenerator<string> {
+    const { aiAdapter } = deps;
+    const type = TYPE_LABELS[input.type || 'TASK'] || 'Tarefa';
+    const priority = PRIORITY_LABELS[input.priority || 'MEDIUM'] || 'Média';
+
+    // FASE 1: Filter relevant docs (if any)
+    let relevantContext = '';
+    if (input.projectDocs?.length) {
+        const featureContextClean = stripMarkdown(`
+            Feature: ${input.feature.title}
+            ${input.feature.description || ''}
+        `);
+
+        const objective = `Gerar descrição para tarefa "${input.title}" (Tipo: ${type}, Prioridade: ${priority})`;
+
+        const filtered = await filterRelevantContext(
+            {
+                objective,
+                allDocs: input.projectDocs,
+                featureContext: featureContextClean,
+            },
+            { aiAdapter }
+        );
+
+        relevantContext = filtered.cleanedContext;
+    }
+
+    // FASE 2: Generate with Reasoner using filtered context (STREAMING)
+    const cleanFeature = stripMarkdown(input.feature.description || '');
+    const cleanCurrentDesc = input.currentDescription ? stripMarkdown(input.currentDescription) : '';
+
+    const reasonerInput = `
+Gere descrição de tarefa:
+
+TAREFA:
+Título: ${input.title}
+Tipo: ${type}
+Prioridade: ${priority}
+${cleanCurrentDesc ? `Descrição atual: ${cleanCurrentDesc}` : ''}
+
+FEATURE:
+${input.feature.title}
+${cleanFeature}
+`.trim();
+
+    const stream = aiAdapter.reasonerCompletionStream({
+        objective: reasonerInput,
+        context: relevantContext,
+        systemPrompt: SYSTEM_PROMPT,
+        temperature: AI_TEMPERATURE_CREATIVE,
+        maxTokens: AI_MAX_TOKENS_DESCRIPTION,
+    });
+
+    for await (const chunk of stream) {
+        yield chunk;
+    }
+}
+
+/**
  * Generate Task Description Use Case
- * 
+ *
  * Generates a new description for a task based on title and feature context.
  * Can also improve existing descriptions.
- * 
+ *
  * Supports two-stage AI pipeline (filter → reasoner) when NEXT_PUBLIC_USE_TWO_STAGE_AI=true
  */
 export async function generateTaskDescription(
@@ -169,4 +234,23 @@ export async function generateTaskDescription(
     deps: GenerateTaskDescriptionDeps
 ): Promise<string> {
     return generateTaskDescriptionV2(input, deps);
+}
+
+/**
+ * JKILL-224: Generate Task Description with Streaming
+ *
+ * Returns an async generator that yields content chunks as they are generated.
+ * Includes reasoning content from DeepSeek Reasoner formatted as blockquotes.
+ *
+ * @example
+ * const stream = await generateTaskDescriptionStream(input, deps);
+ * for await (const chunk of stream) {
+ *   console.log(chunk); // Each chunk is a piece of the description
+ * }
+ */
+export async function generateTaskDescriptionStream(
+    input: GenerateTaskDescriptionInput,
+    deps: GenerateTaskDescriptionDeps
+): Promise<AsyncGenerator<string>> {
+    return generateTaskDescriptionWithStream(input, deps);
 }

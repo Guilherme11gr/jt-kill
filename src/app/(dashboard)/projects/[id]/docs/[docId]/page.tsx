@@ -5,9 +5,10 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowLeft, Calendar, Clock, Edit, FileText, Share2, MoreHorizontal, Tag, Loader2 } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Edit, FileText, Share2, MoreHorizontal, Tag, Loader2, Link as LinkIcon, Copy, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-import { useDoc } from "@/lib/query/hooks/use-project-docs";
+import { useDoc, useShareDoc, useDisableDocSharing } from "@/lib/query/hooks/use-project-docs";
 import { useDocTags, useProjectTags, useAssignTags, useUnassignTag } from "@/lib/query/hooks/use-doc-tags";
 import { UserAvatar } from "@/components/features/shared/user-avatar";
 import { DocTagBadge, DocTagInput } from "@/components/features/docs";
@@ -38,12 +39,57 @@ export default function ProjectDocPage({
   const assignTags = useAssignTags(projectId);
   const unassignTag = useUnassignTag(projectId);
 
+  // JKILL-63: Share functionality
+  const shareDoc = useShareDoc();
+  const disableSharing = useDisableDocSharing();
+  const [copied, setCopied] = useState(false);
+
   const handleAddTag = (tagId: string) => {
     assignTags.mutate({ docId, tagIds: [tagId] });
   };
 
   const handleRemoveTag = (tagId: string) => {
     unassignTag.mutate({ docId, tagId });
+  };
+
+  // JKILL-63: Handle share button click
+  const handleShare = () => {
+    shareDoc.mutate(docId);
+  };
+
+  // JKILL-63: Handle disable sharing
+  const handleDisableSharing = () => {
+    disableSharing.mutate(docId);
+  };
+
+  // JKILL-63: Copy share URL to clipboard with null safety fix
+  const handleCopyLink = async () => {
+    const token = doc?.shareToken;
+    if (token) {
+      const shareUrl = `${window.location.origin}/shared/docs/${token}`;
+      try {
+        // Try modern clipboard API first
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(shareUrl);
+        } else {
+          // Fallback for older browsers or non-secure contexts
+          const textArea = document.createElement('textarea');
+          textArea.value = shareUrl;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          textArea.style.top = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
+        }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    }
   };
 
   if (isLoading) {
@@ -92,17 +138,37 @@ export default function ProjectDocPage({
             <Button variant="outline" size="icon" title="Editar (Em breve)">
               <Edit className="size-4" />
             </Button>
+            {/* JKILL-63: Share status indicator */}
+            {doc.isPublic && (
+              <Badge variant="secondary" className="h-9 px-3 text-xs">
+                <LinkIcon className="mr-1 size-3" />
+                Público
+              </Badge>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" disabled={shareDoc.isPending || disableSharing.isPending}>
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                  <Share2 className="mr-2 size-4" />
-                  Compartilhar
-                </DropdownMenuItem>
+                {doc.isPublic ? (
+                  <>
+                    <DropdownMenuItem onClick={handleCopyLink}>
+                      <Copy className="mr-2 size-4" />
+                      {copied ? 'Copiado!' : 'Copiar link'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleDisableSharing} className="text-red-600 focus:text-red-600">
+                      <X className="mr-2 size-4" />
+                      Desativar compartilhamento
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <DropdownMenuItem onClick={handleShare}>
+                    <Share2 className="mr-2 size-4" />
+                    Compartilhar publicamente
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

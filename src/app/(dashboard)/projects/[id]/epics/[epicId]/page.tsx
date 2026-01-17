@@ -340,35 +340,42 @@ export default function EpicDetailPage({
               {epic.title}
             </h1>
             <div className="max-w-2xl">
-              <div className={`text-muted-foreground text-sm transition-all duration-200 ${!isDescriptionExpanded ? 'line-clamp-2' : ''}`}>
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    h1: ({ node, ...props }) => <span className="block font-bold mt-2 first:mt-0" {...props} />,
-                    h2: ({ node, ...props }) => <span className="block font-semibold mt-2 first:mt-0" {...props} />,
-                    p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
-                    ul: ({ node, ...props }) => <ul className="ml-4 list-disc mb-2" {...props} />,
-                    ol: ({ node, ...props }) => <ol className="ml-4 list-decimal mb-2" {...props} />,
-                    li: ({ node, ...props }) => <li className="" {...props} />,
-                    a: ({ node, ...props }) => <a className="text-primary underline hover:no-underline" {...props} />,
-                    blockquote: ({ node, ...props }) => <blockquote className="border-l-2 border-primary/30 pl-2 italic my-2" {...props} />,
-                    code: (props: any) => {
-                      const { children, className, node, ...rest } = props
-                      const match = /language-(\w+)/.exec(className || '')
-                      return !match ? (
-                        <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs" {...rest}>
-                          {children}
-                        </code>
-                      ) : (
-                        <code className={className} {...rest}>
-                          {children}
-                        </code>
-                      )
-                    }
-                  }}
-                >
-                  {epic.description || "Sem descrição"}
-                </ReactMarkdown>
+              <div className={`text-muted-foreground text-sm transition-all duration-200 ${!isDescriptionExpanded ? 'line-clamp-2' : ''} break-words overflow-hidden`}>
+                <div className="prose prose-sm dark:prose-invert max-w-none
+                            prose-headings:font-semibold prose-headings:text-foreground/90
+                            prose-p:leading-relaxed prose-p:text-muted-foreground
+                            prose-strong:text-foreground
+                            prose-blockquote:border-violet-300 prose-blockquote:bg-violet-50/50 dark:prose-blockquote:bg-violet-900/20 dark:prose-blockquote:border-violet-700 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-sm prose-blockquote:not-italic prose-blockquote:text-violet-700 dark:prose-blockquote:text-violet-300
+                            prose-code:break-all prose-pre:overflow-x-auto prose-pre:max-w-full">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      h1: ({ node, ...props }) => <span className="block font-bold mt-2 first:mt-0" {...props} />,
+                      h2: ({ node, ...props }) => <span className="block font-semibold mt-2 first:mt-0" {...props} />,
+                      p: ({ node, ...props }) => <p className="mb-2 last:mb-0" {...props} />,
+                      ul: ({ node, ...props }) => <ul className="ml-4 list-disc mb-2" {...props} />,
+                      ol: ({ node, ...props }) => <ol className="ml-4 list-decimal mb-2" {...props} />,
+                      li: ({ node, ...props }) => <li className="" {...props} />,
+                      a: ({ node, ...props }) => <a className="text-primary underline hover:no-underline break-all" {...props} />,
+                      blockquote: ({ node, ...props }) => <blockquote className="border-l-2 border-primary/30 pl-2 italic my-2" {...props} />,
+                      code: (props: any) => {
+                        const { children, className, node, ...rest } = props
+                        const match = /language-(\w+)/.exec(className || '')
+                        return !match ? (
+                          <code className="bg-muted px-1 py-0.5 rounded font-mono text-xs break-all" {...rest}>
+                            {children}
+                          </code>
+                        ) : (
+                          <code className={className} {...rest}>
+                            {children}
+                          </code>
+                        )
+                      }
+                    }}
+                  >
+                    {epic.description || "Sem descrição"}
+                  </ReactMarkdown>
+                </div>
               </div>
               {epic.description && (
                 <Button

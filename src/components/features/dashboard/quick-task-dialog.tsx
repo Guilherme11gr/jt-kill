@@ -165,6 +165,12 @@ export function QuickTaskDialog({
       return;
     }
 
+    // JKILL-215: Validate assignee is required
+    if (!assignedTo) {
+      toast.error('O campo Responsável é obrigatório');
+      return;
+    }
+
     mutation.mutate({
       title: title.trim(),
       projectId,
@@ -248,12 +254,14 @@ export function QuickTaskDialog({
 
           {/* Responsável */}
           <div className="space-y-2">
-            <Label htmlFor="quick-assignee">Responsável</Label>
+            <Label htmlFor="quick-assignee">
+              Responsável <span className="text-red-500">*</span>
+            </Label>
             <AssigneeSelect
               value={assignedTo}
               onChange={setAssignedTo}
               disabled={isSaving}
-              placeholder="Sem responsável"
+              placeholder="Selecione um responsável"
             />
           </div>
 

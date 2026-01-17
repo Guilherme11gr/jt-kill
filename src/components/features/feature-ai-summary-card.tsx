@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RefreshCw, ChevronDown, StopCircle, BrainCircuit } from "lucide-react";
 import { MarkdownViewer } from "@/components/ui/markdown-viewer";
@@ -31,27 +31,13 @@ export function FeatureAISummaryCard({
     }
   }, [featureId, initialSummary, fetchLatestSummary]);
 
-  // Sync stream to local display
-  const hasAutoExpandedRef = useRef(false);
-
-  // Reset auto-expand ref when generation starts (loading becomes true)
-  useEffect(() => {
-    if (isLoading) {
-      hasAutoExpandedRef.current = false;
-    }
-  }, [isLoading]);
-
-  // Sync stream to local display
+  // JKILL-225: Sync stream to local display (removed auto-expand logic)
   useEffect(() => {
     if (summary) {
       setLocalSummary(summary);
-      // Auto expand only once per stream session
-      if (!isExpanded && !hasAutoExpandedRef.current) {
-        setIsExpanded(true);
-        hasAutoExpandedRef.current = true;
-      }
+      // Streaming now works in background without expanding the card
     }
-  }, [summary, isExpanded]);
+  }, [summary]);
 
   const handleGenerate = async (e: React.MouseEvent) => {
     e.stopPropagation();

@@ -16,6 +16,12 @@ export interface ProjectDoc {
   content: string;
   createdAt: string;
   updatedAt: string;
+  // JKILL-63: Public sharing fields with expiration
+  shareToken?: string | null;
+  isPublic?: boolean;
+  sharedAt?: string | null;
+  shareExpiresAt?: string | null; // Token expiration date
+  sharedBy?: string | null; // User who enabled sharing
   tags?: Array<{
     tag: {
       id: string;
@@ -261,6 +267,112 @@ export function useDeleteDoc(projectId: string) {
         );
       }
       toast.error('Erro ao excluir documento');
+    },
+  });
+}
+
+// ============ JKILL-63: Public Sharing Hooks ============
+
+interface ShareDocResponse {
+  shareUrl: string;
+  shareToken: string;
+}
+
+/**
+ * Helper function to copy text to clipboard with fallback for older browsers
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    // Try modern clipboard API first
+    if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+
+    // Fallback for older browsers or non-secure contexts
+    if (typeof document !== 'undefined') {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+
+      return successful;
+    }
+
+    return false;
+  } catch (err) {
+    console.error('Failed to copy to clipboard:', err);
+    return false;
+  }
+}
+
+/**
+ * Enable public sharing for a doc
+ * Generates a share token and returns the public URL
+ */
+export function useShareDoc() {
+  const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
+
+  return useMutation({
+    mutationFn: async (docId: string): Promise<ShareDocResponse> => {
+      const res = await fetch(`/api/docs/${docId}/share`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Failed to share doc');
+      const json = await res.json();
+      return json.data;
+    },
+    onSuccess: async (data) => {
+      // Copy share URL to clipboard with fallback
+      const copied = await copyToClipboard(data.shareUrl);
+      if (copied) {
+        toast.success('Documento compartilhado!', {
+          description: 'Link copiado para a área de transferência',
+        });
+      } else {
+        toast.success('Documento compartilhado!', {
+          description: 'Copie o link manualmente',
+        });
+      }
+      // Invalidate doc list to refresh sharing status
+      smartInvalidateImmediate(queryClient, queryKeys.projectDocs.all(orgId));
+    },
+    onError: () => {
+      toast.error('Erro ao compartilhar documento');
+    },
+  });
+}
+
+/**
+ * Disable public sharing for a doc
+ * Invalidates the share token
+ */
+export function useDisableDocSharing() {
+  const queryClient = useQueryClient();
+  const orgId = useCurrentOrgId();
+
+  return useMutation({
+    mutationFn: async (docId: string): Promise<void> => {
+      const res = await fetch(`/api/docs/${docId}/share`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to disable sharing');
+    },
+    onSuccess: () => {
+      toast.success('Compartilhamento desativado');
+      // Invalidate doc list to refresh sharing status
+      smartInvalidateImmediate(queryClient, queryKeys.projectDocs.all(orgId));
+    },
+    onError: () => {
+      toast.error('Erro ao desativar compartilhamento');
     },
   });
 }

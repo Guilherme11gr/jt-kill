@@ -133,7 +133,7 @@ export default function KaiZonePage() {
           console.error('Erro no polling:', err);
         }
       }
-    }, 3000); // Poll a cada 3 segundos
+    }, 1000); // Poll a cada 1 segundo (mais rápido)
 
     return () => clearInterval(interval);
   }, [pendingMessages]);
@@ -289,9 +289,19 @@ export default function KaiZonePage() {
                         "text-xs mt-1 flex items-center gap-1",
                         message.role === 'user' ? "text-primary-foreground/70" : "text-muted-foreground"
                       )}>
-                        {message.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        {message.status === 'pending' && message.role === 'assistant' && (
-                          <Loader2 className="w-3 h-3 animate-spin inline" />
+                        {message.status === 'pending' && message.role === 'assistant' ? (
+                          <>
+                            <span>Kai está digitando</span>
+                            <span className="flex gap-0.5 ml-1">
+                              <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                              <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                              <span className="w-1 h-1 bg-current rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            {message.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </>
                         )}
                       </div>
                     </div>

@@ -16,7 +16,8 @@ import {
   Zap,
   ChevronRight,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
@@ -53,17 +54,38 @@ const quickActions: QuickAction[] = [
   },
 ];
 
+const STORAGE_KEY = 'kai-zone-messages';
+
 export default function KaiZonePage() {
   const { profile } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: `Olá! Sou o Kai, seu assistente no Jira Killer.\n\nAgora você pode conversar comigo aqui! Suas mensagens serão processadas e eu respondo em breve.\n\nPosso te ajudar com:\n• Análise de projetos e tasks\n• Priorização do que fazer\n• Identificar bloqueios\n• Documentar decisões\n\nO que você precisa hoje?`,
-      timestamp: new Date(),
-      status: 'completed'
+  
+  // Carrega mensagens do localStorage ou usa mensagem de boas-vindas
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Converte strings de data de volta para Date
+          return parsed.map((m: Message) => ({
+            ...m,
+            timestamp: new Date(m.timestamp)
+          }));
+        } catch {
+          // fallback para mensagem padrão
+        }
+      }
     }
-  ]);
+    return [
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: `Olá! Sou o Kai, seu assistente no Jira Killer.\n\nAgora você pode conversar comigo aqui! Suas mensagens serão processadas e eu respondo em breve.\n\nPosso te ajudar com:\n• Análise de projetos e tasks\n• Priorização do que fazer\n• Identificar bloqueios\n• Documentar decisões\n\nO que você precisa hoje?`,
+        timestamp: new Date(),
+        status: 'completed'
+      }
+    ];
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<Set<string>>(new Set());
@@ -73,6 +95,13 @@ export default function KaiZonePage() {
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  // Salva mensagens no localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && messages.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     }
   }, [messages]);
 
@@ -106,6 +135,21 @@ export default function KaiZonePage() {
 
     return () => clearInterval(interval);
   }, [pendingMessages]);
+
+  const handleClearHistory = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+      setMessages([
+        {
+          id: 'welcome',
+          role: 'assistant',
+          content: `Histórico limpo! Olá novamente, sou o Kai. Como posso ajudar?`,
+          timestamp: new Date(),
+          status: 'completed'
+        }
+      ]);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -181,6 +225,16 @@ export default function KaiZonePage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleClearHistory}
+            className="gap-1 text-muted-foreground"
+            title="Limpar histórico"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Limpar</span>
+          </Button>
           <Badge variant="secondary" className="gap-1">
             <Sparkles className="w-3 h-3" />
             Beta

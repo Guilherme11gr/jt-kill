@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { BotIcon, BotIconHandle } from "./bot";
 import { SparklesIcon, SparklesIconHandle } from "./sparkles";
-import { ZapIcon, ZapIconHandle } from "./zap";
+import { ZapIcon, ZapHandle } from "./zap";
 import { BrainIcon, BrainIconHandle } from "./brain";
 
 interface AnimatedIconProps {
@@ -19,7 +19,7 @@ export function AnimatedIcon({
   className,
   interval = 2000 
 }: AnimatedIconProps) {
-  const iconRef = useRef<BotIconHandle | SparklesIconHandle | ZapIconHandle | BrainIconHandle>(null);
+  const iconRef = useRef<BotIconHandle | SparklesIconHandle | ZapHandle | BrainIconHandle>(null);
 
   useEffect(() => {
     const animate = () => {
@@ -44,7 +44,7 @@ export function AnimatedIcon({
     case "sparkles":
       return <SparklesIcon ref={iconRef as React.RefObject<SparklesIconHandle>} size={size} className={className} />;
     case "zap":
-      return <ZapIcon ref={iconRef as React.RefObject<ZapIconHandle>} size={size} className={className} />;
+      return <ZapIcon ref={iconRef as React.RefObject<ZapHandle>} size={size} className={className} />;
     case "brain":
       return <BrainIcon ref={iconRef as React.RefObject<BrainIconHandle>} size={size} className={className} />;
     default:

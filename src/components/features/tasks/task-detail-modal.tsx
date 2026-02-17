@@ -47,6 +47,7 @@ import { useBlockTaskDialog } from '@/hooks/use-block-task-dialog';
 import { useMoveTaskWithUndo } from '@/hooks/use-move-task-undo';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { KaiExecuteButton } from '@/components/features/kai/kai-execute-button';
 
 interface TaskDetailModalProps {
   task: TaskWithReadableId | null;
@@ -337,6 +338,11 @@ export function TaskDetailModal({
 
         {/* Footer Actions - Sticky Bottom */}
         <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 flex gap-3 justify-end z-10">
+          <KaiExecuteButton
+            taskId={task.id}
+            projectHasRepo={true}
+            className="h-9"
+          />
           <Button variant="outline" className="gap-2" onClick={handleEdit}>
             <Pencil className="h-4 w-4" />
             Editar

@@ -35,7 +35,8 @@ export function KaiExecuteButton({
   const [isLoading, setIsLoading] = useState(false);
   const [lastCommand, setLastCommand] = useState<{ type: string; status: string } | null>(null);
 
-  const handleExecute = async (commandType: string) => {
+  const handleExecute = async (commandType: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!projectHasRepo) return;
     
     setIsLoading(true);
@@ -130,7 +131,7 @@ export function KaiExecuteButton({
             variant="ghost"
             size="sm"
             className={cn('px-2 py-0 h-6 text-xs', cmd.color)}
-            onClick={() => handleExecute(cmd.id)}
+            onClick={(e) => handleExecute(cmd.id, e)}
           >
             {cmd.label}
           </Button>
@@ -139,7 +140,7 @@ export function KaiExecuteButton({
           variant="ghost"
           size="sm"
           className="px-2 py-0 h-6 text-xs"
-          onClick={() => setIsOpen(false)}
+          onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}
         >
           <X className="w-3 h-3" />
         </Button>
@@ -154,7 +155,7 @@ export function KaiExecuteButton({
           variant="ghost"
           size="sm"
           className={cn('hover:bg-primary/10', className)}
-          onClick={() => setIsOpen(true)}
+          onClick={(e) => { e.stopPropagation(); setIsOpen(true); }}
         >
           <Play className="w-4 h-4 mr-1" />
           Kai

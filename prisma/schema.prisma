@@ -943,6 +943,22 @@ enum NoteStatus {
   @@schema("public")
 }
 
+model KaiMessage {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  content   String
+  reply     String?
+  direction String   // 'incoming' | 'outgoing'
+  status    String   @default("pending") // 'pending' | 'completed'
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId], map: "idx_kai_messages_user")
+  @@index([status], map: "idx_kai_messages_status")
+  @@map("kai_messages")
+  @@schema("public")
+}
+
 enum aal_level {
   aal1
   aal2

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,7 +15,8 @@ import {
   BarChart3, 
   Zap,
   ChevronRight,
-  MessageSquare
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
@@ -25,7 +26,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  type?: 'chat' | 'analysis' | 'action';
+  status?: 'pending' | 'completed';
 }
 
 interface QuickAction {
@@ -58,13 +59,14 @@ export default function KaiZonePage() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: `Olá! Sou o Kai, seu assistente no Jira Killer.\n\nPosso te ajudar com:\n• Análise de projetos e tasks\n• Priorização do que fazer\n• Identificar bloqueios\n• Documentar decisões\n\nO que você precisa hoje?`,
+      content: `Olá! Sou o Kai, seu assistente no Jira Killer.\n\nAgora você pode conversar comigo aqui! Suas mensagens serão processadas e eu respondo em breve.\n\nPosso te ajudar com:\n• Análise de projetos e tasks\n• Priorização do que fazer\n• Identificar bloqueios\n• Documentar decisões\n\nO que você precisa hoje?`,
       timestamp: new Date(),
-      type: 'chat'
+      status: 'completed'
     }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingMessages, setPendingMessages] = useState<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll pro final
@@ -74,52 +76,93 @@ export default function KaiZonePage() {
     }
   }, [messages]);
 
+  // Polling pra verificar respostas pendentes
+  useEffect(() => {
+    if (pendingMessages.size === 0) return;
+
+    const interval = setInterval(async () => {
+      for (const messageId of pendingMessages) {
+        try {
+          const res = await fetch(`/api/kai/chat?messageId=${messageId}`);
+          const data = await res.json();
+          
+          if (data.status === 'completed' && data.reply) {
+            setMessages(prev => prev.map(msg => 
+              msg.id === messageId 
+                ? { ...msg, content: data.reply, status: 'completed' }
+                : msg
+            ));
+            setPendingMessages(prev => {
+              const next = new Set(prev);
+              next.delete(messageId);
+              return next;
+            });
+          }
+        } catch (err) {
+          console.error('Erro no polling:', err);
+        }
+      }
+    }, 3000); // Poll a cada 3 segundos
+
+    return () => clearInterval(interval);
+  }, [pendingMessages]);
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
+    const tempId = `temp_${Date.now()}`;
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: tempId,
       role: 'user',
       content: input,
       timestamp: new Date(),
+      status: 'completed'
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
-    // TODO: Integrar com MCP pra respostas reais
-    // Por enquanto, simula resposta
-    setTimeout(() => {
-      const kaiMessage: Message = {
-        id: (Date.now() + 1).toString(),
+    try {
+      const res = await fetch('/api/kai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: input,
+          userId: profile?.id || 'guilherme'
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.messageId) {
+        // Adiciona mensagem do Kai como "pending"
+        const kaiMessage: Message = {
+          id: data.messageId,
+          role: 'assistant',
+          content: '🤔 Kai está pensando...',
+          timestamp: new Date(),
+          status: 'pending'
+        };
+        setMessages(prev => [...prev, kaiMessage]);
+        setPendingMessages(prev => new Set(prev).add(data.messageId));
+      }
+    } catch (error) {
+      console.error('Erro ao enviar:', error);
+      setMessages(prev => [...prev, {
+        id: `error_${Date.now()}`,
         role: 'assistant',
-        content: generateResponse(input),
+        content: '❌ Erro ao enviar mensagem. Tente novamente.',
         timestamp: new Date(),
-        type: 'chat'
-      };
-      setMessages(prev => [...prev, kaiMessage]);
+        status: 'completed'
+      }]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleQuickAction = (action: QuickAction) => {
     setInput(action.prompt);
-  };
-
-  // Simulação de resposta (vai ser substituída por integração real)
-  const generateResponse = (userInput: string): string => {
-    const lower = userInput.toLowerCase();
-    if (lower.includes('análise') || lower.includes('projetos')) {
-      return `📊 **Análise dos Projetos**\n\n**Agenda Aqui:** 324 tasks, 3 críticas\n**Lojinha:** 148 tasks, fluindo bem\n**Jira Killer:** 191 tasks, 2 travadas\n\n**Prioridade:** Focar nas tasks críticas do Agenda Aqui hoje.`;
-    }
-    if (lower.includes('prioridade') || lower.includes('importante')) {
-      return `🎯 **Top 3 Prioridades**\n\n1. **AGQ-331** - Bug de timezone (CRÍTICO)\n2. **AGQ-327** - Leak de token (CRÍTICO)\n3. **LOJ-124** - Checkout multi-produto (HIGH)\n\nQuer que eu detalhe alguma?`;
-    }
-    if (lower.includes('bloqueio') || lower.includes('travada')) {
-      return `🚫 **Bloqueios Atuais**\n\n**Agenda Aqui:** 1 task travada\n- AGQ-??? - dependência externa\n\n**Jira Killer:** 2 tasks travadas\n- Revisão de arquitetura pendente\n\nPosso ajudar a desbloquear?`;
-    }
-    return `Entendi. Estou processando isso...\n\n*(Integração completa com MCP em desenvolvimento)*`;
   };
 
   return (
@@ -133,14 +176,16 @@ export default function KaiZonePage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Kai Zone</h1>
             <p className="text-sm text-muted-foreground">
-              Seu assistente inteligente no Jira Killer
+              Converse com seu assistente inteligente
             </p>
           </div>
         </div>
-        <Badge variant="secondary" className="gap-1">
-          <Sparkles className="w-3 h-3" />
-          Beta
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary" className="gap-1">
+            <Sparkles className="w-3 h-3" />
+            Beta
+          </Badge>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6 h-full">
@@ -181,10 +226,13 @@ export default function KaiZonePage() {
                     >
                       <div className="whitespace-pre-wrap">{message.content}</div>
                       <div className={cn(
-                        "text-xs mt-1",
+                        "text-xs mt-1 flex items-center gap-1",
                         message.role === 'user' ? "text-primary-foreground/70" : "text-muted-foreground"
                       )}>
                         {message.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        {message.status === 'pending' && message.role === 'assistant' && (
+                          <Loader2 className="w-3 h-3 animate-spin inline" />
+                        )}
                       </div>
                     </div>
 
@@ -195,18 +243,6 @@ export default function KaiZonePage() {
                     )}
                   </div>
                 ))}
-                
-                {isLoading && (
-                  <div className="flex gap-3 justify-start">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                      <Bot className="w-4 h-4 text-primary-foreground" />
-                    </div>
-                    <div className="bg-muted rounded-lg px-4 py-2 flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm text-muted-foreground">Kai está pensando...</span>
-                    </div>
-                  </div>
-                )}
               </div>
             </ScrollArea>
 
@@ -219,6 +255,7 @@ export default function KaiZonePage() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   className="flex-1"
+                  disabled={isLoading}
                 />
                 <Button onClick={handleSend} disabled={isLoading || !input.trim()}>
                   {isLoading ? (
@@ -246,6 +283,7 @@ export default function KaiZonePage() {
                   variant="outline"
                   className="w-full justify-start gap-2"
                   onClick={() => handleQuickAction(action)}
+                  disabled={isLoading}
                 >
                   {action.icon}
                   {action.label}
@@ -258,33 +296,28 @@ export default function KaiZonePage() {
           {/* Status */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Status dos Projetos</CardTitle>
+              <CardTitle className="text-base">Status</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm">Agenda Aqui</span>
-                <Badge variant="destructive">324 tasks</Badge>
+                <span className="text-sm">Conexão</span>
+                <Badge variant="default" className="gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full" />
+                  Online
+                </Badge>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm">Lojinha</span>
-                <Badge variant="default">148 tasks</Badge>
+                <span className="text-sm">Mensagens pendentes</span>
+                <Badge variant="secondary">{pendingMessages.size}</Badge>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Jira Killer</span>
-                <Badge variant="secondary">191 tasks</Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Content Creator</span>
-                <Badge variant="outline">18 tasks</Badge>
-              </div>
-            </CardContent>
+            </CardContent>          
           </Card>
 
           {/* Info */}
           <Card className="bg-muted/50">
             <CardContent className="pt-4 text-xs text-muted-foreground space-y-2">
-              <p>💡 <strong>Dica:</strong> Use o MCP para integração completa.</p>
-              <p>🔧 <strong>Em breve:</strong> Delegação automática de tasks.</p>
+              <p>💡 Kai processa suas mensagens via MCP.</p>
+              <p>⏱️ Respostas em até 30 segundos.</p>
             </CardContent>
           </Card>
         </div>

@@ -170,28 +170,51 @@ export default function KaiZonePage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/kai/chat', {
+      // Tenta enviar via Telegram proxy primeiro
+      const telegramRes = await fetch('/api/kai/telegram-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: input,
-          userId: profile?.id || 'guilherme'
+          messageId: tempId
         }),
       });
 
-      const data = await res.json();
-
-      if (data.messageId) {
-        // Adiciona mensagem do Kai como "pending"
+      if (telegramRes.ok) {
+        // Telegram funcionou, aguarda resposta
         const kaiMessage: Message = {
-          id: data.messageId,
+          id: tempId,
           role: 'assistant',
-          content: '🤔 Kai está pensando...',
+          content: '📤 Mensagem enviada pro Telegram. Kai vai responder lá e aparece aqui em breve...',
           timestamp: new Date(),
           status: 'pending'
         };
         setMessages(prev => [...prev, kaiMessage]);
-        setPendingMessages(prev => new Set(prev).add(data.messageId));
+        setPendingMessages(prev => new Set(prev).add(tempId));
+      } else {
+        // Fallback pro método normal
+        const res = await fetch('/api/kai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            message: input,
+            userId: profile?.id || 'guilherme'
+          }),
+        });
+
+        const data = await res.json();
+
+        if (data.messageId) {
+          const kaiMessage: Message = {
+            id: data.messageId,
+            role: 'assistant',
+            content: '🤔 Kai está pensando...',
+            timestamp: new Date(),
+            status: 'pending'
+          };
+          setMessages(prev => [...prev, kaiMessage]);
+          setPendingMessages(prev => new Set(prev).add(data.messageId));
+        }
       }
     } catch (error) {
       console.error('Erro ao enviar:', error);

@@ -4,16 +4,17 @@ import { getMockAuthContext } from '@/lib/mock-auth';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const auth = await getMockAuthContext();
     if (!auth?.userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const command = await prisma.kaiCommand.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         task: {
           select: {

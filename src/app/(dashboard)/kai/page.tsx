@@ -8,17 +8,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Send, 
-  Bot, 
   User, 
-  Sparkles, 
   Loader2, 
   BarChart3, 
-  Zap,
   ChevronRight,
   MessageSquare,
   RefreshCw,
   Trash2
 } from 'lucide-react';
+import { BotIcon } from '@/components/ui/bot';
+import { SparklesIcon } from '@/components/ui/sparkles';
+import { ZapIcon } from '@/components/ui/zap';
+import { BrainIcon } from '@/components/ui/brain';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 
@@ -40,12 +41,12 @@ const quickActions: QuickAction[] = [
   { 
     label: 'Análise do dia', 
     prompt: 'Faça uma análise dos meus projetos hoje. O que está crítico?',
-    icon: <BarChart3 className="w-4 h-4" />
+    icon: <BrainIcon size={18} />
   },
   { 
     label: 'Tasks prioritárias', 
     prompt: 'Quais são as 3 tasks mais importantes pra eu fazer agora?',
-    icon: <Zap className="w-4 h-4" />
+    icon: <ZapIcon size={18} />
   },
   { 
     label: 'Bloqueios', 
@@ -215,7 +216,7 @@ export default function KaiZonePage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/60 rounded-lg flex items-center justify-center">
-            <Bot className="w-6 h-6 text-primary-foreground" />
+            <BotIcon className="text-primary-foreground" size={24} />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Kai Zone</h1>
@@ -236,7 +237,7 @@ export default function KaiZonePage() {
             <span className="hidden sm:inline">Limpar</span>
           </Button>
           <Badge variant="secondary" className="gap-1">
-            <Sparkles className="w-3 h-3" />
+            <SparklesIcon size={14} />
             Beta
           </Badge>
         </div>
@@ -266,7 +267,7 @@ export default function KaiZonePage() {
                   >
                     {message.role === 'assistant' && (
                       <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Bot className="w-4 h-4 text-primary-foreground" />
+                        <BotIcon className="text-primary-foreground" size={16} />
                       </div>
                     )}
                     

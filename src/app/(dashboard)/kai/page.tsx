@@ -20,6 +20,7 @@ import { BotIcon } from '@/components/ui/bot';
 import { SparklesIcon } from '@/components/ui/sparkles';
 import { ZapIcon } from '@/components/ui/zap';
 import { BrainIcon } from '@/components/ui/brain';
+import { AnimatedIcon } from '@/components/ui/animated-icon';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 
@@ -216,7 +217,7 @@ export default function KaiZonePage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary/60 rounded-lg flex items-center justify-center">
-            <BotIcon className="text-primary-foreground" size={24} />
+            <AnimatedIcon name="bot" className="text-primary-foreground" size={24} interval={3000} />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Kai Zone</h1>
@@ -237,7 +238,7 @@ export default function KaiZonePage() {
             <span className="hidden sm:inline">Limpar</span>
           </Button>
           <Badge variant="secondary" className="gap-1">
-            <SparklesIcon size={14} />
+            <AnimatedIcon name="sparkles" size={14} interval={2000} />
             Beta
           </Badge>
         </div>
@@ -267,7 +268,11 @@ export default function KaiZonePage() {
                   >
                     {message.role === 'assistant' && (
                       <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-                        <BotIcon className="text-primary-foreground" size={16} />
+                        {message.status === 'pending' ? (
+                          <AnimatedIcon name="bot" className="text-primary-foreground" size={16} interval={1000} />
+                        ) : (
+                          <BotIcon className="text-primary-foreground" size={16} />
+                        )}
                       </div>
                     )}
                     

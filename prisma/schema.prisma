@@ -11,25 +11,25 @@ datasource db {
 }
 
 model Organization {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name          String
-  slug          String         @unique
-  maxUsers      Int?           @map("max_users") // Prepared for future user limits
-  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  slug          String          @unique
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  maxUsers      Int?            @map("max_users")
   auditLogs     AuditLog[]
   comments      Comment[]
   epics         Epic[]
   features      Feature[]
   invites       Invite[]
+  memberships   OrgMembership[]
   pokerSessions PokerSession[]
   projectDocs   ProjectDoc[]
   projectNotes  ProjectNote[]
+  projectTags   ProjectTag[]
   projects      Project[]
   tasks         Task[]
-  projectTags   ProjectTag[]
   userProfiles  UserProfile[]
-  memberships   OrgMembership[]
 
   @@index([slug], map: "idx_organizations_slug")
   @@map("organizations")
@@ -37,17 +37,15 @@ model Organization {
 }
 
 model UserProfile {
-  id           String       @id @db.Uuid
-  // DEPRECATED: orgId is no longer used - org relationships are in OrgMembership
-  orgId        String?      @map("org_id") @db.Uuid
-  displayName  String       @map("display_name")
-  avatarUrl    String?      @map("avatar_url")
-  // DEPRECATED: role is no longer used - use OrgMembership.role instead
-  role         UserRole     @default(MEMBER)
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  users        users        @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  organization Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  id           String        @id @db.Uuid
+  orgId        String?       @map("org_id") @db.Uuid
+  displayName  String        @map("display_name")
+  avatarUrl    String?       @map("avatar_url")
+  role         UserRole      @default(MEMBER)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  users        users         @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organization Organization? @relation(fields: [orgId], references: [id], onUpdate: NoAction)
 
   @@map("user_profiles")
   @@schema("public")
@@ -61,9 +59,8 @@ model OrgMembership {
   isDefault    Boolean      @default(false) @map("is_default")
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  user         users        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user         users        @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([userId, orgId])
   @@index([userId], map: "idx_org_memberships_user")
@@ -76,7 +73,7 @@ model Invite {
   id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orgId        String       @map("org_id") @db.Uuid
   token        String       @unique @default(dbgenerated("gen_random_uuid()"))
-  email        String?      // Optional - for tracking who was invited
+  email        String?
   role         UserRole     @default(MEMBER)
   status       InviteStatus @default(PENDING)
   createdBy    String       @map("created_by") @db.Uuid
@@ -97,14 +94,14 @@ model AuditLog {
   id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orgId          String       @map("org_id") @db.Uuid
   userId         String       @map("user_id") @db.Uuid
-  action         String       // e.g., "user.invite.created", "user.role.changed"
-  targetType     String?      @map("target_type") // e.g., "user", "project"
+  action         String
+  targetType     String?      @map("target_type")
   targetId       String?      @map("target_id") @db.Uuid
-  metadata       Json?        // Additional context
+  metadata       Json?
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  sequenceNumber BigInt?      @map("sequence_number") // Monotonically increasing number for event ordering
-  actorType      String?      @map("actor_type") @default("user") // 'user' | 'agent' | 'system'
-  clientId       String?      @map("client_id") @db.Uuid // For deduplication across tabs
+  actorType      String?      @default("user") @map("actor_type")
+  clientId       String?      @map("client_id") @db.Uuid
+  sequenceNumber BigInt?      @map("sequence_number")
   organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([orgId], map: "idx_audit_logs_org")
@@ -116,22 +113,22 @@ model AuditLog {
 }
 
 model Project {
-  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String       @map("org_id") @db.Uuid
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId        String        @map("org_id") @db.Uuid
   name         String
   key          String
   description  String?
-  modules      String[]     @default([])
-  createdBy    String?      @map("created_by") @db.Uuid
-  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  modules      String[]      @default([])
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy    String?       @map("created_by") @db.Uuid
   epics        Epic[]
   projectDocs  ProjectDoc[]
   projectNotes ProjectNote[]
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  creator      users?       @relation("ProjectCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
-  tasks        Task[]
   projectTags  ProjectTag[]
+  creator      users?        @relation("ProjectCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
+  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tasks        Task[]
 
   @@unique([orgId, key])
   @@index([orgId], map: "idx_projects_org")
@@ -141,24 +138,23 @@ model Project {
 }
 
 model ProjectDoc {
-  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String             @map("org_id") @db.Uuid
-  projectId    String             @map("project_id") @db.Uuid
-  title        String
-  content      String
-  createdBy    String?            @map("created_by") @db.Uuid
-  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  // JKILL-63: Public sharing fields with expiration and audit
-  shareToken      String?            @unique @map("share_token") @db.Uuid // UUID token for public access
-  isPublic        Boolean            @default(false) @map("is_public") // Whether doc is publicly shared
-  sharedAt        DateTime?          @map("shared_at") @db.Timestamptz(6) // When sharing was enabled
-  shareExpiresAt  DateTime?          @map("share_expires_at") @db.Timestamptz(6) // Token expiration date
-  sharedBy        String?            @map("shared_by") @db.Uuid // User who enabled sharing
-  organization Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  project      Project            @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  creator      users?             @relation("DocCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
-  tags         DocTagAssignment[]
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId          String             @map("org_id") @db.Uuid
+  projectId      String             @map("project_id") @db.Uuid
+  title          String
+  content        String
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy      String?            @map("created_by") @db.Uuid
+  isPublic       Boolean            @default(false) @map("is_public")
+  shareToken     String?            @unique @map("share_token") @db.Uuid
+  sharedAt       DateTime?          @map("shared_at") @db.Timestamptz(6)
+  shareExpiresAt DateTime?          @map("share_expires_at") @db.Timestamptz(6)
+  sharedBy       String?            @map("shared_by") @db.Uuid
+  tags           DocTagAssignment[]
+  creator        users?             @relation("DocCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
+  organization   Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([orgId], map: "idx_project_docs_org")
   @@index([projectId], map: "idx_project_docs_project")
@@ -176,14 +172,13 @@ model ProjectNote {
   content              String
   status               NoteStatus   @default(ACTIVE)
   convertedToFeatureId String?      @map("converted_to_feature_id") @db.Uuid
-  createdBy            String?      @map("created_by") @db.Uuid
   createdAt            DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  project              Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  createdBy            String?      @map("created_by") @db.Uuid
   convertedToFeature   Feature?     @relation(fields: [convertedToFeatureId], references: [id], onUpdate: NoAction)
   creator              users?       @relation("NoteCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project              Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([orgId], map: "idx_project_notes_org")
   @@index([projectId], map: "idx_project_notes_project")
@@ -196,8 +191,8 @@ model ProjectNote {
 model DocTagAssignment {
   id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   docId     String     @map("doc_id") @db.Uuid
-  tagId     String     @map("tag_id") @db.Uuid
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  tagId     String     @map("tag_id") @db.Uuid
   doc       ProjectDoc @relation(fields: [docId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   tag       ProjectTag @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -215,19 +210,18 @@ model Epic {
   title          String
   description    String?
   status         EpicStatus   @default(OPEN)
-  createdBy      String?      @map("created_by") @db.Uuid
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   isSystem       Boolean      @default(false) @map("is_system")
   aiSummary      String?      @map("ai_summary")
   lastAnalyzedAt DateTime?    @map("last_analyzed_at") @db.Timestamptz(6)
-  // Health check fields
   risk           EpicRisk     @default(low)
   riskUpdatedAt  DateTime     @default(now()) @map("risk_updated_at") @db.Timestamptz(6)
   riskReason     String?      @map("risk_reason")
+  createdBy      String?      @map("created_by") @db.Uuid
+  creator        users?       @relation("EpicCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  creator        users?       @relation("EpicCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   features       Feature[]
 
   @@index([orgId], map: "idx_epics_org")
@@ -238,31 +232,27 @@ model Epic {
 }
 
 model Feature {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId           String        @map("org_id") @db.Uuid
-  epicId          String        @map("epic_id") @db.Uuid
-  title           String
-  description     String?
-  status          FeatureStatus @default(BACKLOG)
-  createdBy       String?       @map("created_by") @db.Uuid
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  isSystem        Boolean       @default(false) @map("is_system")
-  // Health check fields
-  health          FeatureHealth @default(healthy)
-  healthUpdatedAt DateTime      @default(now()) @map("health_updated_at") @db.Timestamptz(6)
-  healthReason    String?       @map("health_reason")
-
-  // AI Analysis
-  technicalAnalysis String?       @map("technical_analysis")
-  analysisUpdatedAt DateTime?     @map("analysis_updated_at") @db.Timestamptz(6)
-
-  epic            Epic          @relation(fields: [epicId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  creator         users?        @relation("FeatureCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
-  tasks           Task[]
-  fromNotes       ProjectNote[]
-  tagAssignments  FeatureTagAssignment[]
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId             String                 @map("org_id") @db.Uuid
+  epicId            String                 @map("epic_id") @db.Uuid
+  title             String
+  description       String?
+  status            FeatureStatus          @default(BACKLOG)
+  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  isSystem          Boolean                @default(false) @map("is_system")
+  health            FeatureHealth          @default(healthy)
+  healthUpdatedAt   DateTime               @default(now()) @map("health_updated_at") @db.Timestamptz(6)
+  healthReason      String?                @map("health_reason")
+  createdBy         String?                @map("created_by") @db.Uuid
+  analysisUpdatedAt DateTime?              @map("analysis_updated_at") @db.Timestamptz(6)
+  technicalAnalysis String?                @map("technical_analysis")
+  tagAssignments    FeatureTagAssignment[]
+  creator           users?                 @relation("FeatureCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
+  epic              Epic                   @relation(fields: [epicId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organization      Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  fromNotes         ProjectNote[]
+  tasks             Task[]
 
   @@index([epicId], map: "idx_features_epic")
   @@index([orgId], map: "idx_features_org")
@@ -272,45 +262,45 @@ model Feature {
   @@schema("public")
 }
 
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model Task {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String        @map("org_id") @db.Uuid
-  projectId    String        @map("project_id") @db.Uuid
-  featureId    String        @map("feature_id") @db.Uuid
-  localId         Int           @map("local_id")
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId           String              @map("org_id") @db.Uuid
+  projectId       String              @map("project_id") @db.Uuid
+  featureId       String              @map("feature_id") @db.Uuid
+  localId         Int                 @map("local_id")
   title           String
   description     String?
-  status          TaskStatus    @default(BACKLOG)
-  type            TaskType      @default(TASK)
-  priority        TaskPriority  @default(MEDIUM)
+  status          TaskStatus          @default(BACKLOG)
+  type            TaskType            @default(TASK)
+  priority        TaskPriority        @default(MEDIUM)
   points          Int?
-  modules         String[]      @default([])
-  assigneeId      String?       @map("assignee_id") @db.Uuid
-  createdBy       String?       @map("created_by") @db.Uuid
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  // Health check fields
-  blocked         Boolean       @default(false)
-  blockReason     String?       @map("block_reason") // Motivo obrigatório ao bloquear
-  blockedAt       DateTime?     @map("blocked_at") @db.Timestamptz(6) // Timestamp do último bloqueio
-  blockedBy       String?       @map("blocked_by") @db.Uuid // User que bloqueou (audit trail)
-  statusChangedAt DateTime?     @map("status_changed_at") @db.Timestamptz(6)
+  assigneeId      String?             @map("assignee_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  modules         String[]            @default([])
+  blocked         Boolean             @default(false)
+  statusChangedAt DateTime?           @map("status_changed_at") @db.Timestamptz(6)
+  createdBy       String?             @map("created_by") @db.Uuid
+  blockReason     String?             @map("block_reason")
+  blockedAt       DateTime?           @map("blocked_at") @db.Timestamptz(6)
+  blockedBy       String?             @map("blocked_by") @db.Uuid
   comments        Comment[]
   pokerSession    PokerSession?
   tagAssignments  TaskTagAssignment[]
-  assignee        users?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onUpdate: NoAction)
-  creator         users?        @relation("TaskCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
-  feature         Feature       @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  assignee        users?              @relation("TaskAssignee", fields: [assigneeId], references: [id], onUpdate: NoAction)
+  creator         users?              @relation("TaskCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
+  feature         Feature             @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  organization    Organization        @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([projectId, localId])
   @@index([assigneeId, status], map: "idx_tasks_assignee_status")
   @@index([featureId], map: "idx_tasks_feature")
   @@index([orgId], map: "idx_tasks_org")
-  @@index([orgId, createdAt(sort: Desc)], map: "idx_tasks_org_created")  // Optimizes default sort
-  @@index([orgId, status], map: "idx_tasks_org_status")                  // Optimizes status filter
-  @@index([orgId, priority], map: "idx_tasks_org_priority")              // Optimizes priority filter
+  @@index([orgId, createdAt(sort: Desc)], map: "idx_tasks_org_created")
+  @@index([orgId, status], map: "idx_tasks_org_status")
+  @@index([orgId, priority], map: "idx_tasks_org_priority")
   @@index([projectId], map: "idx_tasks_project")
   @@index([projectId, localId], map: "idx_tasks_project_local_id")
   @@index([createdBy], map: "idx_tasks_created_by")
@@ -319,19 +309,19 @@ model Task {
 }
 
 model ProjectTag {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId                String                 @map("org_id") @db.Uuid
-  projectId            String                 @map("project_id") @db.Uuid
-  name                 String
-  color                String                 @default("#6366f1") // Indigo default
-  description          String?
-  createdAt            DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  organization         Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  project              Project                @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  taskAssignments      TaskTagAssignment[]
-  featureAssignments   FeatureTagAssignment[]
-  docAssignments       DocTagAssignment[]
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId              String                 @map("org_id") @db.Uuid
+  projectId          String                 @map("project_id") @db.Uuid
+  name               String
+  color              String                 @default("#6366f1")
+  description        String?
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  docAssignments     DocTagAssignment[]
+  featureAssignments FeatureTagAssignment[]
+  organization       Organization           @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  project            Project                @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  taskAssignments    TaskTagAssignment[]
 
   @@unique([projectId, name], map: "uq_project_tags_project_name")
   @@index([orgId], map: "idx_project_tags_org")
@@ -345,8 +335,8 @@ model TaskTagAssignment {
   taskId    String     @map("task_id") @db.Uuid
   tagId     String     @map("tag_id") @db.Uuid
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  task      Task       @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   tag       ProjectTag @relation(fields: [tagId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  task      Task       @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([taskId, tagId], map: "uq_task_tag_assignments_task_tag")
   @@index([taskId], map: "idx_task_tag_assignments_task")
@@ -440,18 +430,23 @@ model audit_log_entries {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model flow_state {
-  id                     String                @id @db.Uuid
-  user_id                String?               @db.Uuid
-  auth_code              String
-  code_challenge_method  code_challenge_method
-  code_challenge         String
+  id                     String                 @id @db.Uuid
+  user_id                String?                @db.Uuid
+  auth_code              String?
+  code_challenge_method  code_challenge_method?
+  code_challenge         String?
   provider_type          String
   provider_access_token  String?
   provider_refresh_token String?
-  created_at             DateTime?             @db.Timestamptz(6)
-  updated_at             DateTime?             @db.Timestamptz(6)
+  created_at             DateTime?              @db.Timestamptz(6)
+  updated_at             DateTime?              @db.Timestamptz(6)
   authentication_method  String
-  auth_code_issued_at    DateTime?             @db.Timestamptz(6)
+  auth_code_issued_at    DateTime?              @db.Timestamptz(6)
+  invite_token           String?
+  referrer               String?
+  oauth_client_state_id  String?                @db.Uuid
+  linking_target_id      String?                @db.Uuid
+  email_optional         Boolean                @default(false)
   saml_relay_states      saml_relay_states[]
 
   @@index([created_at(sort: Desc)])
@@ -585,21 +580,22 @@ model oauth_client_states {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model oauth_clients {
-  id                   String                  @id @db.Uuid
-  client_secret_hash   String?
-  registration_type    oauth_registration_type
-  redirect_uris        String
-  grant_types          String
-  client_name          String?
-  client_uri           String?
-  logo_uri             String?
-  created_at           DateTime                @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime                @default(now()) @db.Timestamptz(6)
-  deleted_at           DateTime?               @db.Timestamptz(6)
-  client_type          oauth_client_type       @default(confidential)
-  oauth_authorizations oauth_authorizations[]
-  oauth_consents       oauth_consents[]
-  sessions             sessions[]
+  id                         String                  @id @db.Uuid
+  client_secret_hash         String?
+  registration_type          oauth_registration_type
+  redirect_uris              String
+  grant_types                String
+  client_name                String?
+  client_uri                 String?
+  logo_uri                   String?
+  created_at                 DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                 DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at                 DateTime?               @db.Timestamptz(6)
+  client_type                oauth_client_type       @default(confidential)
+  token_endpoint_auth_method String
+  oauth_authorizations       oauth_authorizations[]
+  oauth_consents             oauth_consents[]
+  sessions                   sessions[]
 
   @@index([deleted_at])
   @@schema("auth")
@@ -821,23 +817,37 @@ model users {
   one_time_tokens             one_time_tokens[]
   sessions                    sessions[]
   comments                    Comment[]
-  poker_sessions              PokerSession[]
-  poker_votes                 PokerVote[]
-  // Task relations
-  tasksAssigned               Task[]                 @relation("TaskAssignee")
-  tasksCreated                Task[]                 @relation("TaskCreator")
-  // Creator relations
-  projectsCreated             Project[]              @relation("ProjectCreator")
-  docsCreated                 ProjectDoc[]           @relation("DocCreator")
-  notesCreated                ProjectNote[]          @relation("NoteCreator")
   epicsCreated                Epic[]                 @relation("EpicCreator")
   featuresCreated             Feature[]              @relation("FeatureCreator")
-  user_profiles               UserProfile?
   orgMemberships              OrgMembership[]
+  poker_sessions              PokerSession[]
+  poker_votes                 PokerVote[]
+  docsCreated                 ProjectDoc[]           @relation("DocCreator")
+  notesCreated                ProjectNote[]          @relation("NoteCreator")
+  projectsCreated             Project[]              @relation("ProjectCreator")
+  tasksAssigned               Task[]                 @relation("TaskAssignee")
+  tasksCreated                Task[]                 @relation("TaskCreator")
+  user_profiles               UserProfile?
 
   @@index([instance_id])
   @@index([is_anonymous])
   @@schema("auth")
+}
+
+model KaiMessage {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  content   String
+  reply     String?
+  direction String    @default("incoming") @db.VarChar(20)
+  status    String    @default("pending") @db.VarChar(20)
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([userId], map: "idx_kai_messages_user")
+  @@index([status], map: "idx_kai_messages_status")
+  @@map("kai_messages")
+  @@schema("public")
 }
 
 enum UserRole {
@@ -940,22 +950,6 @@ enum NoteStatus {
   CONVERTED
 
   @@map("note_status")
-  @@schema("public")
-}
-
-model KaiMessage {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  content   String
-  reply     String?
-  direction String   // 'incoming' | 'outgoing'
-  status    String   @default("pending") // 'pending' | 'completed'
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@index([userId], map: "idx_kai_messages_user")
-  @@index([status], map: "idx_kai_messages_status")
-  @@map("kai_messages")
   @@schema("public")
 }
 

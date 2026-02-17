@@ -113,22 +113,24 @@ model AuditLog {
 }
 
 model Project {
-  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId        String        @map("org_id") @db.Uuid
-  name         String
-  key          String
-  description  String?
-  modules      String[]      @default([])
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy    String?       @map("created_by") @db.Uuid
-  epics        Epic[]
-  projectDocs  ProjectDoc[]
-  projectNotes ProjectNote[]
-  projectTags  ProjectTag[]
-  creator      users?        @relation("ProjectCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
-  organization Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tasks        Task[]
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId           String        @map("org_id") @db.Uuid
+  name            String
+  key             String
+  description     String?
+  modules         String[]      @default([])
+  githubRepoUrl   String?       @map("github_repo_url")
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy       String?       @map("created_by") @db.Uuid
+  epics           Epic[]
+  projectDocs     ProjectDoc[]
+  projectNotes    ProjectNote[]
+  projectTags     ProjectTag[]
+  kaiCommands     KaiCommand[]
+  creator         users?        @relation("ProjectCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
+  organization    Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tasks           Task[]
 
   @@unique([orgId, key])
   @@index([orgId], map: "idx_projects_org")
@@ -288,6 +290,7 @@ model Task {
   comments        Comment[]
   pokerSession    PokerSession?
   tagAssignments  TaskTagAssignment[]
+  kaiCommands     KaiCommand[]
   assignee        users?              @relation("TaskAssignee", fields: [assigneeId], references: [id], onUpdate: NoAction)
   creator         users?              @relation("TaskCreator", fields: [createdBy], references: [id], onUpdate: NoAction)
   feature         Feature             @relation(fields: [featureId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -850,6 +853,30 @@ model KaiMessage {
   @@schema("public")
 }
 
+model KaiCommand {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId      String           @map("project_id") @db.Uuid
+  taskId         String           @map("task_id") @db.Uuid
+  commandType    KaiCommandType   @map("command_type")
+  status         KaiCommandStatus @default(PENDING)
+  output         String?
+  resultSummary  String?          @map("result_summary")
+  branchName     String?          @map("branch_name")
+  prUrl          String?          @map("pr_url")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  project        Project          @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  task           Task             @relation(fields: [taskId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([projectId], map: "idx_kai_commands_project")
+  @@index([taskId], map: "idx_kai_commands_task")
+  @@index([status], map: "idx_kai_commands_status")
+  @@index([createdAt], map: "idx_kai_commands_created")
+  @@map("kai_commands")
+  @@schema("public")
+}
+
 enum UserRole {
   OWNER
   ADMIN
@@ -950,6 +977,26 @@ enum NoteStatus {
   CONVERTED
 
   @@map("note_status")
+  @@schema("public")
+}
+
+enum KaiCommandType {
+  FIX
+  REFACTOR
+  TEST
+  DOCS
+
+  @@map("kai_command_type")
+  @@schema("public")
+}
+
+enum KaiCommandStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+
+  @@map("kai_command_status")
   @@schema("public")
 }
 

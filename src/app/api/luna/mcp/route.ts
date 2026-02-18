@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { prisma } from '@/infra/adapters/prisma';
+import { randomUUID } from 'crypto';
 
 const execAsync = promisify(exec);
 
@@ -20,6 +22,33 @@ const MCP_TOOLS = [
   'list_projects',
   'list_docs'
 ];
+
+// Executar comando MCP
+async function executeMcp(tool: string, params: Record<string, unknown> = {}): Promise<unknown> {
+  const paramsStr = Object.entries(params)
+    .filter(([_, value]) => value !== undefined)
+    .map(([key, value]) => {
+      if (typeof value === 'string') {
+        return `${key}: "${value}"`;
+      }
+      return `${key}: ${JSON.stringify(value)}`;
+    })
+    .join(', ');
+
+  const command = `export PATH="$HOME/.local/bin:$PATH" && mcporter call jt-kill.${tool} ${paramsStr}`;
+  
+  const { stdout } = await execAsync(command, {
+    timeout: 30000,
+    cwd: '/workspace/main'
+  });
+
+  // Parse JSON do output
+  const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    return JSON.parse(jsonMatch[0]);
+  }
+  return { raw: stdout };
+}
 
 // POST - Executar tool MCP
 export async function POST(request: NextRequest) {

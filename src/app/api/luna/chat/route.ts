@@ -22,14 +22,35 @@ export async function GET() {
   return NextResponse.json({ status: 'online' });
 }
 
-// POST - Chat com dados reais
+// POST - Chat com integração real
 export async function POST(request: NextRequest) {
   try {
     const { message } = await request.json();
     if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 });
 
+    // 1. Tentar OpenClaw Gateway primeiro (Luna real)
+    try {
+      const gatewayRes = await fetch('http://localhost:3005/api/luna/gateway', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+
+      if (gatewayRes.ok) {
+        const data = await gatewayRes.json();
+        if (data.source === 'gateway') {
+          return NextResponse.json(data);
+        }
+      }
+    } catch (e) {
+      console.log('[Luna] Gateway não disponível, usando MCP fallback');
+    }
+
+    // 2. Fallback: MCP local
     const lowerMsg = message.toLowerCase();
     let reply = '';
+
+    // ... resto do código MCP continua igual ...
 
     // Status geral
     if (lowerMsg.includes('status') || lowerMsg.includes('geral') || lowerMsg.includes('projeto')) {

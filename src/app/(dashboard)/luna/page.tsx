@@ -190,14 +190,25 @@ export default function LunaHubPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: input,
-          userId: profile?.id || 'guilherme',
-          messageId: tempId
+          userId: profile?.id || 'guilherme'
         }),
       });
 
       const data = await res.json();
 
-      if (data.messageId) {
+      // Se já retornou resposta completa, mostra direto
+      if (data.status === 'completed' && data.reply) {
+        const lunaMessage: Message = {
+          id: data.messageId || `reply_${Date.now()}`,
+          role: 'assistant',
+          content: data.reply,
+          timestamp: new Date(),
+          status: 'completed'
+        };
+        setMessages(prev => [...prev, lunaMessage]);
+      } 
+      // Se está pendente, adiciona ao polling
+      else if (data.messageId) {
         const lunaMessage: Message = {
           id: data.messageId,
           role: 'assistant',

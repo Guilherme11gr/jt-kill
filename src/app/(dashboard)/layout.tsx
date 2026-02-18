@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Bot,
   PlayCircle,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +41,7 @@ export default function DashboardLayout({
     { icon: Zap, label: "AI Scribe", href: "/scribe" },
     { icon: Bot, label: "Kai Zone", href: "/kai" },
     { icon: PlayCircle, label: "Kai Executions", href: "/kai-executions" },
+    { icon: Moon, label: "Luna Hub", href: "/luna" },
     { icon: Users, label: "Equipe", href: "/settings/team" },
     { icon: Settings, label: "Configurações", href: "/settings" },
   ];

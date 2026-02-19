@@ -21,7 +21,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jira Killer",
+  title: "FluXo",
   description: "Gerenciador de projetos focado em engenharia - Opinionated & Low Friction",
 };
 

@@ -10,17 +10,17 @@ export default function Home() {
       {/* Hero Section */}
       <main className="container mx-auto px-6 py-16">
         <div className="text-center mb-16">
-          <Badge variant="outline" className="mb-4">
+          <Badge variant="pulse" className="mb-4">
             MVP em Desenvolvimento
           </Badge>
-          <h1 className="text-5xl font-bold mb-6 tracking-tight">
-            Jira Killer
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            Gerenciador de projetos focado em engenharia.
-            <br />
-            <span className="text-foreground font-medium">Opinionated • Low Friction • AI-First</span>
-          </p>
+<h1 className="text-5xl font-bold mb-6 tracking-tight">
+          FluXo
+        </h1>
+        <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+          O futuro do gerenciamento de projetos de engenharia.
+          <br />
+          <span className="text-foreground font-medium">Inteligente • Simples • Potente</span>
+        </p>
           <div className="flex gap-4 justify-center">
             <Link href="/projects">
               <Button size="lg" className="gap-2">
@@ -54,14 +54,14 @@ export default function Home() {
           <Card>
             <CardHeader>
               <Target className="w-10 h-10 text-primary mb-2" />
-              <CardTitle>Workflow Rígido</CardTitle>
+              <CardTitle>Workflow Inteligente</CardTitle>
               <CardDescription>
                 BACKLOG → TODO → DOING → REVIEW → QA_READY → DONE
               </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Zero configuração. Funciona out-of-the-box com fluxo validado e otimizado.
+                Zero configuração. Fluxo validado e otimizado para equipes de engenharia.
               </p>
             </CardContent>
           </Card>
@@ -69,9 +69,9 @@ export default function Home() {
           <Card>
             <CardHeader>
               <Users className="w-10 h-10 text-primary mb-2" />
-              <CardTitle>Scrum Poker</CardTitle>
+              <CardTitle>Estimativa Colaborativa</CardTitle>
               <CardDescription>
-                Estimativa in-place sem sair do contexto
+                Scrum Poker sem sair do contexto
               </CardDescription>
             </CardHeader>
             <CardContent>

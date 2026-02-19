@@ -62,6 +62,21 @@ export function ProjectCard({ project, onEdit, onDelete }: ProjectCardProps) {
             )}>
               {project.key.slice(0, 2)}
             </div>
+            
+            {/* Project Illustration (Fallback) */}
+            <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white text-xs font-medium shadow-lg">
+              <FolderKanban className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors">
+                {project.name}
+              </h3>
+              <p className="text-xs font-mono text-muted-foreground">
+                {project.key}
+              </p>
+            </div>
+          </div>
+            </div>
             <div>
               <h3 className="text-lg font-semibold tracking-tight text-foreground group-hover:text-primary transition-colors">
                 {project.name}

@@ -1,4 +1,4 @@
-# 🚀 Jira Killer
+# 🚀 FluXo
 
 <div align="center">
 
@@ -22,7 +22,7 @@ Ferramentas existentes como Jira e Notion são:
 
 ## ✨ A Solução
 
-**Jira Killer** é um gerenciador de projetos que:
+**FluXo** é um gerenciador de projetos que:
 - **Opinionated:** Workflow rígido e validado (BACKLOG → TODO → DOING → REVIEW → QA_READY → DONE)
 - **Low Friction:** Zero configuração, funciona out-of-the-box
 - **AI-First:** Transforma anotações desestruturadas em tasks técnicas
@@ -131,7 +131,7 @@ Estimativa sem sair do contexto da task:
 
 ```bash
 # Clone o repositório
-git clone https://github.com/seu-usuario/jira-killer.git
+git clone https://github.com/seu-usuario/fluxo.git
 cd jira-killer
 
 # Instale as dependências
@@ -147,6 +147,96 @@ npm run dev
 ```
 
 Acesse [http://localhost:3005](http://localhost:3005)
+
+---
+
+## 🤖 Kai Delegation
+
+**Kai** é o assistente de IA integrado ao FluXo que automatiza a delegação de tarefas através do Model Context Protocol (MCP).
+
+### 📋 Funcionalidades Principais
+
+- **AI Scribe:** Transforma anotações desestruturadas em tasks estruturadas
+- **MCP Integration:** 27 tools para gerenciamento nativo de tasks
+- **Telegram Proxy:** Comunicação bidirecional com o bot @kai_jt_assistant_bot
+- **Execution Tracking:** Monitoramento em tempo real de comandos executados
+
+### 🚀 Como Usar
+
+#### 1. Kai Zone (Interface Web)
+- Acesse `/kai` para conversar com o assistente
+- Suas mensagens são processadas e respondidas via MCP
+- Histórico salvo no banco de dados
+
+#### 2. Telegram Integration
+- Inicie conversa com @kai_jt_assistant_bot
+- Responda mensagens do Kai Zone diretamente no Telegram
+- Notificações em tempo real
+
+#### 3. AI Scribe
+- Use o botão "Executar com Kai" em qualquer task
+- O assistente analisa o contexto e delega automaticamente
+- Tasks são criadas com base em documentação do projeto
+
+### 📊 Comandos Disponíveis
+
+```bash
+# Listar comandos do Kai
+npm run kai:list
+
+# Executar comando específico
+npm run kai:execute [command-id]
+
+# Ver execuções recentes
+npm run kai:executions
+```
+
+### 🔧 Configuração
+
+1. Configure as variáveis de ambiente em `.env.local`:
+```bash
+# OpenAI/Claude API Keys
+OPENAI_API_KEY=sk-your-key
+ANTHROPIC_API_KEY=sk-your-key
+
+# Telegram Bot Token (opcional)
+TELEGRAM_BOT_TOKEN=your-bot-token
+```
+
+2. Instale o MCP Server:
+```bash
+cd mcp-server
+npm install
+npm run build
+```
+
+3. Inicie o servidor MCP:
+```bash
+npm run dev
+```
+
+### 📁 Estrutura do MCP
+
+```
+mcp-server/
+├── src/
+│   ├── index.ts              # Entrada principal
+│   ├── tools/               # 27 tools de gerenciamento
+│   │   ├── tasks.ts        # CRUD de tasks
+│   │   ├── epics.ts         # CRUD de epics
+│   │   ├── features.ts      # CRUD de features
+│   │   └── bulk.ts          # Operações em massa
+│   └── utils/
+│       └── api-client.ts     # Cliente HTTP para API do FluXo
+└── dist/                    # Build output
+```
+
+### 🎯 Benefícios
+
+- **Automação Completa:** Delegação de tarefas sem intervenção manual
+- **Context-Aware:** Usa documentação do projeto para decisões inteligentes
+- **Multiplataforma:** Web, Telegram e API nativa
+- **Traceability:** Log completo de todas as execuções e decisões
 
 ---
 
@@ -253,7 +343,7 @@ git push origin main
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/your-org/jira-killer.git
+git clone https://github.com/your-org/fluxo.git
 cd jira-killer
 
 # 2. Instale dependências

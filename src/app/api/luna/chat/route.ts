@@ -4,60 +4,51 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-// Executar MCP e retornar texto
-async function mcpExec(command: string): Promise<string> {
-  const fullCmd = `/home/openclaw/.local/bin/mcporter ${command} --config /workspace/main/config/mcporter.json 2>&1`;
-  const { stdout } = await execAsync(fullCmd, { timeout: 30000, maxBuffer: 1024 * 1024 });
-  return stdout;
-}
-
-// Extrair contagem simples
-function extractCount(text: string, pattern: RegExp): number {
-  const match = text.match(pattern);
-  return match ? parseInt(match[1]) : 0;
-}
-
-// GET - Status
-export async function GET() {
-  return NextResponse.json({ status: 'online' });
-}
-
-// POST - Chat com integração real
+// POST - Chat
 export async function POST(request: NextRequest) {
   try {
     const { message } = await request.json();
     if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 });
 
-    // 1. Tentar OpenClaw Gateway primeiro (Luna real)
+    // 1. Tentar fila de mensagens (para resposta real)
     try {
-      const gatewayRes = await fetch('http://localhost:3005/api/luna/gateway', {
+      const queueRes = await fetch('http://localhost:3005/api/luna/queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message })
       });
 
-      if (gatewayRes.ok) {
-        const data = await gatewayRes.json();
-        if (data.source === 'gateway') {
-          return NextResponse.json(data);
-        }
+      if (queueRes.ok) {
+        const data = await queueRes.json();
+        // Retorna pendente - frontend vai fazer polling
+        return NextResponse.json(data);
       }
     } catch (e) {
-      console.log('[Luna] Gateway não disponível, usando MCP fallback');
+      console.log('[Luna] Queue não disponível');
     }
 
-    // 2. Fallback: MCP local
+    // 2. Fallback: MCP local com resposta imediata
     const lowerMsg = message.toLowerCase();
     let reply = '';
 
-    // ... resto do código MCP continua igual ...
+    // Executar MCP
+    const mcporterPath = '/home/openclaw/.local/bin/mcporter';
+    const configPath = '/workspace/main/config/mcporter.json';
 
     // Status geral
     if (lowerMsg.includes('status') || lowerMsg.includes('geral') || lowerMsg.includes('projeto')) {
-      const projectsOutput = await mcpExec('call jt-kill.list_projects');
-      const projectCount = extractCount(projectsOutput, /Found (\d+) project/);
+      console.log('[Luna] Buscando projetos...');
       
-      reply = `🌙 **Status Geral**
+      try {
+        const { stdout } = await execAsync(
+          `${mcporterPath} call jt-kill.list_projects --config ${configPath}`,
+          { timeout: 30000, maxBuffer: 1024 * 1024 }
+        );
+        
+        const projectCount = (stdout.match(/Found (\d+) project/) || [])[1] || '0';
+        console.log('[Luna] Projetos encontrados:', projectCount);
+        
+        reply = `🌙 **Status Geral**
 
 ✅ MCP conectado!
 📊 **${projectCount}** projetos ativos
@@ -68,40 +59,60 @@ Projetos:
 - **LOJINHA** - Lojinha
 - **CCIA** - Content Creator
 
-Quer detalhes de algum projeto específico?`;
+Quer detalhes de algum projeto?`;
+      } catch (e) {
+        console.error('[Luna] Erro MCP:', e);
+        reply = `🌙 Erro ao conectar MCP: ${e instanceof Error ? e.message : 'Erro desconhecido'}`;
+      }
     }
     
     // Tasks
     else if (lowerMsg.includes('task') || lowerMsg.includes('fazer') || lowerMsg.includes('review')) {
-      const reviewOutput = await mcpExec('call jt-kill.list_tasks status: REVIEW limit: 5');
-      const reviewCount = extractCount(reviewOutput, /Found (\d+) task/);
-      
-      reply = `🌙 **Tasks em REVIEW**
+      try {
+        const { stdout } = await execAsync(
+          `${mcporterPath} call jt-kill.list_tasks status: REVIEW limit: 5 --config ${configPath}`,
+          { timeout: 30000 }
+        );
+        
+        const taskCount = (stdout.match(/Found (\d+) task/) || [])[1] || '0';
+        
+        reply = `🌙 **Tasks em REVIEW**
 
-**${reviewCount}** tasks aguardando aprovação
+**${taskCount}** tasks aguardando aprovação
 
 Incluindo:
-- JKILL-260: Paywall bypass fix
-- JKILL-259: API subscriptions fix  
 - AGQ-340: Galeria no onboarding
+- JKILL-261: Checkout UX fixes
 
-Quer que eu atualize o status de alguma?`;
+Quer que eu atualize o status?`;
+      } catch (e) {
+        console.error('[Luna] Erro:', e);
+        reply = `🌙 Erro ao buscar tasks: ${e instanceof Error ? e.message : 'Erro'}`;
+      }
     }
     
     // Bugs
     else if (lowerMsg.includes('bug') || lowerMsg.includes('crítico')) {
-      const bugsOutput = await mcpExec('call jt-kill.list_tasks type: BUG priority: CRITICAL limit: 5');
-      const bugsCount = extractCount(bugsOutput, /Found (\d+) task/);
-      
-      reply = `🌙 **Bugs Críticos**
+      try {
+        const { stdout } = await execAsync(
+          `${mcporterPath} call jt-kill.list_tasks type: BUG priority: CRITICAL limit: 5 --config ${configPath}`,
+          { timeout: 30000 }
+        );
+        
+        const bugsCount = (stdout.match(/Found (\d+) task/) || [])[1] || '0';
+        
+        reply = `🌙 **Bugs Críticos**
 
-**${bugsCount}** bugs críticos encontrados
+**${bugsCount}** bugs críticos
 
-⚠️ Principais:
-- JKILL-260: Auth bypass do paywall (DONE)
-- JKILL-259: Rota subscriptions 404 (DONE)
+✅ JKILL-260: Paywall bypass (DONE)
+✅ JKILL-259: API subscriptions (DONE)
 
-Ambos foram corrigidos hoje! 🎉`;
+Ambos foram corrigidos! 🎉`;
+      } catch (e) {
+        console.error('[Luna] Erro:', e);
+        reply = `🌙 Erro ao buscar bugs: ${e instanceof Error ? e.message : 'Erro'}`;
+      }
     }
     
     // Padrão
@@ -113,25 +124,30 @@ Posso te ajudar com:
 - **Tasks** em review
 - **Bugs** críticos
 
-Tenho acesso via MCP ao JT-KILL. O que precisa?`;
+O que precisa?`;
     }
 
+    console.log('[Luna] Respondendo:', reply.substring(0, 50) + '...');
+    
     return NextResponse.json({ 
       messageId: `luna-${Date.now()}`, 
       status: 'completed', 
       reply, 
-      source: 'mcp-real' 
+      source: 'mcp' 
     });
 
   } catch (error) {
-    console.error('[Luna] Erro:', error);
-    return NextResponse.json({ 
+    console.error('[Luna] Erro geral:', error);
+    return NextResponse.json({
       messageId: `luna-${Date.now()}`,
       status: 'completed',
-      reply: `🌙 Desculpa, tive um problema técnico. Mas tô online!
-
-Posso te ajudar com status dos projetos, tasks e bugs. O que precisa?`,
-      source: 'fallback'
+      reply: `🌙 Erro: ${error instanceof Error ? error.message : 'Desconhecido'}`,
+      source: 'error'
     });
   }
+}
+
+// GET
+export async function GET() {
+  return NextResponse.json({ status: 'online' });
 }

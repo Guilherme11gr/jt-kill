@@ -83,12 +83,12 @@ export function TaskDetailModal({
 }: TaskDetailModalProps) {
   // 🔴 CRITICAL: Hooks devem ser chamados SEMPRE, mesmo se task for null
   // Early return só deve acontecer após todos os hooks
-  const { profile } = useAuth();
+  const { viewer } = useAuth();
   const blockDialog = useBlockTaskDialog(task || { id: '', blocked: false } as any); // Dummy para hooks
   const { moveWithUndo, isPending: isMovePending } = useMoveTaskWithUndo();
 
   // Get current org slug for deep links
-  const currentOrgSlug = profile?.memberships.find(m => m.orgId === profile.currentOrgId)?.orgSlug;
+  const currentOrgSlug = viewer?.memberships.find(m => m.orgId === viewer.currentOrgId)?.orgSlug;
 
   const handleEdit = useCallback(() => {
     if (task && onEdit) {

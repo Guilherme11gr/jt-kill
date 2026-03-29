@@ -45,13 +45,13 @@ const actionLabels: Record<string, { label: string; icon: typeof User; color: st
 };
 
 export default function AuditLogsPage() {
-  const { profile, isLoading: authLoading } = useAuth();
+  const { viewer, isLoading: authLoading } = useAuth();
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionFilter, setActionFilter] = useState<string>('all');
 
-  const isOwner = profile?.currentRole === 'OWNER';
+  const isOwner = viewer?.currentRole === 'OWNER';
 
   useEffect(() => {
     if (!authLoading && isOwner) {

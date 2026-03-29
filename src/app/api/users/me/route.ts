@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { extractAuthenticatedTenant, extractUserId } from '@/shared/http/auth.helpers';
+import { extractAuthenticatedTenant } from '@/shared/http/auth.helpers';
 import { jsonSuccess, jsonError } from '@/shared/http/responses';
 import { handleError } from '@/shared/errors';
 import { userProfileRepository } from '@/infra/adapters/prisma';
+import type { AuthViewer } from '@/shared/types/auth.types';
 import { z } from 'zod';
 
 // Disable Next.js cache - data depends on org cookie
@@ -26,6 +27,11 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { userId, tenantId, memberships } = await extractAuthenticatedTenant(supabase);
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+
+    if (!authUser) {
+      return jsonError('UNAUTHORIZED', 'Usuário não autenticado', 401);
+    }
 
     // Find current role from memberships (source of truth)
     const currentMembership = memberships.find(m => m.orgId === tenantId);
@@ -39,12 +45,6 @@ export async function GET(request: NextRequest) {
     
     // 2. If no profile exists, create one (first login)
     if (!user) {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-      if (!authUser) {
-        return jsonError('UNAUTHORIZED', 'Usuário não autenticado', 401);
-      }
-
       const displayName = typeof authUser.user_metadata.display_name === 'string'
         ? authUser.user_metadata.display_name
         : authUser.email?.split('@')[0] || 'Usuário';
@@ -61,13 +61,18 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Return profile with org context (role from OrgMembership)
-    return jsonSuccess({
+    const viewer: AuthViewer = {
       id: user.id,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
+      forcePasswordReset: Boolean(authUser.forcePasswordReset),
       currentOrgId: tenantId,
       currentRole: currentMembership.role, // Always from OrgMembership
       memberships,
+    };
+
+    return jsonSuccess(viewer, {
+      cache: 'none',
     });
 
   } catch (error) {
@@ -85,7 +90,12 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const userId = await extractUserId(supabase);
+    const { userId, tenantId, memberships } = await extractAuthenticatedTenant(supabase);
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+
+    if (!authUser) {
+      return jsonError('UNAUTHORIZED', 'Usuário não autenticado', 401);
+    }
 
     const body = await request.json();
     const parsed = updateProfileSchema.safeParse(body);
@@ -98,10 +108,23 @@ export async function PATCH(request: NextRequest) {
 
     const user = await userProfileRepository.updateGlobal(userId, parsed.data);
 
-    return jsonSuccess({
+    const currentMembership = memberships.find((membership) => membership.orgId === tenantId);
+    if (!currentMembership) {
+      return jsonError('FORBIDDEN', 'Você não é membro desta organização', 403);
+    }
+
+    const viewer: AuthViewer = {
       id: user.id,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
+      forcePasswordReset: Boolean(authUser.forcePasswordReset),
+      currentOrgId: tenantId,
+      currentRole: currentMembership.role,
+      memberships,
+    };
+
+    return jsonSuccess(viewer, {
+      cache: 'none',
     });
 
   } catch (error) {

@@ -11,12 +11,8 @@ function mapSessionPayload(payload: Awaited<ReturnType<typeof getSession>>['data
     user: {
       id: payload.user.id,
       email: payload.user.email,
-      user_metadata: payload.user.userMetadata ?? {},
-      app_metadata: payload.user.appMetadata ?? {},
       forcePasswordReset: payload.user.forcePasswordReset ?? false,
     },
-    access_token: payload.session?.token ?? null,
-    expires_at: payload.session?.expiresAt ?? null,
   };
 }
 

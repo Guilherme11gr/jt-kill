@@ -1,5 +1,4 @@
 import type { AuthenticatedTenant } from '@/shared/types';
-import type { AppAuthUser } from '@/shared/types/auth.types';
 import { UnauthorizedError, ForbiddenError } from '@/shared/errors';
 import { cookies, headers } from 'next/headers';
 import { prisma } from '@/infra/adapters/prisma';
@@ -13,7 +12,7 @@ export const ORG_ID_HEADER = 'x-org-id';
 interface AuthClientLike {
   auth: {
     getUser(): Promise<{
-      data: { user: AppAuthUser | null };
+      data: { user: { id: string } | null };
       error: Error | null;
     }>;
   };

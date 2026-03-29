@@ -17,7 +17,7 @@ interface OrgSwitcherProps {
 }
 
 export function OrgSwitcher({ isCollapsed = false }: OrgSwitcherProps) {
-  const { profile, isLoading, switchOrg } = useAuth();
+  const { viewer, isLoading, switchOrg } = useAuth();
   const [isSwitching, setIsSwitching] = useState(false);
 
   if (isLoading) {
@@ -29,15 +29,15 @@ export function OrgSwitcher({ isCollapsed = false }: OrgSwitcherProps) {
     );
   }
 
-  if (!profile || !profile.memberships || profile.memberships.length === 0) {
+  if (!viewer || !viewer.memberships || viewer.memberships.length === 0) {
     return null;
   }
 
-  const currentOrg = profile.memberships.find(m => m.orgId === profile.currentOrgId);
-  const hasMultipleOrgs = profile.memberships.length > 1;
+  const currentOrg = viewer.memberships.find(m => m.orgId === viewer.currentOrgId);
+  const hasMultipleOrgs = viewer.memberships.length > 1;
 
   const handleSwitchOrg = async (orgId: string) => {
-    if (orgId === profile.currentOrgId) return;
+    if (orgId === viewer.currentOrgId) return;
 
     setIsSwitching(true);
     try {
@@ -67,7 +67,7 @@ export function OrgSwitcher({ isCollapsed = false }: OrgSwitcherProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" side="right" className="w-56">
-          {profile.memberships.map((membership) => (
+          {viewer.memberships.map((membership) => (
             <DropdownMenuItem
               key={membership.orgId}
               onSelect={() => handleSwitchOrg(membership.orgId)}
@@ -77,7 +77,7 @@ export function OrgSwitcher({ isCollapsed = false }: OrgSwitcherProps) {
                 <Building2 className="w-4 h-4 text-muted-foreground" />
                 <span className="truncate">{membership.orgName}</span>
               </div>
-              {membership.orgId === profile.currentOrgId && (
+              {membership.orgId === viewer.currentOrgId && (
                 <Check className="w-4 h-4 text-primary" />
               )}
             </DropdownMenuItem>
@@ -121,7 +121,7 @@ export function OrgSwitcher({ isCollapsed = false }: OrgSwitcherProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        {profile.memberships.map((membership) => (
+        {viewer.memberships.map((membership) => (
           <DropdownMenuItem
             key={membership.orgId}
             onSelect={() => handleSwitchOrg(membership.orgId)}
@@ -131,7 +131,7 @@ export function OrgSwitcher({ isCollapsed = false }: OrgSwitcherProps) {
               <Building2 className="w-4 h-4 text-muted-foreground" />
               <span className="truncate">{membership.orgName}</span>
             </div>
-            {membership.orgId === profile.currentOrgId && (
+            {membership.orgId === viewer.currentOrgId && (
               <Check className="w-4 h-4 text-primary" />
             )}
           </DropdownMenuItem>

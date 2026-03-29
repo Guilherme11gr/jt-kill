@@ -27,9 +27,9 @@ import { useEffect, useRef } from 'react';
  * completar não "poluam" o cache de uma org específica.
  */
 export function useCurrentOrgId(): string {
-  const { profile, isSwitchingOrg } = useAuthContext();
+  const { viewer, isSwitchingOrg } = useAuthContext();
   const previousOrgId = useRef<string | null>(null);
-  const orgId = profile?.currentOrgId ?? 'unknown';
+  const orgId = viewer?.currentOrgId ?? 'unknown';
   
   // Log org changes for debugging multi-tenant issues
   useEffect(() => {

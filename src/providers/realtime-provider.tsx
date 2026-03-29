@@ -46,7 +46,7 @@ function EnabledRealtimeProvider({ children }: { children: React.ReactNode }) {
   const managerRef = useRef<RealtimeConnectionManager | null>(null);
   const queuedBroadcastsRef = useRef<Array<Omit<BroadcastEvent, 'sequence' | 'tabId'>>>([]);
   const orgId = useCurrentOrgId();
-  const { user } = useAuth();
+  const { viewer } = useAuth();
   const supabase = useMemo(() => createClient() as never, []);
 
   const onEventsProcessed = useCallback((events: BroadcastEvent[], keys: Set<string>) => {
@@ -101,18 +101,18 @@ function EnabledRealtimeProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
-    if (!orgId || !user?.id || !managerRef.current) {
+    if (!orgId || !viewer?.id || !managerRef.current) {
       return;
     }
 
-    managerRef.current.connect(orgId, user.id);
+    managerRef.current.connect(orgId, viewer.id);
 
     return () => {
       if (managerRef.current) {
         managerRef.current.disconnect();
       }
     };
-  }, [orgId, user?.id]);
+  }, [orgId, viewer?.id]);
 
   const broadcast = useCallback((event: Omit<BroadcastEvent, 'sequence' | 'tabId'>) => {
     if (!managerRef.current || status !== 'connected') {

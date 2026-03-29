@@ -6,7 +6,7 @@ import { smartInvalidate } from '@/lib/query/helpers';
 import { toast } from 'sonner';
 import type { TasksResponse } from '@/lib/query/hooks/use-tasks';
 import type { Task } from '@/shared/types/task.types';
-import { getSession } from '@/lib/auth-client';
+import { useAuth } from '@/hooks/use-auth';
 
 interface UseBlockTaskOptions {
   onSuccess?: (blocked: boolean) => void;
@@ -30,6 +30,7 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
   const { mutate, isPending } = useUpdateTask();
   const queryClient = useQueryClient();
   const orgId = useCurrentOrgId();
+  const { viewer } = useAuth();
 
   const toggleBlocked = async (blocked: boolean, blockReason?: string) => {
     // Guard: Previne mutação se taskId estiver vazio
@@ -46,8 +47,7 @@ export function useBlockTask(taskId: string, options?: UseBlockTaskOptions) {
     }
 
     // Pegar userId atual para audit trail
-    const session = await getSession();
-    const userId = session.data?.user?.id;
+    const userId = viewer?.id;
 
     // 1. Cancel outgoing refetches
     await queryClient.cancelQueries({ queryKey: queryKeys.tasks.lists(orgId) });

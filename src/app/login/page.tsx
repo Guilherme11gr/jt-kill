@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, Zap } from "lucide-react";
-import { getSession, signIn } from "@/lib/auth-client";
+import { signIn } from "@/lib/auth-client";
 
 function LoginContent() {
   const [email, setEmail] = useState("");
@@ -61,10 +61,12 @@ function LoginContent() {
 
       toast.success("Login realizado com sucesso!");
 
-      const session = await getSession();
-      const mustResetPassword = Boolean(
-        (session.data?.user as { forcePasswordReset?: boolean } | undefined)?.forcePasswordReset
-      );
+      const sessionStatusResponse = await fetch('/api/session', {
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+      const sessionStatusPayload = await sessionStatusResponse.json().catch(() => null);
+      const mustResetPassword = Boolean(sessionStatusPayload?.data?.forcePasswordReset);
       const redirect = searchParams.get("redirect");
       const target = mustResetPassword
         ? '/reset-password/required'

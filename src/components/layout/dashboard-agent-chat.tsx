@@ -6,33 +6,33 @@ import { invalidateAndRefetchAll } from '@/lib/query';
 import { useAuth } from '@/hooks/use-auth';
 
 export function DashboardAgentChat() {
-  const { profile, isAuthenticated, isLoading } = useAuth();
-  const stableProfileRef = React.useRef<typeof profile>(null);
+  const { viewer, isAuthenticated, isLoading } = useAuth();
+  const stableViewerRef = React.useRef<typeof viewer>(null);
 
   React.useEffect(() => {
-    if (isAuthenticated && profile?.id && profile.currentOrgId) {
-      stableProfileRef.current = profile;
+    if (isAuthenticated && viewer?.id && viewer.currentOrgId) {
+      stableViewerRef.current = viewer;
       return;
     }
 
     if (!isAuthenticated && !isLoading) {
-      stableProfileRef.current = null;
+      stableViewerRef.current = null;
     }
-  }, [isAuthenticated, isLoading, profile]);
+  }, [isAuthenticated, isLoading, viewer]);
 
-  const resolvedProfile = profile?.id && profile.currentOrgId ? profile : stableProfileRef.current;
+  const resolvedViewer = viewer?.id && viewer.currentOrgId ? viewer : stableViewerRef.current;
 
-  if ((!isAuthenticated && !isLoading) || !resolvedProfile?.id || !resolvedProfile.currentOrgId) {
+  if ((!isAuthenticated && !isLoading) || !resolvedViewer?.id || !resolvedViewer.currentOrgId) {
     return null;
   }
 
-  const currentMembership = resolvedProfile.memberships.find(
-    (membership) => membership.orgId === resolvedProfile.currentOrgId
+  const currentMembership = resolvedViewer.memberships.find(
+    (membership) => membership.orgId === resolvedViewer.currentOrgId
   );
 
   const sessionId = 'dashboard';
   const subtitle = currentMembership
-    ? `${currentMembership.orgName} • ${resolvedProfile.currentRole}`
+    ? `${currentMembership.orgName} • ${resolvedViewer.currentRole}`
     : 'Tenant atual';
 
   return (

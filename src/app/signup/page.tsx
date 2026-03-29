@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Zap, Users } from "lucide-react";
-import { getSession, signIn, signUp } from "@/lib/auth-client";
+import { signIn, signUp } from "@/lib/auth-client";
 
 interface InviteInfo {
   orgName: string;
@@ -79,8 +79,17 @@ function SignupContent() {
         return;
       }
 
-      const currentSession = await getSession();
-      if (!currentSession.data?.user) {
+      const bootstrapPayload = inviteToken
+        ? { inviteToken, displayName: name }
+        : { orgName, displayName: name };
+
+      let bootstrapResponse = await fetch('/api/account/bootstrap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bootstrapPayload),
+      });
+
+      if (bootstrapResponse.status === 401) {
         const signInResult = await signIn.email({
           email,
           password,
@@ -92,17 +101,13 @@ function SignupContent() {
           router.push("/login");
           return;
         }
-      }
 
-      const bootstrapResponse = await fetch('/api/account/bootstrap', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          inviteToken
-            ? { inviteToken, displayName: name }
-            : { orgName, displayName: name }
-        ),
-      });
+        bootstrapResponse = await fetch('/api/account/bootstrap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bootstrapPayload),
+        });
+      }
 
       if (!bootstrapResponse.ok) {
         const errorData = await bootstrapResponse.json();

@@ -63,7 +63,7 @@ const roleBadgeVariants: Record<string, 'default' | 'secondary' | 'outline'> = {
 };
 
 export default function TeamSettingsPage() {
-  const { profile, isLoading: authLoading, refreshProfile } = useAuth();
+  const { viewer, isLoading: authLoading, refreshViewer } = useAuth();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [invites, setInvites] = useState<PendingInvite[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,9 +73,9 @@ export default function TeamSettingsPage() {
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const canManageTeam = profile?.currentRole === 'OWNER' || profile?.currentRole === 'ADMIN';
-  const canChangeRoles = profile?.currentRole === 'OWNER';
-  const isOwner = profile?.currentRole === 'OWNER';
+  const canManageTeam = viewer?.currentRole === 'OWNER' || viewer?.currentRole === 'ADMIN';
+  const canChangeRoles = viewer?.currentRole === 'OWNER';
+  const isOwner = viewer?.currentRole === 'OWNER';
 
   useEffect(() => {
     fetchTeamData();
@@ -209,7 +209,7 @@ export default function TeamSettingsPage() {
         <CardContent className="space-y-4">
           {members.map((member) => {
             const RoleIcon = roleIcons[member.role];
-            const isCurrentUser = member.id === profile?.id;
+            const isCurrentUser = member.id === viewer?.id;
 
             return (
               <div
@@ -368,10 +368,10 @@ export default function TeamSettingsPage() {
         open={transferDialogOpen}
         onOpenChange={setTransferDialogOpen}
         members={members}
-        currentUserId={profile?.id || ''}
+        currentUserId={viewer?.id || ''}
         onSuccess={() => {
           fetchTeamData();
-          refreshProfile();
+          refreshViewer();
         }}
       />
 

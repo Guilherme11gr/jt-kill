@@ -214,10 +214,8 @@ export function useUpdateFeature() {
   const orgId = useCurrentOrgId();
   const isRealtimeActive = useRealtimeActive();
   const broadcast = useRealtimeBroadcast();
-  const { user } = useAuth();
-  const actorName = typeof user?.user_metadata?.full_name === 'string'
-    ? user.user_metadata.full_name.trim()
-    : user?.email?.split('@')[0] || 'Unknown';
+  const { viewer } = useAuth();
+  const actorName = viewer?.displayName?.trim() || 'Unknown';
 
   return useMutation({
     mutationFn: updateFeature,
@@ -233,7 +231,7 @@ export function useUpdateFeature() {
         eventType: 'updated',
         actorType: 'user',
         actorName,
-        actorId: user?.id || 'system',
+        actorId: viewer?.id || 'system',
         timestamp: new Date().toISOString(),
       });
 

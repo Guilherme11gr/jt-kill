@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from './auth-provider';
 import { queryKeys } from '@/lib/query/query-keys';
 import { CACHE_TIMES } from '@/lib/query/cache-config';
-import type { UserProfile } from './auth-provider';
+import type { Viewer } from './auth-provider';
 
 /**
  * User Cache Provider
@@ -15,17 +15,17 @@ import type { UserProfile } from './auth-provider';
  *
  * Features:
  * - ULTRA_STABLE cache: 30min staleTime, 2hr gcTime
- * - Caches AuthProvider's profile data in React Query for easy access
+ * - Caches AuthProvider's viewer data in React Query for easy access
  * - Cache invalidation helpers for profile updates
  * - Soft org refresh detection (for future implementation without hard reload)
  *
- * NOTE: This provider does NOT fetch data separately. It uses the profile
+ * NOTE: This provider does NOT fetch data separately. It uses the viewer
  * already fetched by AuthProvider and stores it in React Query cache for
  * aggressive caching and easy invalidation.
  */
 
 interface UserCacheContextValue {
-  cachedProfile: UserProfile | null;
+  cachedProfile: Viewer | null;
   isLoading: boolean;
   isError: boolean;
   refreshCache: () => Promise<void>;
@@ -39,7 +39,7 @@ interface UserCacheProviderProps {
 }
 
 export function UserCacheProvider({ children }: UserCacheProviderProps) {
-  const { profile: authProfile, isAuthenticated, isLoading: authLoading } = useAuthContext();
+  const { viewer: authViewer, isAuthenticated, isLoading: authLoading } = useAuthContext();
   const queryClient = useQueryClient();
 
   // Track initialization state
@@ -48,7 +48,7 @@ export function UserCacheProvider({ children }: UserCacheProviderProps) {
   // Track previous org ID for soft refresh detection (future use)
   const prevOrgIdRef = useRef<string | null>(null);
 
-  // Sync AuthProvider profile to React Query cache
+  // Sync AuthProvider viewer to React Query cache
   // This allows components to use useCachedCurrentUser() hook
   // and provides easy cache invalidation
   useEffect(() => {
@@ -60,22 +60,22 @@ export function UserCacheProvider({ children }: UserCacheProviderProps) {
       return;
     }
 
-    if (!authProfile) {
+    if (!authViewer) {
       return;
     }
 
-    // Set the profile data in React Query cache
-    queryClient.setQueryData<UserProfile>(queryKeys.users.current(), authProfile);
+    // Set the viewer data in React Query cache
+    queryClient.setQueryData<Viewer>(queryKeys.users.current(), authViewer);
 
     // Initialize previous org ID on first mount or after logout
     if (!isInitialized) {
-      prevOrgIdRef.current = authProfile.currentOrgId;
+      prevOrgIdRef.current = authViewer.currentOrgId;
       setIsInitialized(true);
       return;
     }
 
     // Detect org changes for soft refresh (future: when hard reload is removed)
-    const currentOrgId = authProfile.currentOrgId;
+    const currentOrgId = authViewer.currentOrgId;
     const previousOrgId = prevOrgIdRef.current;
 
     if (previousOrgId && currentOrgId !== previousOrgId) {
@@ -93,12 +93,12 @@ export function UserCacheProvider({ children }: UserCacheProviderProps) {
       // refresh is implemented, the cache will automatically be updated
       // via the setQueryData above.
     }
-  }, [authProfile, isAuthenticated, isInitialized, queryClient]);
+  }, [authViewer, isAuthenticated, isInitialized, queryClient]);
 
   // Manual cache refresh - triggers AuthProvider to refetch
   const refreshCache = useCallback(async (): Promise<void> => {
     console.log('[UserCache] Manual cache refresh requested - delegating to AuthProvider');
-    // The profile will be updated by AuthProvider's refreshProfile
+    // The viewer will be updated by AuthProvider's refreshViewer
     // which will trigger the useEffect above to update React Query cache
     // This is a no-op here as AuthProvider handles the actual refresh
   }, []);
@@ -113,13 +113,13 @@ export function UserCacheProvider({ children }: UserCacheProviderProps) {
 
   const value = useMemo(
     () => ({
-      cachedProfile: authProfile ?? null,
+      cachedProfile: authViewer ?? null,
       isLoading: authLoading,
       isError: false, // AuthProvider handles errors
       refreshCache,
       invalidateCache,
     }),
-    [authProfile, authLoading, refreshCache, invalidateCache]
+    [authViewer, authLoading, refreshCache, invalidateCache]
   );
 
   return <UserCacheContext.Provider value={value}>{children}</UserCacheContext.Provider>;
@@ -127,7 +127,7 @@ export function UserCacheProvider({ children }: UserCacheProviderProps) {
 
 /**
  * Hook to access the user cache context
- * Provides aggressively cached user profile with soft org refresh
+ * Provides aggressively cached current viewer with soft org refresh
  *
  * @example
  * const { cachedProfile, isLoading, refreshCache } = useUserCache();

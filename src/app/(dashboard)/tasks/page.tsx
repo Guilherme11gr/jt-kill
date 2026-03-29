@@ -35,7 +35,7 @@ import { toast } from 'sonner';
 function TasksPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { profile, switchOrg } = useAuth();
+  const { viewer, switchOrg } = useAuth();
   const [view, setView] = useState<ViewMode>('kanban');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskWithReadableId | null>(null);
@@ -48,7 +48,7 @@ function TasksPageContent() {
 
   // Handle deep link with org parameter - auto-switch if needed
   useEffect(() => {
-    if (orgSwitchHandled || !profile) return;
+    if (orgSwitchHandled || !viewer) return;
     
     const orgSlug = searchParams.get('org');
     if (!orgSlug) {
@@ -57,7 +57,7 @@ function TasksPageContent() {
     }
 
     // Find org by slug
-    const targetOrg = profile.memberships.find(m => m.orgSlug === orgSlug);
+    const targetOrg = viewer.memberships.find(m => m.orgSlug === orgSlug);
     
     if (!targetOrg) {
       // User is not a member of this org
@@ -74,7 +74,7 @@ function TasksPageContent() {
     }
 
     // If already in the correct org, just clean the param
-    if (targetOrg.orgId === profile.currentOrgId) {
+    if (targetOrg.orgId === viewer.currentOrgId) {
       const params = new URLSearchParams(window.location.search);
       params.delete('org');
       const taskId = params.get('task');
@@ -97,7 +97,7 @@ function TasksPageContent() {
     
     // Switch will do hard reload, preserving task param
     switchOrg(targetOrg.orgId, returnUrl);
-  }, [searchParams, profile, switchOrg, orgSwitchHandled]);
+  }, [orgSwitchHandled, searchParams, switchOrg, viewer]);
 
   /* 
     Updated to sync with URL query params. 

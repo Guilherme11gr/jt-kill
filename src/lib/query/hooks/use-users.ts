@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { queryKeys } from '../query-keys';
 import { CACHE_TIMES } from '../cache-config';
 import { useCurrentOrgId, isOrgIdValid } from './use-org-id';
+import type { AuthViewer } from '@/shared/types/auth.types';
 
 // Types
 export interface User {
@@ -29,14 +30,14 @@ async function fetchUsers(): Promise<User[]> {
   return json.data || [];
 }
 
-async function fetchCurrentUser(): Promise<User> {
+async function fetchCurrentUser(): Promise<AuthViewer> {
   const res = await fetch('/api/users/me');
   if (!res.ok) throw new Error('Failed to fetch profile');
   const json = await res.json();
   return json.data;
 }
 
-async function updateProfile(data: UpdateProfileInput): Promise<User> {
+async function updateProfile(data: UpdateProfileInput): Promise<AuthViewer> {
   const res = await fetch('/api/users/me', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -118,12 +119,20 @@ export function useUpdateProfile() {
     mutationFn: updateProfile,
     onSuccess: (updatedUser) => {
       // 1. Optimistic update: update current user immediately
-      queryClient.setQueryData<User>(queryKeys.users.current(), updatedUser);
+      queryClient.setQueryData<AuthViewer>(queryKeys.users.current(), updatedUser);
 
       // 2. Update in users list
       queryClient.setQueryData<User[]>(queryKeys.users.list(orgId), (old) => {
         if (!old) return old;
-        return old.map((u) => (u.id === updatedUser.id ? updatedUser : u));
+        return old.map((user) => (
+          user.id === updatedUser.id
+            ? {
+                ...user,
+                displayName: updatedUser.displayName,
+                avatarUrl: updatedUser.avatarUrl,
+              }
+            : user
+        ));
       });
 
       // 3. Invalidate for consistency (UPDATE)
@@ -154,4 +163,3 @@ export function invalidateUserCache(queryClient: ReturnType<typeof useQueryClien
   console.log('[use-users] Invalidating user cache');
   smartInvalidate(queryClient, queryKeys.users.current());
 }
-

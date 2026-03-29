@@ -1,7 +1,7 @@
 // User roles in organization
 export type UserRole = 'OWNER' | 'ADMIN' | 'MEMBER';
 
-export interface AppAuthUser {
+export interface ServerAuthUser {
   id: string;
   email: string | null;
   name: string | null;
@@ -12,13 +12,18 @@ export interface AppAuthUser {
   app_metadata: Record<string, unknown>;
 }
 
-export interface AppAuthSession {
-  user: AppAuthUser;
+export interface ServerAuthSession {
+  user: ServerAuthUser;
   session: {
     id: string;
-    token: string | null;
     expiresAt: string | null;
   } | null;
+}
+
+export interface SessionStatus {
+  authenticated: boolean;
+  userId: string | null;
+  forcePasswordReset: boolean;
 }
 
 // Organization membership info
@@ -37,6 +42,16 @@ export interface AuthenticatedTenant {
   memberships: OrgMembershipInfo[]; // all user's orgs
 }
 
+export interface AuthViewer {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  forcePasswordReset: boolean;
+  currentOrgId: string;
+  currentRole: UserRole;
+  memberships: OrgMembershipInfo[];
+}
+
 // User profile with organization info
 export interface UserProfile {
   id: string;
@@ -49,7 +64,7 @@ export interface UserProfile {
 }
 
 // Extended user with profile
-export interface AuthenticatedUser extends AppAuthUser {
+export interface AuthenticatedUser extends ServerAuthUser {
   profile: UserProfile;
 }
 

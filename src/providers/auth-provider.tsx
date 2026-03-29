@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { authClient, useSession as useBetterAuthSession } from '@/lib/auth-client';
-import type { AppAuthSession, AppAuthUser } from '@/shared/types/auth.types';
+import { authClient } from '@/lib/auth-client';
+import type { AuthViewer } from '@/shared/types/auth.types';
 import { destroyQueryClient, markOrgSwitchPending } from '@/lib/query';
 
 const CURRENT_ORG_COOKIE = 'jt-current-org';
@@ -16,44 +16,33 @@ export interface OrgMembership {
   isDefault: boolean;
 }
 
-export interface UserProfile {
-  id: string;
-  displayName: string | null;
-  avatarUrl: string | null;
-  currentOrgId: string;
-  currentRole: 'OWNER' | 'ADMIN' | 'MEMBER';
-  memberships: OrgMembership[];
-}
+export type Viewer = AuthViewer;
+export type UserProfile = Viewer;
 
 export interface AuthState {
-  user: AppAuthUser | null;
-  profile: UserProfile | null;
-  session: AppAuthSession['session'] | null;
+  viewer: Viewer | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   isSwitchingOrg: boolean;
   logout: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshViewer: () => Promise<void>;
   switchOrg: (orgId: string, returnUrl?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [viewer, setViewer] = useState<Viewer | null>(null);
+  const [isViewerLoading, setIsViewerLoading] = useState(true);
   const [isSwitchingOrg, setIsSwitchingOrg] = useState(false);
-  const { data: sessionData, isPending: isSessionLoading } = useBetterAuthSession();
   const router = useRouter();
   const pathname = usePathname();
 
-  const user = (sessionData?.user ?? null) as AppAuthUser | null;
-  const session = (sessionData?.session ?? null) as AppAuthSession['session'] | null;
-
-  const fetchProfile = useCallback(async (): Promise<UserProfile | null> => {
+  const fetchViewer = useCallback(async (): Promise<Viewer | null> => {
     try {
       const response = await fetch('/api/users/me', {
         cache: 'no-store',
+        credentials: 'same-origin',
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           Pragma: 'no-cache',
@@ -66,10 +55,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        return data.data as UserProfile;
+        return data.data as Viewer;
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Error fetching viewer:', error);
     }
 
     return null;
@@ -78,31 +67,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    const syncProfile = async () => {
-      if (!user) {
-        setProfile(null);
-        setIsProfileLoading(false);
-        return;
-      }
-
-      setIsProfileLoading(true);
-      const nextProfile = await fetchProfile();
+    const syncViewer = async () => {
+      setIsViewerLoading(true);
+      const nextViewer = await fetchViewer();
 
       if (!cancelled) {
-        setProfile(nextProfile);
-        setIsProfileLoading(false);
+        setViewer(nextViewer);
+        setIsViewerLoading(false);
       }
     };
 
-    void syncProfile();
+    void syncViewer();
 
     return () => {
       cancelled = true;
     };
-  }, [user?.id, fetchProfile, user]);
+  }, [fetchViewer]);
 
   useEffect(() => {
-    if (!user?.forcePasswordReset) {
+    if (!viewer?.forcePasswordReset) {
       return;
     }
 
@@ -115,28 +98,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     router.replace('/reset-password/required');
-  }, [pathname, router, user?.forcePasswordReset]);
+  }, [pathname, router, viewer?.forcePasswordReset]);
 
   const logout = useCallback(async () => {
     destroyQueryClient();
     document.cookie = `${CURRENT_ORG_COOKIE}=; Max-Age=0; Path=/`;
     await authClient.signOut();
+    setViewer(null);
     router.push('/login');
     router.refresh();
   }, [router]);
 
-  const refreshProfile = useCallback(async () => {
-    if (!user) {
-      setProfile(null);
-      return;
-    }
-
-    const nextProfile = await fetchProfile();
-    setProfile(nextProfile);
-  }, [fetchProfile, user]);
+  const refreshViewer = useCallback(async () => {
+    const nextViewer = await fetchViewer();
+    setViewer(nextViewer);
+  }, [fetchViewer]);
 
   const switchOrg = useCallback(async (orgId: string, returnUrl?: string) => {
-    if (profile?.currentOrgId === orgId) {
+    if (viewer?.currentOrgId === orgId) {
       return;
     }
 
@@ -165,22 +144,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const maxAttempts = 3;
 
       while (verifyAttempts < maxAttempts && !verified) {
-        const verifyResponse = await fetch('/api/users/me', {
-          credentials: 'same-origin',
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache, no-store, must-revalidate',
-            Pragma: 'no-cache',
-          },
-        });
-
-        if (!verifyResponse.ok) {
+        const nextViewer = await fetchViewer();
+        if (!nextViewer) {
           throw new Error('Falha ao verificar troca de organização');
         }
 
-        const profileData = await verifyResponse.json();
-
-        if (profileData.data?.currentOrgId === orgId) {
+        if (nextViewer.currentOrgId === orgId) {
+          setViewer(nextViewer);
           verified = true;
         } else {
           await new Promise((resolve) => setTimeout(resolve, 200));
@@ -196,28 +166,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsSwitchingOrg(false);
       throw error;
     }
-  }, [profile?.currentOrgId]);
+  }, [fetchViewer, viewer?.currentOrgId]);
 
   const value = useMemo<AuthState>(() => ({
-    user,
-    profile,
-    session,
-    isLoading: isSessionLoading || (Boolean(user) && isProfileLoading),
-    isAuthenticated: Boolean(user),
+    viewer,
+    isLoading: isViewerLoading,
+    isAuthenticated: Boolean(viewer),
     isSwitchingOrg,
     logout,
-    refreshProfile,
+    refreshViewer,
     switchOrg,
   }), [
-    isProfileLoading,
-    isSessionLoading,
     isSwitchingOrg,
+    isViewerLoading,
     logout,
-    profile,
-    refreshProfile,
-    session,
+    refreshViewer,
     switchOrg,
-    user,
+    viewer,
   ]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -10,8 +10,8 @@ import { CreateWorkspaceCTAModal } from "@/components/features/workspace-cta/Cre
 import { AgentAccessCard } from "@/components/features/settings/agent-access-card";
 
 export default function SettingsPage() {
-  const { profile } = useAuth();
-  const isOwner = profile?.currentRole === 'OWNER';
+  const { viewer } = useAuth();
+  const isOwner = viewer?.currentRole === 'OWNER';
   const { showModal, setShowModal, handleWorkspaceCreated } = useWorkspaceCTA();
 
   const settingsLinks = [
@@ -48,11 +48,11 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="flex items-center justify-between">
           <div>
-            <p className="font-medium">{profile?.displayName || 'Usuário'}</p>
+            <p className="font-medium">{viewer?.displayName || 'Usuário'}</p>
             <p className="text-sm text-muted-foreground flex items-center gap-1">
-              {profile?.currentRole === 'OWNER' && <Crown className="w-3 h-3" />}
-              {profile?.currentRole === 'OWNER' ? 'Proprietário' :
-                profile?.currentRole === 'ADMIN' ? 'Administrador' : 'Membro'}
+              {viewer?.currentRole === 'OWNER' && <Crown className="w-3 h-3" />}
+              {viewer?.currentRole === 'OWNER' ? 'Proprietário' :
+                viewer?.currentRole === 'ADMIN' ? 'Administrador' : 'Membro'}
             </p>
           </div>
           <Button variant="outline" disabled>

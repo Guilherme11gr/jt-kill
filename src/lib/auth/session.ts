@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import type { AppAuthSession, AppAuthUser } from "@/shared/types/auth.types";
+import type { ServerAuthSession, ServerAuthUser, SessionStatus } from "@/shared/types/auth.types";
 
 type BetterAuthSessionPayload = {
   user?: Record<string, unknown> | null;
@@ -11,7 +11,7 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
 }
 
-export function mapAuthUser(user: unknown): AppAuthUser | null {
+export function mapAuthUser(user: unknown): ServerAuthUser | null {
   if (!user || typeof user !== "object") {
     return null;
   }
@@ -32,7 +32,7 @@ export function mapAuthUser(user: unknown): AppAuthUser | null {
   };
 }
 
-export function mapAuthSession(payload: BetterAuthSessionPayload): AppAuthSession | null {
+export function mapAuthSession(payload: BetterAuthSessionPayload): ServerAuthSession | null {
   if (!payload?.user) {
     return null;
   }
@@ -51,7 +51,6 @@ export function mapAuthSession(payload: BetterAuthSessionPayload): AppAuthSessio
     session: session
       ? {
           id: String(session.id),
-          token: typeof session.token === "string" ? session.token : null,
           expiresAt: typeof session.expiresAt === "string"
             ? session.expiresAt
             : session.expiresAt instanceof Date
@@ -62,11 +61,21 @@ export function mapAuthSession(payload: BetterAuthSessionPayload): AppAuthSessio
   };
 }
 
-export async function getServerAuthSession(): Promise<AppAuthSession | null> {
+export async function getServerAuthSession(): Promise<ServerAuthSession | null> {
   const headerStore = await headers();
   const session = await auth.api.getSession({
     headers: headerStore,
   });
 
   return mapAuthSession(session as BetterAuthSessionPayload);
+}
+
+export async function getServerSessionStatus(): Promise<SessionStatus> {
+  const session = await getServerAuthSession();
+
+  return {
+    authenticated: Boolean(session?.user),
+    userId: session?.user.id ?? null,
+    forcePasswordReset: Boolean(session?.user.forcePasswordReset),
+  };
 }

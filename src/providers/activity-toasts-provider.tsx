@@ -18,8 +18,8 @@ interface ActivityToastsProviderProps {
 }
 
 export function ActivityToastsProvider({ children }: ActivityToastsProviderProps) {
-  const { user } = useAuth();
-  const currentUserId = user?.id;
+  const { viewer } = useAuth();
+  const currentUserId = viewer?.id;
 
   // Subscribe to RT events (just to get the registerEventCallback function)
   const { registerEventCallback } = useRealtimeSync();

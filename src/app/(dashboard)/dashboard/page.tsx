@@ -32,7 +32,7 @@ import { useWorkspaceCTA } from '@/hooks/useWorkspaceCTA';
  */
 export default function DashboardPage() {
   const [isQuickTaskOpen, setIsQuickTaskOpen] = useState(false);
-  const { profile, isLoading: isLoadingAuth } = useAuth();
+  const { viewer, isLoading: isLoadingAuth } = useAuth();
 
   // Workspace CTA hook
   const {
@@ -89,10 +89,10 @@ export default function DashboardPage() {
                 <Skeleton className="h-8 w-8 rounded-full" />
                 <Skeleton className="h-8 w-[200px]" />
               </div>
-            ) : profile?.displayName ? (
+            ) : viewer?.displayName ? (
               <>
                 <Coffee className="h-7 w-7 text-primary" />
-                Bem-vindo de volta, {profile.displayName.split(' ')[0]}
+                Bem-vindo de volta, {viewer.displayName.split(' ')[0]}
               </>
             ) : (
               <>

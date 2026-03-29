@@ -11,38 +11,38 @@ import {
 import { toast } from 'sonner';
 
 export function useWorkspaceCTA() {
-  const { profile, switchOrg } = useAuthContext();
+  const { viewer, switchOrg } = useAuthContext();
   const [showModal, setShowModal] = useState(false);
 
   // Track session on mount (no auto-popup, just metrics)
   useEffect(() => {
-    if (!profile) return;
+    if (!viewer) return;
 
     // Track session for engagement metrics
-    trackSession(profile.id);
-  }, [profile]);
+    trackSession(viewer.id);
+  }, [viewer]);
 
   // Handle dismissal
   const handleDismiss = useCallback(() => {
-    if (!profile) return;
+    if (!viewer) return;
 
-    dismissCTA(profile.id);
+    dismissCTA(viewer.id);
     setShowModal(false);
 
     // Show friendly message based on dismiss count
-    const state = getCTAState(profile.id);
+    const state = getCTAState(viewer.id);
     if (state && state.dismissCount >= 2) {
       toast.info('Ok! Não vamos mais perguntar por enquanto.');
     }
-  }, [profile]);
+  }, [viewer]);
 
   // Handle workspace created
   const handleWorkspaceCreated = useCallback(
     async (orgId: string) => {
-      if (!profile) return;
+      if (!viewer) return;
 
       // Mark as created in localStorage
-      markWorkspaceCreated(profile.id);
+      markWorkspaceCreated(viewer.id);
 
       // Switch to new workspace (does hard reload internally)
       try {
@@ -57,7 +57,7 @@ export function useWorkspaceCTA() {
         console.error('Switch org error:', e);
       }
     },
-    [profile, switchOrg]
+    [viewer, switchOrg]
   );
 
   // Manual trigger (for card button)
@@ -66,7 +66,7 @@ export function useWorkspaceCTA() {
   }, []);
 
   // Check if should show card (MEMBER only)
-  const shouldShowCard = profile?.currentRole === 'MEMBER';
+  const shouldShowCard = viewer?.currentRole === 'MEMBER';
 
   return {
     showModal,
@@ -75,6 +75,6 @@ export function useWorkspaceCTA() {
     handleWorkspaceCreated,
     openModal,
     shouldShowCard,
-    profile,
+    viewer,
   };
 }

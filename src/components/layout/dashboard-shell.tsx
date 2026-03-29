@@ -29,7 +29,7 @@ export function DashboardShell({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile } = useAuth();
+  const { viewer } = useAuth();
 
   const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -42,8 +42,8 @@ export function DashboardShell({
 
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = React.useState(() => {
-    if (typeof window !== 'undefined' && profile?.id && profile?.currentOrgId) {
-      const key = `sidebar-collapsed-${profile.currentOrgId}-${profile.id}`;
+    if (typeof window !== 'undefined' && viewer?.id && viewer?.currentOrgId) {
+      const key = `sidebar-collapsed-${viewer.currentOrgId}-${viewer.id}`;
       const saved = localStorage.getItem(key);
       return saved === 'true';
     }
@@ -51,11 +51,11 @@ export function DashboardShell({
   });
 
   React.useEffect(() => {
-    if (profile?.id && profile?.currentOrgId) {
-      const key = `sidebar-collapsed-${profile.currentOrgId}-${profile.id}`;
+    if (viewer?.id && viewer?.currentOrgId) {
+      const key = `sidebar-collapsed-${viewer.currentOrgId}-${viewer.id}`;
       localStorage.setItem(key, String(isDesktopCollapsed));
     }
-  }, [isDesktopCollapsed, profile?.id, profile?.currentOrgId]);
+  }, [isDesktopCollapsed, viewer?.id, viewer?.currentOrgId]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">

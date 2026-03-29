@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Users, Shield, AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { getSession } from "@/lib/auth-client";
 
 interface InviteDetails {
   token: string;
@@ -37,12 +36,16 @@ export default function InvitePage() {
   useEffect(() => {
     const checkAuthAndFetchInvite = async () => {
       try {
-        const [authResult, inviteResponse] = await Promise.all([
-          getSession(),
+        const [sessionResponse, inviteResponse] = await Promise.all([
+          fetch('/api/session', {
+            cache: 'no-store',
+            credentials: 'same-origin',
+          }),
           fetch(`/api/invites/${token}`),
         ]);
 
-        setIsLoggedIn(!!authResult.data?.user);
+        const sessionPayload = await sessionResponse.json().catch(() => null);
+        setIsLoggedIn(Boolean(sessionPayload?.data?.authenticated));
 
         // Process invite result
         const data = await inviteResponse.json();

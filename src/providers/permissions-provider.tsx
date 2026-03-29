@@ -12,8 +12,8 @@ interface PermissionsContextType {
 const PermissionsContext = createContext<PermissionsContextType | undefined>(undefined);
 
 export function PermissionsProvider({ children }: { children: React.ReactNode }) {
-  const { profile } = useAuth();
-  const role = profile?.currentRole as UserRole | undefined;
+  const { viewer } = useAuth();
+  const role = viewer?.currentRole as UserRole | undefined;
 
   const can = useCallback((permission: Permission) => {
     if (!role) return false;

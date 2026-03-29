@@ -1,7 +1,7 @@
 "use client";
 
 // src/react/AgentChat.tsx
-import { useState as useState4, useRef as useRef4, useEffect as useEffect2, useCallback as useCallback4 } from "react";
+import React, { useState as useState4, useRef as useRef4, useEffect as useEffect2, useCallback as useCallback4 } from "react";
 
 // src/react/hooks/useChat.ts
 import { useState, useCallback, useRef } from "react";
@@ -557,8 +557,11 @@ function AgentChatSession({
   const messagesEndRef = useRef4(null);
   const messagesContainerRef = useRef4(null);
   const inputRef = useRef4(null);
+  const containerRef = useRef4(null);
   const shouldAutoScroll = useRef4(true);
   const [showScrollBtn, setShowScrollBtn] = useState4(false);
+  const [size, setSize] = useState4({ width: 420, height: 580 });
+  const isResizing = useRef4(false);
   const scrollToBottom = useCallback4((behavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
   }, []);
@@ -578,7 +581,8 @@ function AgentChatSession({
     const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const atBottom = distFromBottom < 80;
     shouldAutoScroll.current = atBottom;
-    setShowScrollBtn(!atBottom);
+    if (!atBottom && !showScrollBtn) setShowScrollBtn(true);
+    if (atBottom && showScrollBtn) setShowScrollBtn(false);
   };
   const handleSend = () => {
     if (!chat.input.trim() || chat.isLoading) return;
@@ -590,6 +594,34 @@ function AgentChatSession({
       handleSend();
     }
   };
+  const handleResizeStart = useCallback4((e) => {
+    e.preventDefault();
+    isResizing.current = true;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startWidth = containerRef.current?.offsetWidth ?? 420;
+    const startHeight = containerRef.current?.offsetHeight ?? 580;
+    const onMouseMove = (ev) => {
+      if (!isResizing.current) return;
+      const dx = startX - ev.clientX;
+      const dy = startY - ev.clientY;
+      setSize({
+        width: Math.min(Math.max(startWidth + dx, 320), window.innerWidth * 0.9),
+        height: Math.min(Math.max(startHeight + dy, 400), window.innerHeight * 0.85)
+      });
+    };
+    const onMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "nwse-resize";
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
   if (!isOpen) {
     return /* @__PURE__ */ jsxs(Fragment, { children: [
       /* @__PURE__ */ jsxs(
@@ -610,145 +642,162 @@ function AgentChatSession({
       /* @__PURE__ */ jsx("style", { children: fabStyles })
     ] });
   }
-  return /* @__PURE__ */ jsxs("div", { className: `agent-chat-container ${theme} ${isMinimized ? "minimized" : ""}`, children: [
-    /* @__PURE__ */ jsxs("header", { className: "agent-chat-header", children: [
-      /* @__PURE__ */ jsxs("div", { className: "header-left", children: [
-        /* @__PURE__ */ jsxs("div", { className: "avatar", children: [
-          /* @__PURE__ */ jsx(SparklesIcon, {}),
-          /* @__PURE__ */ jsx("div", { className: "avatar-glow" })
-        ] }),
-        /* @__PURE__ */ jsxs("div", { className: "header-text", children: [
-          /* @__PURE__ */ jsx("h3", { children: title }),
-          /* @__PURE__ */ jsx("p", { children: subtitle })
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxs("div", { className: "header-actions", children: [
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            onClick: () => {
-              chat.clearMessages();
-              onResetSession?.();
-            },
-            className: "icon-btn",
-            title: labels.clearHistory || "Limpar hist\xF3rico",
-            "aria-label": labels.clearHistory || "Limpar hist\xF3rico",
-            children: /* @__PURE__ */ jsx(TrashIcon, {})
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            onClick: () => setIsMinimized(!isMinimized),
-            className: "icon-btn",
-            title: isMinimized ? "Expandir" : "Minimizar",
-            "aria-label": isMinimized ? "Expandir" : "Minimizar",
-            children: isMinimized ? /* @__PURE__ */ jsx(ExpandIcon, {}) : /* @__PURE__ */ jsx(MinimizeIcon, {})
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            onClick: () => setIsOpen(false),
-            className: "icon-btn close",
-            title: "Fechar",
-            "aria-label": "Fechar",
-            children: /* @__PURE__ */ jsx(CloseIcon, {})
-          }
-        )
-      ] })
-    ] }),
-    !isMinimized && /* @__PURE__ */ jsxs(
-      "div",
-      {
-        ref: messagesContainerRef,
-        className: "agent-chat-messages",
-        onScroll: handleContainerScroll,
-        children: [
-          chat.messages.length === 0 && examples && /* @__PURE__ */ jsxs("div", { className: "examples-panel", children: [
-            /* @__PURE__ */ jsxs("div", { className: "examples-header", children: [
-              /* @__PURE__ */ jsx(LightbulbIcon, {}),
-              /* @__PURE__ */ jsx("span", { children: "Experimente perguntar" })
+  return /* @__PURE__ */ jsxs(
+    "div",
+    {
+      ref: containerRef,
+      className: `agent-chat-container ${theme} ${isMinimized ? "minimized" : ""}`,
+      style: { width: size.width, height: isMinimized ? void 0 : size.height },
+      children: [
+        !isMinimized && /* @__PURE__ */ jsx("div", { className: "resize-grip", onMouseDown: handleResizeStart }),
+        /* @__PURE__ */ jsxs("header", { className: "agent-chat-header", children: [
+          /* @__PURE__ */ jsxs("div", { className: "header-left", children: [
+            /* @__PURE__ */ jsxs("div", { className: "avatar", children: [
+              /* @__PURE__ */ jsx(SparklesIcon, {}),
+              /* @__PURE__ */ jsx("div", { className: "avatar-glow" })
             ] }),
-            /* @__PURE__ */ jsx("ul", { children: examples.map((ex, i) => /* @__PURE__ */ jsx(
-              "li",
+            /* @__PURE__ */ jsxs("div", { className: "header-text", children: [
+              /* @__PURE__ */ jsx("h3", { children: title }),
+              /* @__PURE__ */ jsx("p", { children: subtitle })
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxs("div", { className: "header-actions", children: [
+            /* @__PURE__ */ jsx(
+              "button",
               {
                 onClick: () => {
-                  chat.setInput(ex);
-                  inputRef.current?.focus();
+                  chat.clearMessages();
+                  onResetSession?.();
                 },
-                children: ex
-              },
-              i
-            )) })
-          ] }),
-          chat.messages.map((msg, idx) => /* @__PURE__ */ jsx(
-            MessageBubble,
-            {
-              message: msg,
-              toolLabels,
-              labels,
-              onConfirm: chat.handleConfirm
-            },
-            msg.id || idx
-          )),
-          chat.isLoading && chat.messages[chat.messages.length - 1]?.isStreaming && !chat.messages[chat.messages.length - 1]?.content && !chat.messages[chat.messages.length - 1]?.statusSteps?.length && /* @__PURE__ */ jsx("div", { className: "message-wrapper assistant", children: /* @__PURE__ */ jsxs("div", { className: "message-bubble loading", children: [
-            /* @__PURE__ */ jsxs("div", { className: "typing-indicator", children: [
-              /* @__PURE__ */ jsx("span", {}),
-              /* @__PURE__ */ jsx("span", {}),
-              /* @__PURE__ */ jsx("span", {})
-            ] }),
-            /* @__PURE__ */ jsx("span", { className: "loading-text", children: labels.processing || "Pensando..." })
-          ] }) }),
-          /* @__PURE__ */ jsx("div", { ref: messagesEndRef }),
-          showScrollBtn && /* @__PURE__ */ jsxs(
-            "button",
-            {
-              onClick: () => {
-                shouldAutoScroll.current = true;
-                setShowScrollBtn(false);
-                scrollToBottom("smooth");
-              },
-              className: "scroll-to-bottom",
-              "aria-label": labels.newMessage || "Nova mensagem",
-              children: [
-                /* @__PURE__ */ jsx(ArrowDownIcon, {}),
-                /* @__PURE__ */ jsx("span", { children: labels.newMessage || "Nova mensagem" })
-              ]
-            }
-          )
-        ]
-      }
-    ),
-    !isMinimized && /* @__PURE__ */ jsxs("footer", { className: "agent-chat-input", children: [
-      /* @__PURE__ */ jsxs("div", { className: "input-wrapper", children: [
-        /* @__PURE__ */ jsx(
-          "input",
+                className: "icon-btn",
+                title: labels.clearHistory || "Limpar hist\xF3rico",
+                "aria-label": labels.clearHistory || "Limpar hist\xF3rico",
+                children: /* @__PURE__ */ jsx(TrashIcon, {})
+              }
+            ),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                onClick: () => setIsMinimized(!isMinimized),
+                className: "icon-btn",
+                title: isMinimized ? "Expandir" : "Minimizar",
+                "aria-label": isMinimized ? "Expandir" : "Minimizar",
+                children: isMinimized ? /* @__PURE__ */ jsx(ExpandIcon, {}) : /* @__PURE__ */ jsx(MinimizeIcon, {})
+              }
+            ),
+            /* @__PURE__ */ jsx(
+              "button",
+              {
+                onClick: () => setIsOpen(false),
+                className: "icon-btn close",
+                title: "Fechar",
+                "aria-label": "Fechar",
+                children: /* @__PURE__ */ jsx(CloseIcon, {})
+              }
+            )
+          ] })
+        ] }),
+        !isMinimized && /* @__PURE__ */ jsxs(
+          "div",
           {
-            ref: inputRef,
-            type: "text",
-            value: chat.input,
-            onChange: chat.handleInputChange,
-            onKeyDown: handleKeyPress,
-            placeholder: chat.isLoading ? labels.processing || "Aguardando resposta..." : labels.placeholder || "Digite sua mensagem...",
-            disabled: chat.isLoading
+            ref: messagesContainerRef,
+            className: "agent-chat-messages",
+            onScroll: handleContainerScroll,
+            children: [
+              chat.messages.length === 0 && examples && /* @__PURE__ */ jsxs("div", { className: "examples-panel", children: [
+                /* @__PURE__ */ jsxs("div", { className: "examples-header", children: [
+                  /* @__PURE__ */ jsx(LightbulbIcon, {}),
+                  /* @__PURE__ */ jsx("span", { children: "Experimente perguntar" })
+                ] }),
+                /* @__PURE__ */ jsx("ul", { children: examples.map((ex, i) => /* @__PURE__ */ jsx(
+                  "li",
+                  {
+                    onClick: () => {
+                      chat.setInput(ex);
+                      inputRef.current?.focus();
+                    },
+                    children: ex
+                  },
+                  i
+                )) })
+              ] }),
+              chat.messages.map((msg, idx) => /* @__PURE__ */ jsx(
+                MessageBubble,
+                {
+                  message: msg,
+                  toolLabels,
+                  labels,
+                  onConfirm: chat.handleConfirm
+                },
+                msg.id || idx
+              )),
+              chat.isLoading && chat.messages[chat.messages.length - 1]?.isStreaming && !chat.messages[chat.messages.length - 1]?.content && !chat.messages[chat.messages.length - 1]?.statusSteps?.length && /* @__PURE__ */ jsx("div", { className: "message-wrapper assistant", children: /* @__PURE__ */ jsxs("div", { className: "message-bubble loading", children: [
+                /* @__PURE__ */ jsxs("div", { className: "typing-indicator", children: [
+                  /* @__PURE__ */ jsx("span", {}),
+                  /* @__PURE__ */ jsx("span", {}),
+                  /* @__PURE__ */ jsx("span", {})
+                ] }),
+                /* @__PURE__ */ jsx("span", { className: "loading-text", children: labels.processing || "Pensando..." })
+              ] }) }),
+              /* @__PURE__ */ jsx("div", { ref: messagesEndRef }),
+              showScrollBtn && /* @__PURE__ */ jsxs(
+                "button",
+                {
+                  onClick: () => {
+                    shouldAutoScroll.current = true;
+                    setShowScrollBtn(false);
+                    scrollToBottom("smooth");
+                  },
+                  className: "scroll-to-bottom",
+                  "aria-label": "Rolar para baixo",
+                  children: [
+                    /* @__PURE__ */ jsx(ArrowDownIcon, {}),
+                    /* @__PURE__ */ jsx("span", { className: "scroll-to-bottom-label", children: "Baixo" })
+                  ]
+                }
+              )
+            ]
           }
         ),
-        /* @__PURE__ */ jsx(
-          "button",
-          {
-            onClick: handleSend,
-            disabled: !chat.input.trim() || chat.isLoading,
-            className: "send-btn",
-            "aria-label": "Enviar mensagem",
-            children: /* @__PURE__ */ jsx(SendIcon, {})
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsx("div", { className: "input-glow" })
-    ] }),
-    /* @__PURE__ */ jsx("style", { children: chatStyles })
-  ] });
+        !isMinimized && /* @__PURE__ */ jsxs("footer", { className: "agent-chat-input", children: [
+          /* @__PURE__ */ jsxs("div", { className: "input-wrapper", children: [
+            /* @__PURE__ */ jsx(
+              "input",
+              {
+                ref: inputRef,
+                type: "text",
+                value: chat.input,
+                onChange: chat.handleInputChange,
+                onKeyDown: handleKeyPress,
+                placeholder: chat.isLoading ? labels.processing || "Aguardando resposta..." : labels.placeholder || "Digite sua mensagem...",
+                disabled: chat.isLoading
+              }
+            ),
+            chat.isLoading ? /* @__PURE__ */ jsx(
+              "button",
+              {
+                onClick: chat.stop,
+                className: "send-btn stop",
+                "aria-label": "Parar gera\xE7\xE3o",
+                children: /* @__PURE__ */ jsx(StopIcon, {})
+              }
+            ) : /* @__PURE__ */ jsx(
+              "button",
+              {
+                onClick: handleSend,
+                disabled: !chat.input.trim(),
+                className: "send-btn",
+                "aria-label": "Enviar mensagem",
+                children: /* @__PURE__ */ jsx(SendIcon, {})
+              }
+            )
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "input-glow" })
+        ] }),
+        /* @__PURE__ */ jsx("style", { children: chatStyles })
+      ]
+    }
+  );
 }
 function MessageBubble({
   message,
@@ -794,13 +843,13 @@ function MessageBubble({
     }) });
   };
   return /* @__PURE__ */ jsx("div", { className: `message-wrapper ${isUser ? "user" : "assistant"} ${isError ? "error" : ""}`, children: /* @__PURE__ */ jsxs("div", { className: `message-bubble ${isUser ? "user" : "assistant"} ${isError ? "error" : ""}`, children: [
-    message.isStreaming && !message.pendingConfirm && message.statusSteps && message.statusSteps.length > 0 && /* @__PURE__ */ jsx("div", { className: "status-steps", children: message.statusSteps.map((step, i) => {
-      const isActive = i === message.statusSteps.length - 1;
-      return /* @__PURE__ */ jsxs("div", { className: `status-step ${isActive ? "active" : "completed"}`, children: [
-        isActive ? /* @__PURE__ */ jsx("div", { className: "spinner" }) : /* @__PURE__ */ jsx(CheckIcon, { size: 12 }),
+    message.isStreaming && !message.pendingConfirm && message.statusSteps && message.statusSteps.length > 0 && /* @__PURE__ */ jsx("div", { className: "status-steps", children: message.statusSteps.map((step, i) => /* @__PURE__ */ jsxs(React.Fragment, { children: [
+      i > 0 && /* @__PURE__ */ jsx("span", { className: "step-separator", children: "/" }),
+      /* @__PURE__ */ jsxs("div", { className: `status-step ${i === message.statusSteps.length - 1 ? "active" : "completed"}`, children: [
+        i === message.statusSteps.length - 1 ? /* @__PURE__ */ jsx("div", { className: "spinner" }) : /* @__PURE__ */ jsx(CheckIcon, { size: 10 }),
         /* @__PURE__ */ jsx("span", { children: step })
-      ] }, i);
-    }) }),
+      ] })
+    ] }, i)) }),
     message.pendingConfirm && /* @__PURE__ */ jsxs("div", { className: "confirm-dialog", children: [
       /* @__PURE__ */ jsxs("div", { className: "confirm-message", children: [
         /* @__PURE__ */ jsx(AlertIcon, { size: 18 }),
@@ -957,13 +1006,10 @@ var chatStyles = `
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 420px;
   min-width: 320px;
   max-width: 90vw;
-  height: 580px;
   min-height: 400px;
   max-height: 85vh;
-  resize: both;
   background: var(--bg-primary);
   border-radius: 20px;
   border: 1px solid var(--border-color);
@@ -996,31 +1042,40 @@ var chatStyles = `
 
 .agent-chat-container.minimized {
   height: auto;
-  resize: none;
   min-height: unset;
 }
 
-/* Resize Grip */
-.agent-chat-container::after {
-  content: '';
+/* Resize Grip - Top Left */
+.resize-grip {
   position: absolute;
-  bottom: 3px;
-  right: 3px;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--text-muted);
-  border-bottom: 2px solid var(--text-muted);
+  top: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 4px;
+}
+
+.resize-grip::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-left: 2px solid var(--text-muted);
+  border-top: 2px solid var(--text-muted);
   opacity: 0.2;
-  border-radius: 0 0 6px 0;
-  pointer-events: none;
+  border-radius: 6px 0 0 0;
   transition: opacity 0.2s;
 }
 
-.agent-chat-container:hover::after {
-  opacity: 0.45;
+.resize-grip:hover::before {
+  opacity: 0.5;
 }
 
-.agent-chat-container.minimized::after {
+.agent-chat-container.minimized .resize-grip {
   display: none;
 }
 
@@ -1284,26 +1339,40 @@ var chatStyles = `
 
 /* Status Steps */
 .status-steps {
-  padding: 14px 16px 8px;
+  padding: 10px 16px 6px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .status-step {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  font-size: 12px;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-muted);
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: var(--bg-secondary);
 }
 
 .status-step.active {
   color: var(--text-secondary);
+  background: var(--bg-tertiary);
 }
 
 .status-step.completed {
   color: var(--success);
+  background: var(--success-bg);
+}
+
+.status-steps .step-separator {
+  color: var(--border-color);
+  font-size: 10px;
+  user-select: none;
+  padding: 0 1px;
 }
 
 .spinner {
@@ -1382,9 +1451,10 @@ var chatStyles = `
 /* Tool Calls */
 .tool-calls {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 12px 14px 0;
+  gap: 4px;
+  padding: 8px 16px 0;
 }
 
 .tool-badge {
@@ -1395,8 +1465,9 @@ var chatStyles = `
   color: var(--success);
   font-size: 11px;
   font-weight: 500;
-  padding: 5px 10px;
-  border-radius: 20px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
 }
 
 /* Message Body */
@@ -1466,17 +1537,23 @@ var chatStyles = `
   background: var(--bg-elevated);
   border: 1px solid var(--border-color);
   border-radius: 20px;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
   transition: all 0.2s ease;
   animation: fade-in 0.2s ease;
+  white-space: nowrap;
 }
 
 .scroll-to-bottom:hover {
   background: var(--bg-tertiary);
+  color: var(--text-primary);
   transform: translateX(-50%) translateY(-2px);
+}
+
+.scroll-to-bottom svg {
+  flex-shrink: 0;
 }
 
 /* Input */
@@ -1546,6 +1623,19 @@ var chatStyles = `
   transform: none;
 }
 
+.send-btn.stop {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+}
+
+.send-btn.stop:hover {
+  background: var(--error-bg);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error);
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.2);
+}
+
 .input-glow {
   position: absolute;
   bottom: 0;
@@ -1588,7 +1678,10 @@ function AlertIcon({ size = 13 }) {
   return /* @__PURE__ */ jsx("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx("path", { d: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01" }) });
 }
 function ArrowDownIcon() {
-  return /* @__PURE__ */ jsx("svg", { width: "12", height: "12", viewBox: "0 0 12 12", fill: "currentColor", children: /* @__PURE__ */ jsx("path", { d: "M6 9L1 4h10L6 9z" }) });
+  return /* @__PURE__ */ jsx("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx("path", { d: "M12 5v14M5 12l7 7 7-7" }) });
+}
+function StopIcon() {
+  return /* @__PURE__ */ jsx("svg", { width: "18", height: "18", viewBox: "0 0 24 24", fill: "currentColor", children: /* @__PURE__ */ jsx("rect", { x: "6", y: "6", width: "12", height: "12", rx: "2" }) });
 }
 function RotateCcwIcon({ size = 11 }) {
   return /* @__PURE__ */ jsxs("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [

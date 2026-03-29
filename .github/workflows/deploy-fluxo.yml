@@ -47,7 +47,6 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       BETTER_AUTH_SECRET: ci-build-secret-4d9dd38dc4fa4efcae9e89cf7749f9f2
       AUTH_SECRET: ci-build-secret-4d9dd38dc4fa4efcae9e89cf7749f9f2
-      NODE_ENV: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -61,6 +60,8 @@ jobs:
           cache: npm
 
       - name: Install dependencies
+        env:
+          HUSKY: 0
         run: npm ci
 
       - name: Prepare CI database

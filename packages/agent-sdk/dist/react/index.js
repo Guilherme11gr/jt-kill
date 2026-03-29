@@ -739,23 +739,23 @@ function AgentChatSession({
                 ] }),
                 /* @__PURE__ */ jsx("span", { className: "loading-text", children: labels.processing || "Pensando..." })
               ] }) }),
-              /* @__PURE__ */ jsx("div", { ref: messagesEndRef }),
-              showScrollBtn && /* @__PURE__ */ jsxs(
-                "button",
-                {
-                  onClick: () => {
-                    shouldAutoScroll.current = true;
-                    setShowScrollBtn(false);
-                    scrollToBottom("smooth");
-                  },
-                  className: "scroll-to-bottom",
-                  "aria-label": "Rolar para baixo",
-                  children: [
-                    /* @__PURE__ */ jsx(ArrowDownIcon, {}),
-                    /* @__PURE__ */ jsx("span", { className: "scroll-to-bottom-label", children: "Baixo" })
-                  ]
-                }
-              )
+              /* @__PURE__ */ jsx("div", { ref: messagesEndRef })
+            ]
+          }
+        ),
+        showScrollBtn && !isMinimized && /* @__PURE__ */ jsxs(
+          "button",
+          {
+            onClick: () => {
+              shouldAutoScroll.current = true;
+              setShowScrollBtn(false);
+              scrollToBottom("smooth");
+            },
+            className: "scroll-to-bottom",
+            "aria-label": "Rolar para baixo",
+            children: [
+              /* @__PURE__ */ jsx(ArrowDownIcon, {}),
+              /* @__PURE__ */ jsx("span", { className: "scroll-to-bottom-label", children: "Baixo" })
             ]
           }
         ),
@@ -1528,10 +1528,10 @@ var chatStyles = `
 /* Scroll to Bottom */
 .scroll-to-bottom {
   position: absolute;
-  bottom: 10px;
+  bottom: 72px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 5;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 6px;

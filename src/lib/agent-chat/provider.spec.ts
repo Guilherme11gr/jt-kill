@@ -9,14 +9,14 @@ describe('agent-chat/provider', () => {
   it('prioritizes explicit FLUXO_CHAT_* configuration', () => {
     vi.stubEnv('FLUXO_CHAT_API_KEY', 'fluxo-key');
     vi.stubEnv('FLUXO_CHAT_API_URL', 'https://chat.example.com/v1');
-    vi.stubEnv('FLUXO_CHAT_MODEL', 'glm-4.7-flash');
+    vi.stubEnv('FLUXO_CHAT_MODEL', 'glm-4.7-flashx');
     vi.stubEnv('FLUXO_CHAT_API_HEADERS', '{"X-Test":"1"}');
     vi.stubEnv('ZAI_API_KEY', 'zai-key');
 
     expect(getAgentChatProviderConfig()).toEqual({
       apiKey: 'fluxo-key',
       baseUrl: 'https://chat.example.com/v1',
-      model: 'glm-4.7-flash',
+      model: 'glm-4.7-flashx',
       headers: { 'X-Test': '1' },
     });
   });
@@ -24,12 +24,12 @@ describe('agent-chat/provider', () => {
   it('falls back to ZAI_* when FLUXO_CHAT_* is not set', () => {
     vi.stubEnv('ZAI_API_KEY', 'zai-key');
     vi.stubEnv('ZAI_API_URL', 'https://api.z.ai/api/paas/v4');
-    vi.stubEnv('ZAI_MODEL', 'glm-4.7-flash');
+    vi.stubEnv('ZAI_MODEL', 'glm-4.7-flashx');
 
     expect(getAgentChatProviderConfig()).toEqual({
       apiKey: 'zai-key',
       baseUrl: 'https://api.z.ai/api/paas/v4',
-      model: 'glm-4.7-flash',
+      model: 'glm-4.7-flashx',
       headers: undefined,
     });
   });

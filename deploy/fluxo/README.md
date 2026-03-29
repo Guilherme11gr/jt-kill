@@ -59,6 +59,7 @@ This directory contains the production deployment assets for the Fluxo stack.
 - Store the workflow under a protected GitHub `production` environment if you want manual approvals
 - Generate `FLUXO_VPS_KNOWN_HOSTS` with `ssh-keyscan -p <port> <host>`
 - Keep application secrets only in `/opt/apps/fluxo/shared/config/fluxo.env`; they do not need to exist in GitHub
+- The conversational chat reads `FLUXO_CHAT_*` first, then `ZAI_*`, then `DEEPSEEK_*`, so keep whichever provider vars you use in that same `fluxo.env`
 - Re-run the workflow with `workflow_dispatch` for manual redeploys without opening a new commit
 - Keep the package private by default; the workflow uses the ephemeral GitHub Actions token to push to `ghcr.io` and to authorize the VPS pull during deploy
 

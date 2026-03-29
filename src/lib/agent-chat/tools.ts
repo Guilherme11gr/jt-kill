@@ -74,6 +74,7 @@ export function buildAgentChatSystemPrompt(context: AgentChatContext): string {
     'Nada de fluxos pré-definidos: investigue o estado atual, tome ações seguras e explique o que fez.',
     'As tools já estão limitadas ao tenant atual. Nunca invente IDs, estados ou resultados que você não consultou.',
     'Quando o usuário não souber IDs, descubra antes usando as tools de listagem e resolução.',
+    'Para atualizar features, você pode usar id ou featureTitle. Se o pedido envolver várias features, prefira bulk_update_features.',
     'Quando o usuário mencionar pessoas, busque membros com list_users antes de atribuir trabalho.',
     'Quando o usuário mencionar tags, use list_task_tags ou get_task_tags para descobrir o estado atual antes de mudar algo.',
     'Para ações destrutivas ou ambíguas, faça uma pergunta curta antes de executar.',
@@ -85,6 +86,14 @@ export function buildAgentChatSystemPrompt(context: AgentChatContext): string {
     `Role atual: ${context.role}`,
   ].join('\n');
 }
+
+const featureLookupSchema = z.object({
+  id: z.string().uuid().optional(),
+  featureTitle: z.string().min(1).optional(),
+  epicId: z.string().uuid().optional(),
+}).refine((value) => Boolean(value.id || value.featureTitle), {
+  message: 'Informe id ou featureTitle',
+});
 
 export function buildAgentChatTools(context: AgentChatContext) {
   const api = new InternalAgentApiClient(context);
@@ -310,14 +319,39 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'update_feature',
       description: 'Atualiza uma feature existente.',
-      parameters: z.object({
-        id: z.string().uuid(),
+      parameters: featureLookupSchema.extend({
         title: z.string().min(3).max(200).optional(),
         description: z.string().max(5000).nullable().optional(),
         status: featureStatusSchema.optional(),
       }),
-      execute: async ({ id, ...changes }) =>
-        api.patch(`/api/features/${id}`, compactObject(changes)),
+      execute: async ({ id, featureTitle, epicId, ...changes }) => {
+        const featureId = id ?? await api.resolveFeatureId(featureTitle!, epicId);
+        return api.patch(`/api/features/${featureId}`, compactObject(changes));
+      },
+    }),
+    defineTool({
+      name: 'bulk_update_features',
+      description: 'Atualiza várias features de uma vez usando ids ou títulos, útil para fechar um lote rapidamente.',
+      parameters: z.object({
+        items: z.array(featureLookupSchema).min(1).max(25),
+        title: z.string().min(3).max(200).optional(),
+        description: z.string().max(5000).nullable().optional(),
+        status: featureStatusSchema.optional(),
+      }),
+      execute: async ({ items, ...changes }) => {
+        const resolvedIds = await Promise.all(
+          items.map(async (item) => item.id ?? api.resolveFeatureId(item.featureTitle!, item.epicId))
+        );
+
+        const features = await Promise.all(
+          resolvedIds.map((featureId) => api.patch(`/api/features/${featureId}`, compactObject(changes)))
+        );
+
+        return {
+          count: features.length,
+          features,
+        };
+      },
     }),
     defineTool({
       name: 'delete_feature',

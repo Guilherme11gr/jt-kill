@@ -136,6 +136,47 @@ export class InternalAgentApiClient {
     return match.id;
   }
 
+  async resolveFeatureId(idOrTitle: string, epicId?: string): Promise<string> {
+    if (isUuid(idOrTitle)) {
+      return idOrTitle;
+    }
+
+    const normalizedQuery = idOrTitle.trim().toLocaleLowerCase('pt-BR');
+    const features = epicId
+      ? await this.get<Array<{ id: string; title: string }>>(`/api/epics/${epicId}/features`)
+      : await this.get<Array<{ id: string; title: string }>>('/api/features');
+
+    const exactMatches = features.filter((feature) => {
+      return feature.title.trim().toLocaleLowerCase('pt-BR') === normalizedQuery;
+    });
+
+    if (exactMatches.length === 1) {
+      return exactMatches[0].id;
+    }
+
+    if (exactMatches.length > 1) {
+      throw new Error(
+        `Encontrei ${exactMatches.length} features com o título "${idOrTitle}". Informe o id da feature para evitar ambiguidade.`
+      );
+    }
+
+    const partialMatches = features.filter((feature) => {
+      return feature.title.trim().toLocaleLowerCase('pt-BR').includes(normalizedQuery);
+    });
+
+    if (partialMatches.length === 1) {
+      return partialMatches[0].id;
+    }
+
+    if (partialMatches.length > 1) {
+      throw new Error(
+        `Encontrei ${partialMatches.length} features parecidas com "${idOrTitle}". Informe o id da feature para evitar ambiguidade.`
+      );
+    }
+
+    throw new Error(`Feature "${idOrTitle}" não encontrada.`);
+  }
+
   private async request<T>(
     method: string,
     path: string,

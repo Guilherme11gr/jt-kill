@@ -30,6 +30,7 @@ services:
         max-file: "5"
 
   app:
+    image: ${FLUXO_APP_IMAGE:-fluxo-app:latest}
     build:
       context: ${FLUXO_APP_ROOT:-../..}
       dockerfile: Dockerfile

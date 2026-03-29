@@ -7,11 +7,15 @@ COMPOSE_FILE="${STACK_DIR}/docker-compose.yml"
 ENV_FILE="${FLUXO_ENV_FILE:-/opt/apps/fluxo/shared/config/fluxo.env}"
 APP_SERVICE="${FLUXO_APP_SERVICE:-app}"
 APP_CONTAINER="${FLUXO_APP_CONTAINER:-fluxo-app}"
+APP_IMAGE="${FLUXO_APP_IMAGE:-}"
 APP_DOMAIN="${APP_DOMAIN:-}"
 HEALTHCHECK_PATH="${FLUXO_HEALTHCHECK_PATH:-/api/health}"
 HEALTHCHECK_URL="${FLUXO_HEALTHCHECK_URL:-}"
 HEALTHCHECK_RETRIES="${FLUXO_HEALTHCHECK_RETRIES:-30}"
 HEALTHCHECK_INTERVAL="${FLUXO_HEALTHCHECK_INTERVAL:-2}"
+REGISTRY="${FLUXO_REGISTRY:-}"
+REGISTRY_USER="${FLUXO_REGISTRY_USER:-}"
+REGISTRY_PASSWORD="${FLUXO_REGISTRY_PASSWORD:-}"
 export DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}"
 export COMPOSE_DOCKER_CLI_BUILD="${COMPOSE_DOCKER_CLI_BUILD:-1}"
 
@@ -45,6 +49,14 @@ compose() {
   )
 }
 
+cleanup_registry_login() {
+  if [[ -n "${REGISTRY:-}" && "${REGISTRY_LOGGED_IN:-0}" == "1" ]]; then
+    docker logout "${REGISTRY}" >/dev/null 2>&1 || true
+  fi
+}
+
+trap cleanup_registry_login EXIT
+
 ensure_agent_api_keys_schema() {
   local migration_file="${STACK_DIR}/../../prisma/migrations/20260329_add_agent_api_keys/migration.sql"
   local postgres_container="${FLUXO_POSTGRES_CONTAINER_NAME:-fluxo-postgres}"
@@ -75,8 +87,26 @@ ensure_agent_api_keys_schema() {
 
 ensure_agent_api_keys_schema
 
-echo "Building ${APP_SERVICE} image from ${STACK_DIR}"
-compose build "${APP_SERVICE}"
+if [[ -n "${APP_IMAGE}" ]]; then
+  if [[ -z "${REGISTRY}" ]]; then
+    REGISTRY="${APP_IMAGE%%/*}"
+  fi
+
+  if [[ -n "${REGISTRY_USER}${REGISTRY_PASSWORD}" ]]; then
+    : "${REGISTRY_USER:?FLUXO_REGISTRY_USER must be set when using registry auth}"
+    : "${REGISTRY_PASSWORD:?FLUXO_REGISTRY_PASSWORD must be set when using registry auth}"
+
+    echo "Logging into ${REGISTRY} to pull ${APP_IMAGE}"
+    printf '%s' "${REGISTRY_PASSWORD}" | docker login "${REGISTRY}" -u "${REGISTRY_USER}" --password-stdin >/dev/null
+    REGISTRY_LOGGED_IN=1
+  fi
+
+  echo "Pulling ${APP_SERVICE} image ${APP_IMAGE}"
+  compose pull "${APP_SERVICE}"
+else
+  echo "Building ${APP_SERVICE} image from ${STACK_DIR}"
+  compose build "${APP_SERVICE}"
+fi
 
 echo "Restarting ${APP_SERVICE} container"
 compose up -d --no-deps "${APP_SERVICE}"

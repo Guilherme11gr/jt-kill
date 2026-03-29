@@ -34,8 +34,8 @@ This directory contains the production deployment assets for the Fluxo stack.
 - Pull requests into `main` run the verification gate only
 - Pushes to `main` deploy to the VPS after the verification gate passes
 - Manual runs from `main` also deploy to the VPS
-- The workflow syncs the repository to the VPS, rebuilds only `fluxo-app`, restarts it, and waits for `/api/health`
-- The initial verification gate is intentionally lightweight and validates dependency installation plus workflow wiring; the authoritative production build still happens on the VPS during deploy
+- The workflow builds the `fluxo-app` image in GitHub Actions, publishes it to `ghcr.io`, syncs the repo to the VPS, pulls the exact image tag there, restarts it, and waits for `/api/health`
+- The initial verification gate is intentionally lightweight and validates dependency installation plus workflow wiring; the authoritative production image is now built once in CI and reused in production
 
 ### Required repository secrets
 
@@ -60,6 +60,7 @@ This directory contains the production deployment assets for the Fluxo stack.
 - Generate `FLUXO_VPS_KNOWN_HOSTS` with `ssh-keyscan -p <port> <host>`
 - Keep application secrets only in `/opt/apps/fluxo/shared/config/fluxo.env`; they do not need to exist in GitHub
 - Re-run the workflow with `workflow_dispatch` for manual redeploys without opening a new commit
+- Keep the package private by default; the workflow uses the ephemeral GitHub Actions token to push to `ghcr.io` and to authorize the VPS pull during deploy
 
 ## Notes
 

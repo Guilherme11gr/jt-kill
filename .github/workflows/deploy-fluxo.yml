@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: fluxo-production
@@ -53,6 +54,39 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare image metadata
+        id: image
+        run: |
+          IMAGE_REPO="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/fluxo-app"
+          IMAGE_SHA_TAG="${GITHUB_SHA}"
+          IMAGE_REF="${IMAGE_REPO}:${IMAGE_SHA_TAG}"
+
+          echo "image_repo=${IMAGE_REPO}" >> "${GITHUB_OUTPUT}"
+          echo "image_ref=${IMAGE_REF}" >> "${GITHUB_OUTPUT}"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push app image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          pull: true
+          tags: |
+            ${{ steps.image.outputs.image_ref }}
+            ${{ steps.image.outputs.image_repo }}:latest
+          cache-from: type=gha,scope=fluxo-app
+          cache-to: type=gha,mode=max,scope=fluxo-app
 
       - name: Install deploy tooling
         run: |
@@ -113,18 +147,25 @@ jobs:
 
       - name: Deploy app on VPS
         env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USERNAME: ${{ github.actor }}
           VPS_HOST: ${{ vars.FLUXO_VPS_HOST }}
           VPS_PORT: ${{ vars.FLUXO_VPS_PORT }}
           VPS_USER: ${{ vars.FLUXO_VPS_USER }}
           VPS_DEPLOY_PATH: ${{ vars.FLUXO_VPS_DEPLOY_PATH }}
           VPS_ENV_FILE: ${{ vars.FLUXO_VPS_ENV_FILE }}
+          FLUXO_APP_IMAGE: ${{ steps.image.outputs.image_ref }}
         run: |
           VPS_PORT="${VPS_PORT:-22}"
           VPS_DEPLOY_PATH="${VPS_DEPLOY_PATH:-/opt/apps/fluxo/current}"
           VPS_ENV_FILE="${VPS_ENV_FILE:-/opt/apps/fluxo/shared/config/fluxo.env}"
+          FLUXO_APP_IMAGE_ESCAPED="$(printf '%q' "${FLUXO_APP_IMAGE}")"
+          GHCR_USERNAME_ESCAPED="$(printf '%q' "${GHCR_USERNAME}")"
+          GHCR_TOKEN_ESCAPED="$(printf '%q' "${GHCR_TOKEN}")"
+          VPS_ENV_FILE_ESCAPED="$(printf '%q' "${VPS_ENV_FILE}")"
 
           ssh -i ~/.ssh/id_ed25519 -p "${VPS_PORT}" "${VPS_USER}@${VPS_HOST}" \
-            "cd '${VPS_DEPLOY_PATH}' && chmod +x deploy/fluxo/scripts/remote-deploy-app.sh && FLUXO_ENV_FILE='${VPS_ENV_FILE}' bash deploy/fluxo/scripts/remote-deploy-app.sh"
+            "cd '${VPS_DEPLOY_PATH}' && chmod +x deploy/fluxo/scripts/remote-deploy-app.sh && FLUXO_ENV_FILE=${VPS_ENV_FILE_ESCAPED} FLUXO_APP_IMAGE=${FLUXO_APP_IMAGE_ESCAPED} FLUXO_REGISTRY=ghcr.io FLUXO_REGISTRY_USER=${GHCR_USERNAME_ESCAPED} FLUXO_REGISTRY_PASSWORD=${GHCR_TOKEN_ESCAPED} bash deploy/fluxo/scripts/remote-deploy-app.sh"
 
       - name: Verify public healthcheck
         env:

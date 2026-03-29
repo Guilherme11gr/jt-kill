@@ -10,6 +10,8 @@ const epicStatusSchema = z.enum(['OPEN', 'CLOSED']);
 const membershipRoleSchema = z.enum(['OWNER', 'ADMIN', 'MEMBER']);
 const taskTagColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 
+const optionalNonEmptyStringSchema = z.string().trim().min(1).optional();
+
 function compactObject<T extends Record<string, unknown>>(input: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(input).filter(([, value]) => value !== undefined)
@@ -18,6 +20,14 @@ function compactObject<T extends Record<string, unknown>>(input: T): Partial<T> 
 
 function matchesLooseSearch(value: string | null | undefined, search: string): boolean {
   return (value || '').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'));
+}
+
+function requireValue<T>(value: T | null | undefined, message: string): T {
+  if (value === undefined || value === null || value === '') {
+    throw new Error(message);
+  }
+
+  return value;
 }
 
 async function getFeatureProjectId(api: InternalAgentApiClient, featureId: string): Promise<string> {
@@ -89,11 +99,139 @@ export function buildAgentChatSystemPrompt(context: AgentChatContext): string {
 
 const featureLookupSchema = z.object({
   id: z.string().uuid().optional(),
-  featureTitle: z.string().min(1).optional(),
+  featureTitle: optionalNonEmptyStringSchema,
   epicId: z.string().uuid().optional(),
+  epicTitle: optionalNonEmptyStringSchema,
+  projectId: z.string().uuid().optional(),
+  projectName: optionalNonEmptyStringSchema,
 }).refine((value) => Boolean(value.id || value.featureTitle), {
   message: 'Informe id ou featureTitle',
 });
+
+const projectLookupSchema = z.object({
+  projectId: z.string().uuid().optional(),
+  projectName: optionalNonEmptyStringSchema,
+});
+
+const epicLookupSchema = z.object({
+  id: z.string().uuid().optional(),
+  epicTitle: optionalNonEmptyStringSchema,
+  projectId: z.string().uuid().optional(),
+  projectName: optionalNonEmptyStringSchema,
+});
+
+const taskRefSchema = z.object({
+  id: optionalNonEmptyStringSchema,
+  taskId: optionalNonEmptyStringSchema,
+  readableId: optionalNonEmptyStringSchema,
+}).refine((value) => Boolean(value.id || value.taskId || value.readableId), {
+  message: 'Informe id, taskId ou readableId',
+});
+
+const docLookupSchema = z.object({
+  id: z.string().uuid().optional(),
+  docTitle: optionalNonEmptyStringSchema,
+  projectId: z.string().uuid().optional(),
+  projectName: optionalNonEmptyStringSchema,
+});
+
+const taskTagLookupSchema = z.object({
+  projectId: z.string().uuid().optional(),
+  projectName: optionalNonEmptyStringSchema,
+  tagId: z.string().uuid().optional(),
+  tagName: optionalNonEmptyStringSchema,
+});
+
+async function resolveProjectIdFromLookup(
+  api: InternalAgentApiClient,
+  input: z.infer<typeof projectLookupSchema>,
+  fieldLabel = 'Projeto'
+): Promise<string> {
+  if (input.projectId) {
+    return input.projectId;
+  }
+
+  const projectName = requireValue(input.projectName, `${fieldLabel} ausente. Informe projectId ou projectName.`);
+  return api.resolveProjectId(projectName);
+}
+
+async function resolveEpicIdFromLookup(
+  api: InternalAgentApiClient,
+  input: z.infer<typeof epicLookupSchema>,
+  fieldLabel = 'Épico'
+): Promise<string> {
+  if (input.id) {
+    return input.id;
+  }
+
+  const epicTitle = requireValue(input.epicTitle, `${fieldLabel} ausente. Informe id ou epicTitle.`);
+  const projectId = input.projectId || (input.projectName
+    ? await api.resolveProjectId(input.projectName)
+    : undefined);
+
+  return api.resolveEpicId(epicTitle, projectId);
+}
+
+async function resolveFeatureIdFromLookup(
+  api: InternalAgentApiClient,
+  input: z.infer<typeof featureLookupSchema>
+): Promise<string> {
+  if (input.id) {
+    return input.id;
+  }
+
+  const featureTitle = requireValue(input.featureTitle, 'Feature ausente. Informe id ou featureTitle.');
+  const epicId = input.epicId || (input.epicTitle
+    ? await resolveEpicIdFromLookup(api, {
+      id: undefined,
+      epicTitle: input.epicTitle,
+      projectId: input.projectId,
+      projectName: input.projectName,
+    })
+    : undefined);
+
+  return api.resolveFeatureId(featureTitle, epicId);
+}
+
+async function resolveTaskIdFromLookup(
+  api: InternalAgentApiClient,
+  input: z.infer<typeof taskRefSchema> | { id?: string; taskId?: string; readableId?: string }
+): Promise<string> {
+  const rawId = input.id || input.taskId || input.readableId;
+  return api.resolveTaskId(requireValue(rawId, 'Task ausente. Informe id, taskId ou readableId.'));
+}
+
+async function resolveDocIdFromLookup(
+  api: InternalAgentApiClient,
+  input: z.infer<typeof docLookupSchema>
+): Promise<string> {
+  if (input.id) {
+    return input.id;
+  }
+
+  const docTitle = requireValue(input.docTitle, 'Documento ausente. Informe id ou docTitle.');
+  const projectId = input.projectId || (input.projectName
+    ? await api.resolveProjectId(input.projectName)
+    : undefined);
+
+  return api.resolveDocId(docTitle, projectId);
+}
+
+async function resolveTaskTagRef(
+  api: InternalAgentApiClient,
+  input: z.infer<typeof taskTagLookupSchema>
+): Promise<{ projectId: string; tagId: string }> {
+  const projectId = await resolveProjectIdFromLookup(api, input, 'Projeto da tag');
+
+  if (input.tagId) {
+    return { projectId, tagId: input.tagId };
+  }
+
+  const tagName = requireValue(input.tagName, 'Tag ausente. Informe tagId ou tagName.');
+  const tagId = await api.resolveTaskTagId(projectId, tagName);
+
+  return { projectId, tagId };
+}
 
 export function buildAgentChatTools(context: AgentChatContext) {
   const api = new InternalAgentApiClient(context);
@@ -152,14 +290,17 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'list_epics',
       description: 'Lista épicos, opcionalmente filtrando por projeto e status.',
-      parameters: z.object({
-        projectId: z.string().uuid().optional(),
+      parameters: projectLookupSchema.extend({
         status: epicStatusSchema.optional(),
         limit: z.number().int().min(1).max(50).optional().default(25),
       }),
-      execute: async ({ projectId, status, limit }) => {
-        const epics = projectId
-          ? await api.get<Array<Record<string, unknown>>>(`/api/projects/${projectId}/epics`)
+      execute: async ({ projectId, projectName, status, limit }) => {
+        const resolvedProjectId = projectId || (projectName
+          ? await api.resolveProjectId(projectName)
+          : undefined);
+
+        const epics = resolvedProjectId
+          ? await api.get<Array<Record<string, unknown>>>(`/api/projects/${resolvedProjectId}/epics`)
           : await api.get<Array<Record<string, unknown>>>('/api/epics');
 
         const filtered = status
@@ -172,13 +313,12 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'get_epic',
       description: 'Busca um épico e também devolve suas features atuais.',
-      parameters: z.object({
-        id: z.string().uuid(),
-      }),
-      execute: async ({ id }) => {
+      parameters: epicLookupSchema,
+      execute: async ({ id, epicTitle, projectId, projectName }) => {
+        const epicId = await resolveEpicIdFromLookup(api, { id, epicTitle, projectId, projectName });
         const [epic, features] = await Promise.all([
-          api.get<Record<string, unknown>>(`/api/epics/${id}`),
-          api.get(`/api/epics/${id}/features`),
+          api.get<Record<string, unknown>>(`/api/epics/${epicId}`),
+          api.get(`/api/epics/${epicId}/features`),
         ]);
 
         return { ...epic, features };
@@ -187,12 +327,11 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'get_epic_full',
       description: 'Traz o contexto completo do épico com features, tasks e estatísticas agregadas.',
-      parameters: z.object({
-        id: z.string().uuid(),
-      }),
-      execute: async ({ id }) => {
-        const epic = await api.get<Record<string, unknown>>(`/api/epics/${id}`);
-        const features = await api.get<Array<Record<string, unknown>>>(`/api/epics/${id}/features`);
+      parameters: epicLookupSchema,
+      execute: async ({ id, epicTitle, projectId, projectName }) => {
+        const epicId = await resolveEpicIdFromLookup(api, { id, epicTitle, projectId, projectName });
+        const epic = await api.get<Record<string, unknown>>(`/api/epics/${epicId}`);
+        const features = await api.get<Array<Record<string, unknown>>>(`/api/epics/${epicId}/features`);
 
         const featuresWithTasks = await Promise.all(
           features.map(async (feature) => {
@@ -223,43 +362,46 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'create_epic',
       description: 'Cria um novo épico dentro de um projeto.',
-      parameters: z.object({
-        projectId: z.string().uuid(),
-        title: z.string().min(3).max(200),
+      parameters: projectLookupSchema.extend({
+        title: z.string().min(3).max(200).optional(),
         description: z.string().max(5000).optional(),
         status: epicStatusSchema.optional().default('OPEN'),
       }),
-      execute: async ({ projectId, title, description, status }) =>
-        api.post(`/api/projects/${projectId}/epics`, {
-          title,
+      execute: async ({ projectId, projectName, title, description, status }) => {
+        const resolvedProjectId = await resolveProjectIdFromLookup(api, { projectId, projectName });
+
+        return api.post(`/api/projects/${resolvedProjectId}/epics`, {
+          title: requireValue(title, 'Informe o título do épico.'),
           description,
           status,
-        }),
+        });
+      },
     }),
     defineTool({
       name: 'update_epic',
       description: 'Atualiza título, descrição ou status de um épico.',
-      parameters: z.object({
-        id: z.string().uuid(),
+      parameters: epicLookupSchema.extend({
         title: z.string().min(3).max(200).optional(),
         description: z.string().max(5000).nullable().optional(),
         status: epicStatusSchema.optional(),
       }),
-      execute: async ({ id, ...changes }) =>
-        api.patch(`/api/epics/${id}`, compactObject(changes)),
+      execute: async ({ id, epicTitle, projectId, projectName, ...changes }) => {
+        const epicId = await resolveEpicIdFromLookup(api, { id, epicTitle, projectId, projectName });
+        return api.patch(`/api/epics/${epicId}`, compactObject(changes));
+      },
     }),
     defineTool({
       name: 'delete_epic',
       description: 'Remove um épico. Use só quando tiver certeza.',
-      parameters: z.object({
-        id: z.string().uuid(),
-      }),
+      parameters: epicLookupSchema,
       awaitConfirm: true,
-      confirmMessage: ({ id }) => `Excluir o épico ${id}? Essa ação remove o épico do fluxo atual.`,
-      execute: async ({ id }) => {
-        await api.delete(`/api/epics/${id}`);
+      confirmMessage: ({ id, epicTitle }) =>
+        `Excluir o épico ${id || epicTitle}? Essa ação remove o épico do fluxo atual.`,
+      execute: async ({ id, epicTitle, projectId, projectName }) => {
+        const epicId = await resolveEpicIdFromLookup(api, { id, epicTitle, projectId, projectName });
+        await api.delete(`/api/epics/${epicId}`);
 
-        return { ok: true, deletedId: id };
+        return { ok: true, deletedId: epicId };
       },
     }),
     defineTool({
@@ -285,13 +427,19 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'get_feature',
       description: 'Busca uma feature e devolve também suas tasks.',
-      parameters: z.object({
-        id: z.string().uuid(),
-      }),
-      execute: async ({ id }) => {
+      parameters: featureLookupSchema,
+      execute: async ({ id, featureTitle, epicId, epicTitle, projectId, projectName }) => {
+        const featureId = await resolveFeatureIdFromLookup(api, {
+          id,
+          featureTitle,
+          epicId,
+          epicTitle,
+          projectId,
+          projectName,
+        });
         const [feature, tasks] = await Promise.all([
-          api.get<Record<string, unknown>>(`/api/features/${id}`),
-          api.get(`/api/features/${id}/tasks`),
+          api.get<Record<string, unknown>>(`/api/features/${featureId}`),
+          api.get(`/api/features/${featureId}/tasks`),
         ]);
 
         return {
@@ -303,18 +451,19 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'create_feature',
       description: 'Cria uma feature dentro de um épico.',
-      parameters: z.object({
-        epicId: z.string().uuid(),
-        title: z.string().min(3).max(200),
+      parameters: epicLookupSchema.extend({
+        title: z.string().min(3).max(200).optional(),
         description: z.string().max(5000).optional(),
         status: featureStatusSchema.optional().default('BACKLOG'),
       }),
-      execute: async ({ epicId, title, description, status }) =>
-        api.post(`/api/epics/${epicId}/features`, {
-          title,
+      execute: async ({ id, epicTitle, projectId, projectName, title, description, status }) => {
+        const epicId = await resolveEpicIdFromLookup(api, { id, epicTitle, projectId, projectName });
+        return api.post(`/api/epics/${epicId}/features`, {
+          title: requireValue(title, 'Informe o título da feature.'),
           description,
           status,
-        }),
+        });
+      },
     }),
     defineTool({
       name: 'update_feature',
@@ -324,8 +473,15 @@ export function buildAgentChatTools(context: AgentChatContext) {
         description: z.string().max(5000).nullable().optional(),
         status: featureStatusSchema.optional(),
       }),
-      execute: async ({ id, featureTitle, epicId, ...changes }) => {
-        const featureId = id ?? await api.resolveFeatureId(featureTitle!, epicId);
+      execute: async ({ id, featureTitle, epicId, epicTitle, projectId, projectName, ...changes }) => {
+        const featureId = await resolveFeatureIdFromLookup(api, {
+          id,
+          featureTitle,
+          epicId,
+          epicTitle,
+          projectId,
+          projectName,
+        });
         return api.patch(`/api/features/${featureId}`, compactObject(changes));
       },
     }),
@@ -333,14 +489,20 @@ export function buildAgentChatTools(context: AgentChatContext) {
       name: 'bulk_update_features',
       description: 'Atualiza várias features de uma vez usando ids ou títulos, útil para fechar um lote rapidamente.',
       parameters: z.object({
-        items: z.array(featureLookupSchema).min(1).max(25),
+        items: z.array(featureLookupSchema).min(1).max(25).optional(),
+        featureIds: z.array(z.string().min(1)).min(1).max(25).optional(),
         title: z.string().min(3).max(200).optional(),
         description: z.string().max(5000).nullable().optional(),
         status: featureStatusSchema.optional(),
       }),
-      execute: async ({ items, ...changes }) => {
+      execute: async ({ items, featureIds, ...changes }) => {
+        const normalizedItems = items || featureIds?.map((id) => ({ id })) || [];
+        if (normalizedItems.length === 0) {
+          throw new Error('Informe items ou featureIds para atualizar features em lote.');
+        }
+
         const resolvedIds = await Promise.all(
-          items.map(async (item) => item.id ?? api.resolveFeatureId(item.featureTitle!, item.epicId))
+          normalizedItems.map(async (item) => resolveFeatureIdFromLookup(api, item))
         );
 
         const features = await Promise.all(
@@ -356,15 +518,22 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'delete_feature',
       description: 'Exclui uma feature. Use só quando tiver certeza.',
-      parameters: z.object({
-        id: z.string().uuid(),
-      }),
+      parameters: featureLookupSchema,
       awaitConfirm: true,
-      confirmMessage: ({ id }) => `Excluir a feature ${id}? As tasks ligadas a ela também podem ser afetadas.`,
-      execute: async ({ id }) => {
-        await api.delete(`/api/features/${id}`);
+      confirmMessage: ({ id, featureTitle }) =>
+        `Excluir a feature ${id || featureTitle}? As tasks ligadas a ela também podem ser afetadas.`,
+      execute: async ({ id, featureTitle, epicId, epicTitle, projectId, projectName }) => {
+        const featureId = await resolveFeatureIdFromLookup(api, {
+          id,
+          featureTitle,
+          epicId,
+          epicTitle,
+          projectId,
+          projectName,
+        });
+        await api.delete(`/api/features/${featureId}`);
 
-        return { ok: true, deletedId: id };
+        return { ok: true, deletedId: featureId };
       },
     }),
     defineTool({
@@ -407,9 +576,13 @@ export function buildAgentChatTools(context: AgentChatContext) {
       name: 'create_task',
       description: 'Cria uma nova task. Você pode informar featureId ou só projectId para cair no fluxo padrão do projeto.',
       parameters: z.object({
-        title: z.string().min(3).max(200),
+        title: z.string().min(3).max(200).optional(),
         projectId: z.string().uuid().optional(),
+        projectName: optionalNonEmptyStringSchema,
         featureId: z.string().uuid().optional(),
+        featureTitle: optionalNonEmptyStringSchema,
+        epicId: z.string().uuid().optional(),
+        epicTitle: optionalNonEmptyStringSchema,
         description: z.string().max(10000).optional(),
         status: taskStatusSchema.optional().default('BACKLOG'),
         type: taskTypeSchema.optional().default('TASK'),
@@ -417,13 +590,15 @@ export function buildAgentChatTools(context: AgentChatContext) {
         points: z.number().int().nonnegative().optional(),
         modules: z.array(z.string().max(50)).max(10).optional().default([]),
         assigneeId: z.string().uuid().nullable().optional(),
-      }).refine((value) => Boolean(value.featureId || value.projectId), {
-        message: 'Informe featureId ou projectId',
       }),
       execute: async ({
         title,
         projectId,
+        projectName,
         featureId,
+        featureTitle,
+        epicId,
+        epicTitle,
         description,
         status,
         type,
@@ -433,15 +608,35 @@ export function buildAgentChatTools(context: AgentChatContext) {
         assigneeId,
       }) => {
         let resolvedProjectId = projectId;
+        let resolvedFeatureId = featureId;
 
-        if (!resolvedProjectId && featureId) {
-          resolvedProjectId = await getFeatureProjectId(api, featureId);
+        if (!resolvedFeatureId && featureTitle) {
+          resolvedFeatureId = await resolveFeatureIdFromLookup(api, {
+            id: undefined,
+            featureTitle,
+            epicId,
+            epicTitle,
+            projectId,
+            projectName,
+          });
+        }
+
+        if (!resolvedProjectId && resolvedFeatureId) {
+          resolvedProjectId = await getFeatureProjectId(api, resolvedFeatureId);
+        }
+
+        if (!resolvedProjectId && projectName) {
+          resolvedProjectId = await api.resolveProjectId(projectName);
+        }
+
+        if (!resolvedProjectId) {
+          throw new Error('Informe projectId/projectName ou featureId/featureTitle para criar a task.');
         }
 
         return api.post('/api/tasks', compactObject({
-          title,
+          title: requireValue(title, 'Informe o título da task.'),
           projectId: resolvedProjectId,
-          featureId,
+          featureId: resolvedFeatureId,
           description,
           status,
           type,
@@ -455,8 +650,7 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'update_task',
       description: 'Atualiza status, responsável, descrição, bloqueio ou outros campos de uma task.',
-      parameters: z.object({
-        id: z.string().min(1),
+      parameters: taskRefSchema.extend({
         title: z.string().min(3).max(200).optional(),
         description: z.string().max(10000).nullable().optional(),
         type: taskTypeSchema.optional(),
@@ -470,32 +664,33 @@ export function buildAgentChatTools(context: AgentChatContext) {
         points: z.number().int().nonnegative().nullable().optional(),
         modules: z.array(z.string().max(50)).max(10).optional(),
       }),
-      execute: async ({ id, ...changes }) => {
-        const taskId = await api.resolveTaskId(id);
+      execute: async ({ id, taskId, readableId, ...changes }) => {
+        const resolvedTaskId = await resolveTaskIdFromLookup(api, { id, taskId, readableId });
 
-        return api.patch(`/api/tasks/${taskId}`, compactObject(changes));
+        return api.patch(`/api/tasks/${resolvedTaskId}`, compactObject(changes));
       },
     }),
     defineTool({
       name: 'delete_task',
       description: 'Remove uma task de forma permanente.',
-      parameters: z.object({
-        id: z.string().min(1),
-      }),
+      parameters: taskRefSchema,
       awaitConfirm: true,
-      confirmMessage: ({ id }) => `Excluir a task ${id}? Essa ação é permanente.`,
-      execute: async ({ id }) => {
-        const taskId = await api.resolveTaskId(id);
-        await api.delete(`/api/tasks/${taskId}`);
+      confirmMessage: ({ id, taskId, readableId }) =>
+        `Excluir a task ${id || taskId || readableId}? Essa ação é permanente.`,
+      execute: async ({ id, taskId, readableId }) => {
+        const resolvedTaskId = await resolveTaskIdFromLookup(api, { id, taskId, readableId });
+        await api.delete(`/api/tasks/${resolvedTaskId}`);
 
-        return { ok: true, deletedId: taskId };
+        return { ok: true, deletedId: resolvedTaskId };
       },
     }),
     defineTool({
       name: 'bulk_update_tasks',
       description: 'Atualiza várias tasks de uma vez, útil para mudanças em lote.',
       parameters: z.object({
-        ids: z.array(z.string().min(1)).min(1).max(25),
+        ids: z.array(z.string().min(1)).min(1).max(25).optional(),
+        taskIds: z.array(z.string().min(1)).min(1).max(25).optional(),
+        items: z.array(taskRefSchema).min(1).max(25).optional(),
         status: taskStatusSchema.optional(),
         priority: taskPrioritySchema.optional(),
         type: taskTypeSchema.optional(),
@@ -503,8 +698,13 @@ export function buildAgentChatTools(context: AgentChatContext) {
         blocked: z.boolean().optional(),
         blockReason: z.string().trim().min(10).max(500).nullable().optional(),
       }),
-      execute: async ({ ids, ...changes }) => {
-        const resolvedIds = await Promise.all(ids.map((id: string) => api.resolveTaskId(id)));
+      execute: async ({ ids, taskIds, items, ...changes }) => {
+        const refs = items || ids?.map((id) => ({ id })) || taskIds?.map((taskId) => ({ taskId })) || [];
+        if (refs.length === 0) {
+          throw new Error('Informe ids, taskIds ou items para atualizar tasks em lote.');
+        }
+
+        const resolvedIds = await Promise.all(refs.map((ref) => resolveTaskIdFromLookup(api, ref)));
         const results = await Promise.all(
           resolvedIds.map((taskId) =>
             api.patch(`/api/tasks/${taskId}`, compactObject(changes))
@@ -521,12 +721,19 @@ export function buildAgentChatTools(context: AgentChatContext) {
       name: 'block_tasks',
       description: 'Bloqueia ou desbloqueia várias tasks em lote.',
       parameters: z.object({
-        ids: z.array(z.string().min(1)).min(1).max(25),
+        ids: z.array(z.string().min(1)).min(1).max(25).optional(),
+        taskIds: z.array(z.string().min(1)).min(1).max(25).optional(),
+        items: z.array(taskRefSchema).min(1).max(25).optional(),
         blocked: z.boolean(),
         blockReason: z.string().trim().min(10).max(500).nullable().optional(),
       }),
-      execute: async ({ ids, blocked, blockReason }) => {
-        const resolvedIds = await Promise.all(ids.map((id: string) => api.resolveTaskId(id)));
+      execute: async ({ ids, taskIds, items, blocked, blockReason }) => {
+        const refs = items || ids?.map((id) => ({ id })) || taskIds?.map((taskId) => ({ taskId })) || [];
+        if (refs.length === 0) {
+          throw new Error('Informe ids, taskIds ou items para bloquear tasks em lote.');
+        }
+
+        const resolvedIds = await Promise.all(refs.map((ref) => resolveTaskIdFromLookup(api, ref)));
         const tasks = await Promise.all(
           resolvedIds.map((taskId) =>
             api.patch(`/api/tasks/${taskId}`, compactObject({
@@ -546,24 +753,23 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'add_task_comment',
       description: 'Adiciona um comentário em uma task.',
-      parameters: z.object({
-        taskId: z.string().min(1),
-        content: z.string().min(1).max(5000),
+      parameters: taskRefSchema.extend({
+        content: z.string().min(1).max(5000).optional(),
       }),
-      execute: async ({ taskId, content }) => {
-        const resolvedTaskId = await api.resolveTaskId(taskId);
+      execute: async ({ id, taskId, readableId, content }) => {
+        const resolvedTaskId = await resolveTaskIdFromLookup(api, { id, taskId, readableId });
 
-        return api.post(`/api/tasks/${resolvedTaskId}/comments`, { content });
+        return api.post(`/api/tasks/${resolvedTaskId}/comments`, {
+          content: requireValue(content, 'Informe o conteúdo do comentário.'),
+        });
       },
     }),
     defineTool({
       name: 'list_task_comments',
       description: 'Lista os comentários de uma task.',
-      parameters: z.object({
-        taskId: z.string().min(1),
-      }),
-      execute: async ({ taskId }) => {
-        const resolvedTaskId = await api.resolveTaskId(taskId);
+      parameters: taskRefSchema,
+      execute: async ({ id, taskId, readableId }) => {
+        const resolvedTaskId = await resolveTaskIdFromLookup(api, { id, taskId, readableId });
 
         return api.get(`/api/tasks/${resolvedTaskId}/comments`);
       },
@@ -571,75 +777,77 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'list_docs',
       description: 'Lista documentos de um projeto.',
-      parameters: z.object({
-        projectId: z.string().uuid(),
+      parameters: projectLookupSchema.extend({
         limit: z.number().int().min(1).max(50).optional().default(25),
       }),
-      execute: async ({ projectId, limit }) => {
-        const docs = await api.get<Array<Record<string, unknown>>>(`/api/projects/${projectId}/docs`);
+      execute: async ({ projectId, projectName, limit }) => {
+        const resolvedProjectId = await resolveProjectIdFromLookup(api, { projectId, projectName });
+        const docs = await api.get<Array<Record<string, unknown>>>(`/api/projects/${resolvedProjectId}/docs`);
         return docs.slice(0, limit);
       },
     }),
     defineTool({
       name: 'get_doc',
       description: 'Busca o conteúdo de um documento.',
-      parameters: z.object({
-        id: z.string().uuid(),
-      }),
-      execute: async ({ id }) => api.get(`/api/docs/${id}`),
+      parameters: docLookupSchema,
+      execute: async ({ id, docTitle, projectId, projectName }) => {
+        const docId = await resolveDocIdFromLookup(api, { id, docTitle, projectId, projectName });
+        return api.get(`/api/docs/${docId}`);
+      },
     }),
     defineTool({
       name: 'create_doc',
       description: 'Cria um documento novo em um projeto.',
-      parameters: z.object({
-        projectId: z.string().uuid(),
-        title: z.string().min(1).max(200),
-        content: z.string().max(100000),
+      parameters: projectLookupSchema.extend({
+        title: z.string().min(1).max(200).optional(),
+        content: z.string().max(100000).optional(),
         tagIds: z.array(z.string().uuid()).optional().default([]),
       }),
-      execute: async ({ projectId, title, content, tagIds }) =>
-        api.post(`/api/projects/${projectId}/docs`, {
-          title,
-          content,
+      execute: async ({ projectId, projectName, title, content, tagIds }) => {
+        const resolvedProjectId = await resolveProjectIdFromLookup(api, { projectId, projectName });
+        return api.post(`/api/projects/${resolvedProjectId}/docs`, {
+          title: requireValue(title, 'Informe o título do documento.'),
+          content: requireValue(content, 'Informe o conteúdo do documento.'),
           tagIds,
-        }),
+        });
+      },
     }),
     defineTool({
       name: 'update_doc',
       description: 'Atualiza título, conteúdo ou tags de um documento.',
-      parameters: z.object({
-        id: z.string().uuid(),
+      parameters: docLookupSchema.extend({
         title: z.string().min(1).max(200).optional(),
         content: z.string().max(100000).optional(),
         tagIds: z.array(z.string().uuid()).optional(),
       }),
-      execute: async ({ id, ...changes }) =>
-        api.patch(`/api/docs/${id}`, compactObject(changes)),
+      execute: async ({ id, docTitle, projectId, projectName, ...changes }) => {
+        const docId = await resolveDocIdFromLookup(api, { id, docTitle, projectId, projectName });
+        return api.patch(`/api/docs/${docId}`, compactObject(changes));
+      },
     }),
     defineTool({
       name: 'delete_doc',
       description: 'Exclui um documento.',
-      parameters: z.object({
-        id: z.string().uuid(),
-      }),
+      parameters: docLookupSchema,
       awaitConfirm: true,
-      confirmMessage: ({ id }) => `Excluir o documento ${id}?`,
-      execute: async ({ id }) => {
-        await api.delete(`/api/docs/${id}`);
+      confirmMessage: ({ id, docTitle }) => `Excluir o documento ${id || docTitle}?`,
+      execute: async ({ id, docTitle, projectId, projectName }) => {
+        const docId = await resolveDocIdFromLookup(api, { id, docTitle, projectId, projectName });
+        await api.delete(`/api/docs/${docId}`);
 
-        return { ok: true, deletedId: id };
+        return { ok: true, deletedId: docId };
       },
     }),
     defineTool({
       name: 'list_task_tags',
       description: 'Lista as tags de tasks de um projeto. Use antes de filtrar ou atribuir tags.',
-      parameters: z.object({
-        projectId: z.string().uuid(),
+      parameters: projectLookupSchema.extend({
         search: z.string().min(1).optional(),
         limit: z.number().int().min(1).max(50).optional().default(25),
       }),
-      execute: async ({ projectId, search, limit }) => {
-        const tags = await api.get<Array<Record<string, unknown>>>(`/api/projects/${projectId}/task-tags`);
+      execute: async ({ projectId, projectName, search, limit }) => {
+        const resolvedProjectId = await resolveProjectIdFromLookup(api, { projectId, projectName });
+        const tags = await api.get<Array<Record<string, unknown>>>(`/api/projects/${resolvedProjectId}/task-tags`);
         const normalizedSearch = search?.trim().toLocaleLowerCase('pt-BR');
         const filtered = normalizedSearch
           ? tags.filter((tag) => matchesLooseSearch(tag.name as string | undefined, normalizedSearch))
@@ -651,73 +859,92 @@ export function buildAgentChatTools(context: AgentChatContext) {
     defineTool({
       name: 'get_task_tag',
       description: 'Busca uma tag de task específica pelo projeto e ID da tag.',
-      parameters: z.object({
-        projectId: z.string().uuid(),
-        tagId: z.string().uuid(),
-      }),
-      execute: async ({ projectId, tagId }) => api.get(`/api/projects/${projectId}/task-tags/${tagId}`),
+      parameters: taskTagLookupSchema,
+      execute: async ({ projectId, projectName, tagId, tagName }) => {
+        const resolved = await resolveTaskTagRef(api, { projectId, projectName, tagId, tagName });
+        return api.get(`/api/projects/${resolved.projectId}/task-tags/${resolved.tagId}`);
+      },
     }),
     defineTool({
       name: 'create_task_tag',
       description: 'Cria uma nova tag de task dentro de um projeto.',
-      parameters: z.object({
-        projectId: z.string().uuid(),
-        name: z.string().min(1).max(50),
+      parameters: projectLookupSchema.extend({
+        name: z.string().min(1).max(50).optional(),
         color: taskTagColorSchema.optional(),
         description: z.string().max(200).optional(),
       }),
-      execute: async ({ projectId, ...payload }) =>
-        api.post(`/api/projects/${projectId}/task-tags`, compactObject(payload)),
+      execute: async ({ projectId, projectName, name, ...payload }) => {
+        const resolvedProjectId = await resolveProjectIdFromLookup(api, { projectId, projectName });
+        return api.post(`/api/projects/${resolvedProjectId}/task-tags`, compactObject({
+          name: requireValue(name, 'Informe o nome da tag.'),
+          ...payload,
+        }));
+      },
     }),
     defineTool({
       name: 'update_task_tag',
       description: 'Atualiza nome, cor ou descrição de uma tag de task.',
-      parameters: z.object({
-        projectId: z.string().uuid(),
-        tagId: z.string().uuid(),
+      parameters: taskTagLookupSchema.extend({
         name: z.string().min(1).max(50).optional(),
         color: taskTagColorSchema.optional(),
         description: z.string().max(200).nullable().optional(),
       }),
-      execute: async ({ projectId, tagId, ...changes }) =>
-        api.put(`/api/projects/${projectId}/task-tags/${tagId}`, compactObject(changes)),
+      execute: async ({ projectId, projectName, tagId, tagName, ...changes }) => {
+        const resolved = await resolveTaskTagRef(api, { projectId, projectName, tagId, tagName });
+        return api.put(`/api/projects/${resolved.projectId}/task-tags/${resolved.tagId}`, compactObject(changes));
+      },
     }),
     defineTool({
       name: 'delete_task_tag',
       description: 'Exclui uma tag de task de um projeto.',
-      parameters: z.object({
-        projectId: z.string().uuid(),
-        tagId: z.string().uuid(),
-      }),
+      parameters: taskTagLookupSchema,
       awaitConfirm: true,
-      confirmMessage: ({ tagId }) => `Excluir a tag ${tagId}? Isso remove as associações existentes.`,
-      execute: async ({ projectId, tagId }) => {
-        await api.delete(`/api/projects/${projectId}/task-tags/${tagId}`);
+      confirmMessage: ({ tagId, tagName }) =>
+        `Excluir a tag ${tagId || tagName}? Isso remove as associações existentes.`,
+      execute: async ({ projectId, projectName, tagId, tagName }) => {
+        const resolved = await resolveTaskTagRef(api, { projectId, projectName, tagId, tagName });
+        await api.delete(`/api/projects/${resolved.projectId}/task-tags/${resolved.tagId}`);
 
-        return { ok: true, deletedId: tagId };
+        return { ok: true, deletedId: resolved.tagId };
       },
     }),
     defineTool({
       name: 'get_task_tags',
       description: 'Lista as tags atribuídas a uma task específica.',
-      parameters: z.object({
-        taskId: z.string().min(1),
-      }),
-      execute: async ({ taskId }) => {
-        const resolvedTaskId = await api.resolveTaskId(taskId);
+      parameters: taskRefSchema,
+      execute: async ({ id, taskId, readableId }) => {
+        const resolvedTaskId = await resolveTaskIdFromLookup(api, { id, taskId, readableId });
         return api.get(`/api/tasks/${resolvedTaskId}/tags`);
       },
     }),
     defineTool({
       name: 'set_task_tags',
       description: 'Substitui todas as tags de uma task por uma nova lista.',
-      parameters: z.object({
-        taskId: z.string().min(1),
-        tagIds: z.array(z.string().uuid()).max(20),
+      parameters: taskRefSchema.extend({
+        tagIds: z.array(z.string().uuid()).max(20).optional(),
+        tagNames: z.array(z.string().min(1)).max(20).optional(),
+        projectId: z.string().uuid().optional(),
+        projectName: optionalNonEmptyStringSchema,
       }),
-      execute: async ({ taskId, tagIds }) => {
-        const resolvedTaskId = await api.resolveTaskId(taskId);
-        return api.put(`/api/tasks/${resolvedTaskId}/tags`, { tagIds });
+      execute: async ({ id, taskId, readableId, tagIds, tagNames, projectId, projectName }) => {
+        const resolvedTaskId = await resolveTaskIdFromLookup(api, { id, taskId, readableId });
+
+        let resolvedTagIds = tagIds;
+        if ((!resolvedTagIds || resolvedTagIds.length === 0) && tagNames && tagNames.length > 0) {
+          const resolvedProjectId = projectId
+            || (projectName ? await api.resolveProjectId(projectName) : undefined)
+            || await api.getTaskProjectId(resolvedTaskId);
+
+          resolvedTagIds = await Promise.all(
+            tagNames.map((tagName) => api.resolveTaskTagId(resolvedProjectId, tagName))
+          );
+        }
+
+        if (!resolvedTagIds) {
+          throw new Error('Informe tagIds ou tagNames para definir as tags da task.');
+        }
+
+        return api.put(`/api/tasks/${resolvedTaskId}/tags`, { tagIds: resolvedTagIds });
       },
     }),
   ];

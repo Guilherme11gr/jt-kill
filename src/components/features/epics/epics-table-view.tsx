@@ -87,15 +87,15 @@ export function EpicsTableView({
                     </Link>
                     <div className="flex items-center gap-2">
                       {isOpen ? (
-                        <span className="flex items-center gap-1.5 text-[10px] font-medium text-primary">
+                        <Badge variant="outline-success" className="gap-1 px-2 py-0 text-[10px]">
                           <PlayCircle className="h-3 w-3" />
                           Aberta
-                        </span>
+                        </Badge>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                        <Badge variant="outline" className="gap-1 px-2 py-0 text-[10px]">
                           <Archive className="h-3 w-3" />
                           Encerrada
-                        </span>
+                        </Badge>
                       )}
                     </div>
                     {epic.description ? (

@@ -35,6 +35,51 @@ interface ApiSuccessPayload<T> {
   data: T;
 }
 
+function normalizeLookup(value: string): string {
+  return value.trim().toLocaleLowerCase('pt-BR');
+}
+
+function findUniqueByLabel<T extends { id: string }>(
+  items: T[],
+  query: string,
+  getLabel: (item: T) => string | null | undefined,
+  entityLabel: string
+): T {
+  const normalizedQuery = normalizeLookup(query);
+
+  const exactMatches = items.filter((item) => {
+    const label = getLabel(item);
+    return label ? normalizeLookup(label) === normalizedQuery : false;
+  });
+
+  if (exactMatches.length === 1) {
+    return exactMatches[0];
+  }
+
+  if (exactMatches.length > 1) {
+    throw new Error(
+      `Encontrei ${exactMatches.length} ${entityLabel}s com o nome "${query}". Informe o id para evitar ambiguidade.`
+    );
+  }
+
+  const partialMatches = items.filter((item) => {
+    const label = getLabel(item);
+    return label ? normalizeLookup(label).includes(normalizedQuery) : false;
+  });
+
+  if (partialMatches.length === 1) {
+    return partialMatches[0];
+  }
+
+  if (partialMatches.length > 1) {
+    throw new Error(
+      `Encontrei ${partialMatches.length} ${entityLabel}s parecidos com "${query}". Informe o id para evitar ambiguidade.`
+    );
+  }
+
+  throw new Error(`Não encontrei ${entityLabel} com o valor "${query}".`);
+}
+
 function tryParseJson<T>(rawText: string): T | undefined {
   if (!rawText) {
     return undefined;
@@ -140,41 +185,81 @@ export class InternalAgentApiClient {
     if (isUuid(idOrTitle)) {
       return idOrTitle;
     }
-
-    const normalizedQuery = idOrTitle.trim().toLocaleLowerCase('pt-BR');
     const features = epicId
       ? await this.get<Array<{ id: string; title: string }>>(`/api/epics/${epicId}/features`)
       : await this.get<Array<{ id: string; title: string }>>('/api/features');
+    return findUniqueByLabel(features, idOrTitle, (feature) => feature.title, 'feature').id;
+  }
 
-    const exactMatches = features.filter((feature) => {
-      return feature.title.trim().toLocaleLowerCase('pt-BR') === normalizedQuery;
-    });
-
-    if (exactMatches.length === 1) {
-      return exactMatches[0].id;
+  async resolveProjectId(idOrName: string): Promise<string> {
+    if (isUuid(idOrName)) {
+      return idOrName;
     }
 
-    if (exactMatches.length > 1) {
-      throw new Error(
-        `Encontrei ${exactMatches.length} features com o título "${idOrTitle}". Informe o id da feature para evitar ambiguidade.`
-      );
+    const projects = await this.get<Array<{ id: string; name: string }>>('/api/projects');
+    return findUniqueByLabel(projects, idOrName, (project) => project.name, 'projeto').id;
+  }
+
+  async resolveEpicId(idOrTitle: string, projectId?: string): Promise<string> {
+    if (isUuid(idOrTitle)) {
+      return idOrTitle;
     }
 
-    const partialMatches = features.filter((feature) => {
-      return feature.title.trim().toLocaleLowerCase('pt-BR').includes(normalizedQuery);
-    });
+    const epics = projectId
+      ? await this.get<Array<{ id: string; title: string }>>(`/api/projects/${projectId}/epics`)
+      : await this.get<Array<{ id: string; title: string }>>('/api/epics');
 
-    if (partialMatches.length === 1) {
-      return partialMatches[0].id;
+    return findUniqueByLabel(epics, idOrTitle, (epic) => epic.title, 'épico').id;
+  }
+
+  async resolveDocId(idOrTitle: string, projectId?: string): Promise<string> {
+    if (isUuid(idOrTitle)) {
+      return idOrTitle;
     }
 
-    if (partialMatches.length > 1) {
-      throw new Error(
-        `Encontrei ${partialMatches.length} features parecidas com "${idOrTitle}". Informe o id da feature para evitar ambiguidade.`
-      );
+    if (projectId) {
+      const docs = await this.get<Array<{ id: string; title: string }>>(`/api/projects/${projectId}/docs`);
+      return findUniqueByLabel(docs, idOrTitle, (doc) => doc.title, 'documento').id;
     }
 
-    throw new Error(`Feature "${idOrTitle}" não encontrada.`);
+    const projects = await this.get<Array<{ id: string }>>('/api/projects');
+    const matches: Array<{ id: string; title: string }> = [];
+
+    for (const project of projects) {
+      const docs = await this.get<Array<{ id: string; title: string }>>(`/api/projects/${project.id}/docs`);
+      matches.push(...docs);
+    }
+
+    return findUniqueByLabel(matches, idOrTitle, (doc) => doc.title, 'documento').id;
+  }
+
+  async resolveTaskTagId(projectId: string, idOrName: string): Promise<string> {
+    if (isUuid(idOrName)) {
+      return idOrName;
+    }
+
+    const tags = await this.get<Array<{ id: string; name: string }>>(`/api/projects/${projectId}/task-tags`);
+    return findUniqueByLabel(tags, idOrName, (tag) => tag.name, 'tag').id;
+  }
+
+  async getTaskProjectId(taskId: string): Promise<string> {
+    const task = await this.get<{
+      projectId?: string;
+      project?: { id?: string | null } | null;
+      feature?: { epic?: { projectId?: string | null; project?: { id?: string | null } | null } | null } | null;
+    }>(`/api/tasks/${taskId}`);
+
+    const resolvedProjectId =
+      task.projectId ||
+      task.project?.id ||
+      task.feature?.epic?.projectId ||
+      task.feature?.epic?.project?.id;
+
+    if (!resolvedProjectId) {
+      throw new Error(`Não consegui descobrir o projeto da task ${taskId}.`);
+    }
+
+    return resolvedProjectId;
   }
 
   private async request<T>(

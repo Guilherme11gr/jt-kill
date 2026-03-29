@@ -571,7 +571,12 @@ export default function ProjectDetailPage({
                                     <Badge variant="outline" className="font-mono text-[10px]">
                                       E-{epic.id.slice(0, 4)}
                                     </Badge>
-                                    <Badge variant="outline">
+                                    <Badge variant={epic.status === "OPEN" ? "outline-success" : "outline"} className="gap-1">
+                                      {epic.status === "OPEN" ? (
+                                        <PlayCircle className="h-3 w-3" />
+                                      ) : (
+                                        <Archive className="h-3 w-3" />
+                                      )}
                                       {epic.status === "OPEN" ? "Aberta" : "Fechada"}
                                     </Badge>
                                     {epic.risk ? (
@@ -660,7 +665,10 @@ export default function ProjectDetailPage({
                                         <Badge variant="outline" className="font-mono text-[10px]">
                                           E-{epic.id.slice(0, 4)}
                                         </Badge>
-                                        <Badge variant="outline">Fechada</Badge>
+                                        <Badge variant="outline" className="gap-1">
+                                          <Archive className="h-3 w-3" />
+                                          Fechada
+                                        </Badge>
                                       </div>
                                       <CardTitle className="text-lg font-semibold">{epic.title}</CardTitle>
                                       {epic.description ? (

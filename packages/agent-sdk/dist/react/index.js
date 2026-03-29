@@ -1189,6 +1189,7 @@ var chatStyles = `
   background: var(--bg-primary);
   scrollbar-width: thin;
   scrollbar-color: var(--bg-elevated) transparent;
+  position: relative;
 }
 
 .agent-chat-messages::-webkit-scrollbar {
@@ -1526,10 +1527,11 @@ var chatStyles = `
 
 /* Scroll to Bottom */
 .scroll-to-bottom {
-  position: sticky;
+  position: absolute;
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 5;
   display: flex;
   align-items: center;
   gap: 6px;

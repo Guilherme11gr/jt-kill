@@ -408,7 +408,9 @@ ${thought}
           continue;
         }
       }
-      this._iterationRetryCount = 0;
+      if (retryableErrors.length === 0) {
+        this._iterationRetryCount = 0;
+      }
     }
     console.warn("[AgentSDK] Max iterations reached, returning partial result");
     const partialContent = iterHistory.filter((m) => m.role === "assistant" && m.content).map((m) => m.content).join("\n");

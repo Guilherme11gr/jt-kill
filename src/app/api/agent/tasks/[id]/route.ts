@@ -65,7 +65,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { orgId, userId, agentName } = await extractAgentAuth();
+    const { orgId, userId, agentName, keyPrefix, authMethod, keyId } = await extractAgentAuth();
     const { id } = await params;
 
     if (!z.string().uuid().safeParse(id).success) {
@@ -98,6 +98,9 @@ export async function PATCH(
     }, {
       source: 'agent',
       agentName,
+      keyPrefix,
+      authMethod,
+      keyId,
       metadata: agentMetadata,
     });
 

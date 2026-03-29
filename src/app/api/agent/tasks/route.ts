@@ -103,7 +103,7 @@ const createTaskSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const { orgId, userId, agentName } = await extractAgentAuth();
+    const { orgId, userId, agentName, keyPrefix, authMethod, keyId } = await extractAgentAuth();
 
     const body = await request.json();
     const parsed = createTaskSchema.safeParse(body);
@@ -140,6 +140,8 @@ export async function POST(request: NextRequest) {
       metadata: {
         source: 'agent',
         agentName,
+        keyPrefix,
+        authMethod,
         taskTitle: title,
         localId: task.localId,
         type,
@@ -151,7 +153,9 @@ export async function POST(request: NextRequest) {
           aiReasoning: agentMetadata.aiReasoning,
           relatedTaskIds: agentMetadata.relatedTaskIds,
         }),
-      }
+      },
+      actorType: 'agent',
+      clientId: keyId,
     }).catch(() => {}); // Best-effort, don't fail task creation
 
     return agentSuccess(task, 201);

@@ -16,7 +16,7 @@
  *         "args": ["/path/to/mcp-server/dist/index.js"],
  *         "env": {
  *           "AGENT_API_KEY": "agk_xxx",
- *           "AGENT_USER_ID": "uuid"
+ *           "AGENT_NAME": "Claude Desktop"
  *         }
  *       }
  *     }
@@ -49,7 +49,7 @@ function validateEnv(): void {
     console.error(`
 Set them in your environment or Claude Desktop config:
   AGENT_API_KEY=agk_xxxxx (required)
-  AGENT_USER_ID=uuid (optional, for comments)
+  AGENT_NAME=Claude-MCP (optional, sent as X-Agent-Name)
   AGENT_API_URL=https://... (optional, default: https://jt-kill.vercel.app/api/agent)
 `);
     process.exit(1);

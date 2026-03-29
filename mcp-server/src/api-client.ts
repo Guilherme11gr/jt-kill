@@ -52,6 +52,7 @@ export async function apiRequest<T = unknown>(
   const headers: Record<string, string> = {
     'Authorization': `Bearer ${API_KEY}`,
     'Content-Type': 'application/json; charset=utf-8',
+    'X-Agent-Name': process.env.AGENT_NAME || 'Claude-MCP',
   };
 
   const options: RequestInit = {

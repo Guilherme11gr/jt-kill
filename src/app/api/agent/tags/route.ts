@@ -9,7 +9,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { extractAgentAuth } from '@/shared/http/agent-auth';
 import { agentList, agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
-import { docTagRepository, projectRepository } from '@/infra/adapters/prisma';
+import { docTagRepository, projectRepository, auditLogRepository } from '@/infra/adapters/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +54,7 @@ const createTagSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const { orgId } = await extractAgentAuth();
+    const { orgId, userId, agentName, keyPrefix, authMethod, keyId } = await extractAgentAuth();
 
     const body = await request.json();
     const parsed = createTagSchema.safeParse(body);
@@ -82,6 +82,24 @@ export async function POST(request: NextRequest) {
       projectId,
       orgId,
     });
+
+    await auditLogRepository.log({
+      orgId,
+      userId,
+      action: 'tag.created',
+      targetType: 'project_tag',
+      targetId: tag.id,
+      actorType: 'agent',
+      clientId: keyId,
+      metadata: {
+        source: 'agent',
+        agentName,
+        keyPrefix,
+        authMethod,
+        name: tag.name,
+        projectId: tag.projectId,
+      },
+    }).catch(() => {});
 
     return agentSuccess(tag, 201);
   } catch (error) {

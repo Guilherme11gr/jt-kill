@@ -9,7 +9,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { extractAgentAuth } from '@/shared/http/agent-auth';
 import { agentList, agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
-import { featureRepository, epicRepository } from '@/infra/adapters/prisma';
+import { featureRepository, epicRepository, auditLogRepository } from '@/infra/adapters/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,7 +74,7 @@ const createFeatureSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const { orgId } = await extractAgentAuth();
+    const { orgId, userId, agentName, keyPrefix, authMethod, keyId } = await extractAgentAuth();
 
     const body = await request.json();
     const parsed = createFeatureSchema.safeParse(body);
@@ -98,6 +98,25 @@ export async function POST(request: NextRequest) {
       status,
       orgId,
     });
+
+    await auditLogRepository.log({
+      orgId,
+      userId,
+      action: 'feature.created',
+      targetType: 'feature',
+      targetId: feature.id,
+      actorType: 'agent',
+      clientId: keyId,
+      metadata: {
+        source: 'agent',
+        agentName,
+        keyPrefix,
+        authMethod,
+        title: feature.title,
+        status: feature.status,
+        epicId: feature.epicId,
+      },
+    }).catch(() => {});
 
     return agentSuccess(feature, 201);
   } catch (error) {

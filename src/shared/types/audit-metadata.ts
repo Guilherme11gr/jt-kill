@@ -14,6 +14,8 @@ export interface BaseAuditMetadata {
   
   // Contexto de agente (preenchido automaticamente se source === 'agent')
   agentName?: string;           // 'Gepeto'
+  keyPrefix?: string;
+  authMethod?: 'tenant_api_key';
   
   // Contexto da operação
   triggerSource?: string;       // 'kanban-drag', 'bulk-update', 'api-patch'

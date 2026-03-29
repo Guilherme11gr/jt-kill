@@ -46,7 +46,6 @@ export async function GET(
 
 const createCommentSchema = z.object({
   content: z.string().min(1, 'Content is required'),
-  userId: z.string().uuid().optional(),
 });
 
 export async function POST(
@@ -54,7 +53,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { orgId } = await extractAgentAuth();
+    const { orgId, userId } = await extractAgentAuth();
     const { id: taskId } = await params;
 
     if (!z.string().uuid().safeParse(taskId).success) {
@@ -74,20 +73,7 @@ export async function POST(
       return agentError('VALIDATION_ERROR', parsed.error.issues[0].message, 400);
     }
 
-    const { content, userId: bodyUserId } = parsed.data;
-
-    // Determine the author (User ID)
-    // 1. Provided in the body
-    // 2. AGENT_USER_ID env var
-    const userId = bodyUserId || process.env.AGENT_USER_ID;
-
-    if (!userId) {
-      return agentError(
-        'CONFIGURATION_ERROR',
-        'User ID is required. Provide "userId" in body or configure AGENT_USER_ID.',
-        400
-      );
-    }
+    const { content } = parsed.data;
 
     // Create the comment
     // Only 'content' is required by schema, but repository needs orgId, taskId, userId

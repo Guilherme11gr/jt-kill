@@ -141,7 +141,6 @@ export async function handleAddTaskComment(args: ToolArgs): Promise<string> {
     const taskId = await resolveTaskId(args.taskId as string);
     const body = {
       content: args.content,
-      userId: process.env.AGENT_USER_ID,
     };
     const response = await apiRequest('POST', `/tasks/${taskId}/comments`, body);
     return formatResponse(response.data, '✅ Comment added');

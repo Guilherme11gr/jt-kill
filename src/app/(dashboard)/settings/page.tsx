@@ -7,6 +7,7 @@ import { Users, History, User, ChevronRight, Crown, Building2 } from "lucide-rea
 import { useAuth } from "@/hooks/use-auth";
 import { useWorkspaceCTA } from "@/hooks/useWorkspaceCTA";
 import { CreateWorkspaceCTAModal } from "@/components/features/workspace-cta/CreateWorkspaceCTAModal";
+import { AgentAccessCard } from "@/components/features/settings/agent-access-card";
 
 export default function SettingsPage() {
   const { profile } = useAuth();
@@ -100,6 +101,8 @@ export default function SettingsPage() {
           </Link>
         ))}
       </div>
+
+      {isOwner && <AgentAccessCard />}
 
       {/* Modal for workspace creation */}
       <CreateWorkspaceCTAModal

@@ -40,6 +40,8 @@ const actionLabels: Record<string, { label: string; icon: typeof User; color: st
   'invite.created': { label: 'Convite criado', icon: UserPlus, color: 'text-purple-500' },
   'invite.revoked': { label: 'Convite revogado', icon: UserMinus, color: 'text-orange-500' },
   'invite.accepted': { label: 'Convite aceito', icon: UserPlus, color: 'text-green-500' },
+  'agent_key.generated': { label: 'Chave de agent gerada', icon: Shield, color: 'text-emerald-500' },
+  'agent_key.rotated': { label: 'Chave de agent regenerada', icon: Shield, color: 'text-amber-500' },
 };
 
 export default function AuditLogsPage() {

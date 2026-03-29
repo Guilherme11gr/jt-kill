@@ -23,7 +23,13 @@ const API_DOCS = {
     type: 'bearer',
     header: 'Authorization',
     format: 'Bearer agk_xxxxxxxxxxxx',
-    description: 'API key authentication. Contact admin to get your key.',
+    description: 'Tenant-scoped API key authentication. Generate the key in Settings > Acesso para Agents.',
+    headers: {
+      'X-Agent-Name': {
+        required: false,
+        description: 'Friendly name recorded in audit logs. Example: Claude Desktop',
+      },
+    },
   },
 
   responseFormat: {

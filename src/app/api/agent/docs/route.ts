@@ -9,7 +9,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { extractAgentAuth } from '@/shared/http/agent-auth';
 import { agentList, agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
-import { projectDocRepository, projectRepository } from '@/infra/adapters/prisma';
+import { projectDocRepository, projectRepository, auditLogRepository } from '@/infra/adapters/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,7 +55,7 @@ const createDocSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
-    const { orgId } = await extractAgentAuth();
+    const { orgId, userId, agentName, keyPrefix, authMethod, keyId } = await extractAgentAuth();
 
     const body = await request.json();
     const parsed = createDocSchema.safeParse(body);
@@ -78,6 +78,24 @@ export async function POST(request: NextRequest) {
       content,
       orgId,
     });
+
+    await auditLogRepository.log({
+      orgId,
+      userId,
+      action: 'doc.created',
+      targetType: 'project_doc',
+      targetId: doc.id,
+      actorType: 'agent',
+      clientId: keyId,
+      metadata: {
+        source: 'agent',
+        agentName,
+        keyPrefix,
+        authMethod,
+        title: doc.title,
+        projectId: doc.projectId,
+      },
+    }).catch(() => {});
 
     return agentSuccess(doc, 201);
   } catch (error) {

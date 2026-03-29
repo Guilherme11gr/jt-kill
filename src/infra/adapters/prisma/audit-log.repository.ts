@@ -21,6 +21,8 @@ export interface CreateAuditLogInput {
   targetType?: string;
   targetId?: string;
   metadata?: Record<string, unknown>;
+  actorType?: 'user' | 'agent' | 'system';
+  clientId?: string;
 }
 
 // Audit action constants for type safety
@@ -67,6 +69,8 @@ export class AuditLogRepository {
         targetType: data.targetType,
         targetId: data.targetId,
         metadata: data.metadata as Prisma.JsonObject,
+        actorType: data.actorType,
+        clientId: data.clientId,
       },
     });
   }

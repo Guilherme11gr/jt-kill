@@ -1,24 +1,28 @@
 /**
  * Agent API Authentication Helpers
  * 
- * Simple API key authentication for external agents/automations.
- * Keys are stored as environment variables for simplicity.
+ * Tenant-scoped API key authentication for external agents/automations.
  * 
  * Auth header format: Authorization: Bearer agk_xxxxxxxxxxxx
- * 
- * Environment variables:
- * - AGENT_API_KEY: The API key that agents must provide
- * - AGENT_ORG_ID: The organization ID that the agent operates under
  */
 
 import { headers } from 'next/headers';
-import { timingSafeEqual } from 'crypto';
+import { agentApiKeyRepository } from '@/infra/adapters/prisma';
+import {
+  AGENT_NAME_HEADER,
+  hashAgentApiKey,
+  parseAgentAuthorizationHeader,
+  resolveAgentName,
+  verifyAgentApiKey,
+} from './agent-api-key';
 
 export interface AgentAuthContext {
+  keyId: string;
   orgId: string;
   userId: string; // User ID for audit trail (e.g., AI agent user)
-  agentName: string; // Agent name for audit metadata (e.g., 'Gepeto')
+  agentName: string; // Agent name for audit metadata (e.g., 'Claude Desktop')
   keyPrefix: string; // Last 4 chars for logging
+  authMethod: 'tenant_api_key';
 }
 
 export class AgentAuthError extends Error {
@@ -35,44 +39,32 @@ export class AgentAuthError extends Error {
  */
 export async function extractAgentAuth(): Promise<AgentAuthContext> {
   const headerStore = await headers();
-  const authHeader = headerStore.get('authorization');
+  const agentName = resolveAgentName(headerStore.get(AGENT_NAME_HEADER));
 
-  if (!authHeader) {
-    throw new AgentAuthError('Missing Authorization header');
+  let key: string;
+  try {
+    key = parseAgentAuthorizationHeader(headerStore.get('authorization'));
+  } catch (error) {
+    throw new AgentAuthError((error as Error).message);
   }
 
-  if (!authHeader.startsWith('Bearer ')) {
-    throw new AgentAuthError('Invalid Authorization format. Use: Bearer agk_xxx');
-  }
+  const keyHashRecord = await agentApiKeyRepository.findByKeyHash(
+    // Fast lookup by deterministic hash; verifyAgentApiKey still performs timing-safe comparison.
+    hashAgentApiKey(key)
+  );
 
-  const key = authHeader.substring(7); // Remove 'Bearer '
-
-  if (!key.startsWith('agk_')) {
-    throw new AgentAuthError('Invalid API key format. Keys start with agk_');
-  }
-
-  // Validate against environment variable
-  const validKey = process.env.AGENT_API_KEY;
-  const orgId = process.env.AGENT_ORG_ID;
-  const userId = process.env.AGENT_USER_ID; // User ID for audit logs
-  const agentName = process.env.AGENT_NAME || 'Gepeto'; // Agent name for audit metadata
-
-  if (!validKey || !orgId || !userId) {
-    throw new AgentAuthError('Agent API not configured', 503);
-  }
-
-  // Timing-safe comparison to prevent timing attacks
-  const keyBuffer = Buffer.from(key);
-  const validKeyBuffer = Buffer.from(validKey);
-
-  if (keyBuffer.length !== validKeyBuffer.length || !timingSafeEqual(keyBuffer, validKeyBuffer)) {
+  if (!keyHashRecord || !verifyAgentApiKey(key, keyHashRecord.keyHash)) {
     throw new AgentAuthError('Invalid API key');
   }
 
+  await agentApiKeyRepository.touchUsage(keyHashRecord.id, agentName).catch(() => {});
+
   return {
-    orgId,
-    userId,
+    keyId: keyHashRecord.id,
+    orgId: keyHashRecord.orgId,
+    userId: keyHashRecord.createdBy,
     agentName,
-    keyPrefix: key.slice(-4),
+    keyPrefix: keyHashRecord.keyPrefix,
+    authMethod: 'tenant_api_key',
   };
 }

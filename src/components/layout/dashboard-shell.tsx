@@ -12,9 +12,6 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
-  Bot,
-  PlayCircle,
-  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,9 +36,6 @@ export function DashboardShell({
     { icon: FolderKanban, label: "Projetos", href: "/projects" },
     { icon: CheckSquare, label: "Minhas Tasks", href: "/tasks" },
     { icon: Zap, label: "AI Scribe", href: "/scribe" },
-    { icon: Bot, label: "Kai Zone", href: "/kai" },
-    { icon: PlayCircle, label: "Kai Executions", href: "/kai-executions" },
-    { icon: Moon, label: "Luna Hub", href: "/luna" },
     { icon: Users, label: "Equipe", href: "/settings/team" },
     { icon: Settings, label: "Configurações", href: "/settings" },
   ];

@@ -10,7 +10,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { extractAgentAuth } from '@/shared/http/agent-auth';
 import { agentSuccess, agentError, handleAgentError } from '@/shared/http/agent-responses';
-import { featureRepository } from '@/infra/adapters/prisma';
+import { featureRepository, auditLogRepository } from '@/infra/adapters/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +52,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { orgId } = await extractAgentAuth();
+    const { orgId, userId, agentName, keyPrefix, authMethod, keyId } = await extractAgentAuth();
     const { id } = await params;
 
     if (!z.string().uuid().safeParse(id).success) {
@@ -83,6 +83,26 @@ export async function PATCH(
 
     const updated = await featureRepository.update(id, orgId, updateData);
 
+    await auditLogRepository.log({
+      orgId,
+      userId,
+      action: 'feature.updated',
+      targetType: 'feature',
+      targetId: id,
+      actorType: 'agent',
+      clientId: keyId,
+      metadata: {
+        source: 'agent',
+        agentName,
+        keyPrefix,
+        authMethod,
+        previousTitle: existing.title,
+        nextTitle: updated.title,
+        previousStatus: existing.status,
+        nextStatus: updated.status,
+      },
+    }).catch(() => {});
+
     return agentSuccess(updated);
   } catch (error) {
     return handleAgentError(error);
@@ -96,7 +116,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { orgId } = await extractAgentAuth();
+    const { orgId, userId, agentName, keyPrefix, authMethod, keyId } = await extractAgentAuth();
     const { id } = await params;
 
     if (!z.string().uuid().safeParse(id).success) {
@@ -110,6 +130,24 @@ export async function DELETE(
     }
 
     await featureRepository.delete(id, orgId);
+
+    await auditLogRepository.log({
+      orgId,
+      userId,
+      action: 'feature.deleted',
+      targetType: 'feature',
+      targetId: id,
+      actorType: 'agent',
+      clientId: keyId,
+      metadata: {
+        source: 'agent',
+        agentName,
+        keyPrefix,
+        authMethod,
+        title: existing.title,
+        status: existing.status,
+      },
+    }).catch(() => {});
 
     return agentSuccess({ deleted: true, id });
   } catch (error) {

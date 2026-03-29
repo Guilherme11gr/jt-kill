@@ -167,6 +167,8 @@ describe('updateTask', () => {
     }, {
       source: 'agent',
       agentName: 'Gepeto',
+      keyPrefix: 'abcd',
+      authMethod: 'tenant_api_key',
       metadata: {
         changeReason: 'PR foi mergeado',
         aiReasoning: 'Task relacionada ao PR #123',

@@ -20,7 +20,6 @@ import { BlockTaskDialog } from './block-task-dialog';
 import { useBlockTaskDialog } from '@/hooks/use-block-task-dialog';
 import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { OptimisticWrapper } from '@/components/ui/optimistic-wrapper';
-import { KaiExecuteButton } from '@/components/features/kai/kai-execute-button';
 import type { TaskWithReadableId } from '@/shared/types';
 
 // Generate consistent colors for modules based on hash (legacy fallback)
@@ -167,12 +166,6 @@ export function TaskCard({
           {isBug && (
             <Bug className="w-3.5 h-3.5 text-red-500" />
           )}
-          {/* Kai Execute Button */}
-          <KaiExecuteButton
-            taskId={task.id}
-            projectHasRepo={true} // TODO: Pegar do projeto real
-            className="h-6 text-xs"
-          />
           {/* Blocked toggle - apenas se não estiver DONE */}
           {task.status !== 'DONE' && (
             <Tooltip>

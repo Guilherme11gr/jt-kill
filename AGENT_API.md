@@ -7,6 +7,11 @@ Todas as rotas (exceto `/api/agent`) requerem header:
 Authorization: Bearer agk_xxxxxxxxxxxxx
 ```
 
+Header opcional para auditoria do agent:
+```
+X-Agent-Name: Claude Desktop
+```
+
 ## Base URL
 ```
 http://localhost:3000/api/agent
@@ -86,8 +91,7 @@ POST /api/agent/tasks/:id/comments
 Body:
 ```json
 {
-  "content": "string (required, markdown)",
-  "userId": "uuid (optional - defaults to AGENT_USER_ID env var)"
+  "content": "string (required, markdown)"
 }
 ```
 

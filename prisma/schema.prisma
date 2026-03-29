@@ -17,6 +17,7 @@ model Organization {
   createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   maxUsers      Int?            @map("max_users")
+  agentApiKey   AgentApiKey?
   auditLogs     AuditLog[]
   comments      Comment[]
   epics         Epic[]
@@ -33,6 +34,23 @@ model Organization {
 
   @@index([slug], map: "idx_organizations_slug")
   @@map("organizations")
+  @@schema("public")
+}
+
+model AgentApiKey {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId             String        @unique @map("org_id") @db.Uuid
+  keyHash           String        @unique @map("key_hash")
+  keyPrefix         String        @map("key_prefix")
+  createdBy         String        @map("created_by") @db.Uuid
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  rotatedAt         DateTime?     @map("rotated_at") @db.Timestamptz(6)
+  lastUsedAt        DateTime?     @map("last_used_at") @db.Timestamptz(6)
+  lastUsedAgentName String?       @map("last_used_agent_name")
+  organization      Organization  @relation(fields: [orgId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([lastUsedAt], map: "idx_agent_api_keys_last_used_at")
+  @@map("agent_api_keys")
   @@schema("public")
 }
 

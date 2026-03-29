@@ -12,6 +12,7 @@ import { TaskTagRepository } from './task-tag.repository';
 import { InviteRepository } from './invite.repository';
 import { AuditLogRepository } from './audit-log.repository';
 import { OrgMembershipRepository } from './org-membership.repository';
+import { AgentApiKeyRepository } from './agent-api-key.repository';
 
 // Singleton Prisma Client
 // https://www.prisma.io/docs/guides/performance-and-optimization/connection-management#prismaclient-in-long-running-applications
@@ -41,6 +42,7 @@ export const taskTagRepository = new TaskTagRepository(prisma);
 export const inviteRepository = new InviteRepository(prisma);
 export const auditLogRepository = new AuditLogRepository(prisma);
 export const orgMembershipRepository = new OrgMembershipRepository(prisma);
+export const agentApiKeyRepository = new AgentApiKeyRepository(prisma);
 
 // Re-export for convenience
 export {
@@ -57,6 +59,7 @@ export {
   InviteRepository,
   AuditLogRepository,
   OrgMembershipRepository,
+  AgentApiKeyRepository,
 };
 
 // Re-export audit action constants

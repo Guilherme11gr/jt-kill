@@ -36,7 +36,7 @@ const bulkUpdateSchema = z.object({
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { orgId, userId, agentName } = await extractAgentAuth();
+    const { orgId, userId, agentName, keyPrefix, authMethod, keyId } = await extractAgentAuth();
 
     const body = await request.json();
     const parsed = bulkUpdateSchema.safeParse(body);
@@ -76,6 +76,8 @@ export async function PATCH(request: NextRequest) {
     const baseMetadata = {
       source: 'agent' as const,
       agentName,
+      keyPrefix,
+      authMethod,
       bulkOperation: true,
       ...(agentMetadata && {
         changeReason: agentMetadata.changeReason,
@@ -97,6 +99,8 @@ export async function PATCH(request: NextRequest) {
             action: AUDIT_ACTIONS.TASK_STATUS_CHANGED,
             targetType: 'task',
             targetId: task.id,
+            actorType: 'agent',
+            clientId: keyId,
             metadata: {
               ...baseMetadata,
               fromStatus: task.status,
@@ -118,6 +122,8 @@ export async function PATCH(request: NextRequest) {
             action: AUDIT_ACTIONS.TASK_ASSIGNED,
             targetType: 'task',
             targetId: task.id,
+            actorType: 'agent',
+            clientId: keyId,
             metadata: {
               ...baseMetadata,
               fromAssigneeId: task.assigneeId,
@@ -139,6 +145,8 @@ export async function PATCH(request: NextRequest) {
             action: safeUpdate.blocked ? 'task.blocked' : 'task.unblocked',
             targetType: 'task',
             targetId: task.id,
+            actorType: 'agent',
+            clientId: keyId,
             metadata: {
               ...baseMetadata,
               taskTitle: task.title,

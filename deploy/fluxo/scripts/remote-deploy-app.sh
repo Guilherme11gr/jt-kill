@@ -40,6 +40,33 @@ compose() {
   )
 }
 
+ensure_agent_api_keys_schema() {
+  local migration_file="${STACK_DIR}/../../prisma/migrations/20260329_add_agent_api_keys/migration.sql"
+  local postgres_container="${FLUXO_POSTGRES_CONTAINER_NAME:-fluxo-postgres}"
+
+  if [[ ! -f "${migration_file}" ]]; then
+    echo "Agent API key migration file not found at ${migration_file}" >&2
+    exit 1
+  fi
+
+  local table_exists
+  table_exists="$(docker exec -i "${postgres_container}" \
+    psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -Atqc \
+    "SELECT to_regclass('public.agent_api_keys') IS NOT NULL")"
+
+  if [[ "${table_exists}" == "t" ]]; then
+    echo "Agent API key schema already present"
+    return
+  fi
+
+  echo "Applying agent API key schema migration"
+  docker exec -i "${postgres_container}" \
+    psql -v ON_ERROR_STOP=1 -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" \
+    < "${migration_file}"
+}
+
+ensure_agent_api_keys_schema
+
 echo "Building ${APP_SERVICE} image from ${STACK_DIR}"
 compose build "${APP_SERVICE}"
 

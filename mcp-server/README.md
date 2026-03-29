@@ -21,7 +21,7 @@ A forma mais simples de usar o MCP Server:
       "args": ["-y", "@guilherme11gr/jt-kill-mcp"],
       "env": {
         "AGENT_API_KEY": "agk_seu_token_aqui",
-        "AGENT_USER_ID": "seu_user_id_aqui"
+        "AGENT_NAME": "Claude Desktop"
       }
     }
   }
@@ -62,7 +62,7 @@ npm run build
       "args": ["D:/caminho/absoluto/jt-kill/mcp-server/dist/index.js"],
       "env": {
         "AGENT_API_KEY": "agk_5f8d2e1b9c3a4b7d8e9f0a1b2c3d4e5f",
-        "AGENT_USER_ID": "b7d65a91-7cb6-4583-b46d-4f64713ffae2"
+        "AGENT_NAME": "Claude Desktop"
       }
     }
   }
@@ -184,9 +184,8 @@ npm run dev
 | Variável | Obrigatório | Descrição |
 |----------|-------------|-----------|
 | `AGENT_API_KEY` | ✅ | API key (formato: agk_xxx) |
-| `AGENT_USER_ID` | ⚪ | UUID do usuário (para comentários) |
 | `AGENT_API_URL` | ⚪ | URL da API (default: https://jt-kill.vercel.app/api/agent) |
-| `AGENT_NAME` | ⚪ | Nome do agent nos logs (default: Claude-MCP) |
+| `AGENT_NAME` | ⚪ | Nome do agent nos logs e no header `X-Agent-Name` (default: Claude-MCP) |
 
 ---
 

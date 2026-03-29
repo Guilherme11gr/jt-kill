@@ -25,6 +25,9 @@ export interface UpdateTaskInput {
 export interface AutomationContext {
   source: 'agent';
   agentName: string;
+  keyPrefix: string;
+  authMethod: 'tenant_api_key';
+  keyId?: string;
   metadata?: AgentProvidedMetadata;
 }
 
@@ -66,6 +69,8 @@ export async function updateTask(
     source: context?.source || 'human',
     ...(context?.source === 'agent' && {
       agentName: context.agentName,
+      keyPrefix: context.keyPrefix,
+      authMethod: context.authMethod,
       ...(context.metadata && {
         changeReason: context.metadata.changeReason,
         aiReasoning: context.metadata.aiReasoning,
@@ -88,6 +93,8 @@ export async function updateTask(
         action: AUDIT_ACTIONS.TASK_STATUS_CHANGED,
         targetType: 'task',
         targetId: id,
+        actorType: context?.source === 'agent' ? 'agent' : 'user',
+        clientId: context?.source === 'agent' ? context.keyId : undefined,
         metadata: {
           ...baseMetadata,
           fromStatus: existing.status,
@@ -106,6 +113,8 @@ export async function updateTask(
         action: AUDIT_ACTIONS.TASK_ASSIGNED,
         targetType: 'task',
         targetId: id,
+        actorType: context?.source === 'agent' ? 'agent' : 'user',
+        clientId: context?.source === 'agent' ? context.keyId : undefined,
         metadata: {
           ...baseMetadata,
           fromAssigneeId: existing.assigneeId,
@@ -124,6 +133,8 @@ export async function updateTask(
         action: input.blocked ? 'task.blocked' : 'task.unblocked',
         targetType: 'task',
         targetId: id,
+        actorType: context?.source === 'agent' ? 'agent' : 'user',
+        clientId: context?.source === 'agent' ? context.keyId : undefined,
         metadata: baseMetadata
       })
     );

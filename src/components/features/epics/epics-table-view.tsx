@@ -77,6 +77,7 @@ export function EpicsTableView({
                   <div className="flex flex-col gap-1">
                     <Link
                       href={`/projects/${projectId}/epics/${epic.id}`}
+                      prefetch={false}
                       className="flex items-center gap-2 hover:underline"
                     >
                       <span className="font-mono text-xs text-muted-foreground">

@@ -562,7 +562,7 @@ export default function ProjectDetailPage({
                   <div className="grid gap-4">
                     {openEpics.map((epic) => (
                       <div key={epic.id} className="relative group">
-                        <Link href={`/projects/${resolvedParams.id}/epics/${epic.id}`}>
+                        <Link href={`/projects/${resolvedParams.id}/epics/${epic.id}`} prefetch={false}>
                           <Card className="cursor-pointer transition-all duration-300 hover:border-primary/50 hover:shadow-sm">
                             <CardHeader className="pb-4">
                               <div className="flex items-start justify-between gap-3">
@@ -651,7 +651,7 @@ export default function ProjectDetailPage({
                       <div className="grid gap-4">
                         {closedEpics.map((epic) => (
                           <div key={epic.id} className="relative group">
-                            <Link href={`/projects/${resolvedParams.id}/epics/${epic.id}`}>
+                            <Link href={`/projects/${resolvedParams.id}/epics/${epic.id}`} prefetch={false}>
                               <Card className="cursor-pointer transition-all duration-300 hover:border-primary/40 hover:shadow-sm">
                                 <CardHeader className="pb-4">
                                   <div className="flex items-start justify-between gap-3">

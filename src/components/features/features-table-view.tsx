@@ -131,6 +131,7 @@ export function FeaturesTableView({
                   <div className="flex flex-col gap-0.5">
                     <Link
                       href={`/projects/${projectId}/epics/${epicId}/features/${feature.id}`}
+                      prefetch={false}
                       className="hover:underline flex items-center gap-2"
                     >
                       <span className="text-muted-foreground font-mono text-xs">F-{feature.id.slice(0, 4)}</span>

@@ -24,22 +24,7 @@ jobs:
     name: Verify
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: fluxo
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d fluxo"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 12
     env:
-      CI_PSQL_URL: postgresql://postgres:postgres@127.0.0.1:5432/fluxo
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/fluxo?schema=public
       DIRECT_URL: postgresql://postgres:postgres@127.0.0.1:5432/fluxo?schema=public
       BETTER_AUTH_URL: http://127.0.0.1:3000
@@ -63,18 +48,6 @@ jobs:
         env:
           HUSKY: 0
         run: npm ci
-
-      - name: Prepare CI database
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-          until pg_isready -d "${CI_PSQL_URL}"; do
-            sleep 1
-          done
-          psql "${CI_PSQL_URL}" -c 'CREATE SCHEMA IF NOT EXISTS auth;'
-          psql "${CI_PSQL_URL}" -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto;'
-          psql "${CI_PSQL_URL}" -c 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'
-          npx prisma db push --skip-generate
 
       - name: Typecheck
         run: npm run typecheck

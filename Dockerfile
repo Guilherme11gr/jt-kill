@@ -1,6 +1,11 @@
+# syntax=docker/dockerfile:1.7
+
 FROM node:20-bookworm-slim AS base
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV npm_config_update_notifier=false
+ENV npm_config_fund=false
+ENV npm_config_audit=false
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates openssl \
@@ -12,12 +17,12 @@ FROM base AS deps
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 FROM deps AS builder
 
 COPY . .
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache npm run build:docker
 
 FROM node:20-bookworm-slim AS runner
 

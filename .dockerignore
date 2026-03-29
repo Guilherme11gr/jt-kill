@@ -1,11 +1,17 @@
 .git
 .github
+.claude
+.clinerules
 .next
+.env
+.env.*
+.mcp.json
 coverage
 dist
 docs
 node_modules
 npm-debug.log
+*.log
 test-results
 tmpclaude-*
 typecheck*.log

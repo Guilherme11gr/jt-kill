@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, use, useRef, useEffect } from "react";
+import { useState, useCallback, use, useRef, useEffect, useMemo, useDeferredValue } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -20,6 +20,14 @@ import { FileText } from "lucide-react";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { useTabQuery } from "@/hooks/use-tab-query";
 import { toast } from "sonner";
+import { ViewToggle, type ViewMode } from "@/components/features/tasks";
+import {
+  EpicsTableView,
+  EpicRiskBadge,
+  filterProjectEpics,
+  splitProjectEpicsByStatus,
+  type ProjectEpicListItem,
+} from "@/components/features/epics";
 import { 
   API_ROUTES, 
   AI_REFINE_TIMEOUT_MS, 
@@ -27,13 +35,7 @@ import {
   AI_COOLDOWN_MS 
 } from "@/config/ai.config";
 
-interface Epic {
-  id: string;
-  title: string;
-  description?: string | null;
-  status: string;
-  _count?: { features: number };
-}
+type Epic = ProjectEpicListItem;
 
 
 
@@ -63,6 +65,10 @@ export default function ProjectDetailPage({
 
   // Tab State
   const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "docs", "ideas"]);
+  const [epicsView, setEpicsView] = useState<ViewMode>("table");
+  const [epicSearch, setEpicSearch] = useState("");
+  const [epicStatusFilter, setEpicStatusFilter] = useState<"all" | "OPEN" | "CLOSED">("all");
+  const deferredEpicSearch = useDeferredValue(epicSearch);
 
   // Create Epic State
   const [isEpicDialogOpen, setIsEpicDialogOpen] = useState(false);
@@ -295,6 +301,15 @@ export default function ProjectDetailPage({
     }
   };
 
+  const filteredEpics = useMemo(() => {
+    return filterProjectEpics(epics, deferredEpicSearch, epicStatusFilter);
+  }, [deferredEpicSearch, epicStatusFilter, epics]);
+
+  const { openEpics, closedEpics } = useMemo(
+    () => splitProjectEpicsByStatus(filteredEpics),
+    [filteredEpics]
+  );
+
   // Only show skeleton on initial load (no cached data yet)
   // During refetch, keep UI mounted to preserve modal state
   if (loading && !project && epics.length === 0) {
@@ -391,91 +406,130 @@ export default function ProjectDetailPage({
       {/* Epics Tab */}
       {activeTab === "epics" && (
         <div>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h2 className="text-xl font-semibold">Epics</h2>
-            <Dialog open={isEpicDialogOpen} onOpenChange={setIsEpicDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2 w-full sm:w-auto">
-                  <Plus className="w-4 h-4" />
-                  Nova Epic
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Criar Nova Epic</DialogTitle>
-                  <DialogDescription>
-                    Epics agrupam features relacionadas
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleCreateEpic} className="space-y-4">
-                  <div>
-                    <Label htmlFor="epic-title">Título</Label>
-                    <Input
-                      id="epic-title"
-                      value={epicFormData.title}
-                      onChange={(e) =>
-                        setEpicFormData({ ...epicFormData, title: e.target.value })
-                      }
-                      placeholder="Nome da Epic"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="epic-description">Descrição</Label>
-                    <MarkdownEditor
-                      id="epic-description"
-                      value={epicFormData.description}
-                      onChange={(v) =>
-                        setEpicFormData({ ...epicFormData, description: v })
-                      }
-                      placeholder="Descrição da epic...&#10;&#10;## Objetivo&#10;Descreva o objetivo geral&#10;&#10;## Escopo&#10;- [ ] Item 1"
-                      minHeight="200px"
-                      onImprove={handleImproveDescription}
-                      onGenerate={handleGenerateDescription}
-                      isImproving={isRefiningDescription}
-                      isGenerating={isGeneratingDescription}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="epic-status">Status</Label>
-                    <Select
-                      value={epicFormData.status}
-                      onValueChange={(v) => setEpicFormData({ ...epicFormData, status: v as "OPEN" | "CLOSED" })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="OPEN">Aberto</SelectItem>
-                        <SelectItem value="CLOSED">Fechado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsEpicDialogOpen(false)}
-                      disabled={saving}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button type="submit" disabled={saving}>
-                      {saving ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Criando...
-                        </>
-                      ) : (
-                        "Criar Epic"
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+          <div className="flex flex-col gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Epics</h2>
+                <p className="text-sm text-muted-foreground">
+                  {filteredEpics.length} de {epics.length} epics visíveis
+                </p>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                <ViewToggle
+                  value={epicsView}
+                  onChange={setEpicsView}
+                  primaryLabel="Grid"
+                  secondaryLabel="Table"
+                />
+              </div>
+            </div>
 
+            <div className="flex flex-col lg:flex-row gap-3">
+              <Input
+                value={epicSearch}
+                onChange={(e) => setEpicSearch(e.target.value)}
+                placeholder="Buscar epics por título ou descrição..."
+                className="lg:max-w-sm"
+              />
+              <Select
+                value={epicStatusFilter}
+                onValueChange={(value) => setEpicStatusFilter(value as "all" | "OPEN" | "CLOSED")}
+              >
+                <SelectTrigger className="w-full lg:w-[180px]">
+                  <SelectValue placeholder="Filtrar status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os status</SelectItem>
+                  <SelectItem value="OPEN">Abertas</SelectItem>
+                  <SelectItem value="CLOSED">Fechadas</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="lg:ml-auto">
+                <Dialog open={isEpicDialogOpen} onOpenChange={setIsEpicDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="gap-2 w-full sm:w-auto">
+                      <Plus className="w-4 h-4" />
+                      Nova Epic
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Criar Nova Epic</DialogTitle>
+                      <DialogDescription>
+                        Epics agrupam features relacionadas
+                      </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleCreateEpic} className="space-y-4">
+                      <div>
+                        <Label htmlFor="epic-title">Título</Label>
+                        <Input
+                          id="epic-title"
+                          value={epicFormData.title}
+                          onChange={(e) =>
+                            setEpicFormData({ ...epicFormData, title: e.target.value })
+                          }
+                          placeholder="Nome da Epic"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="epic-description">Descrição</Label>
+                        <MarkdownEditor
+                          id="epic-description"
+                          value={epicFormData.description}
+                          onChange={(v) =>
+                            setEpicFormData({ ...epicFormData, description: v })
+                          }
+                          placeholder="Descrição da epic...&#10;&#10;## Objetivo&#10;Descreva o objetivo geral&#10;&#10;## Escopo&#10;- [ ] Item 1"
+                          minHeight="200px"
+                          onImprove={handleImproveDescription}
+                          onGenerate={handleGenerateDescription}
+                          isImproving={isRefiningDescription}
+                          isGenerating={isGeneratingDescription}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="epic-status">Status</Label>
+                        <Select
+                          value={epicFormData.status}
+                          onValueChange={(v) => setEpicFormData({ ...epicFormData, status: v as "OPEN" | "CLOSED" })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="OPEN">Aberto</SelectItem>
+                            <SelectItem value="CLOSED">Fechado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsEpicDialogOpen(false)}
+                          disabled={saving}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button type="submit" disabled={saving}>
+                          {saving ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Criando...
+                            </>
+                          ) : (
+                            "Criar Epic"
+                          )}
+                        </Button>
+                      </div>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          </div>
           {epics.length === 0 ? (
             <EmptyState
               icon={Layers}
@@ -488,70 +542,172 @@ export default function ProjectDetailPage({
                 </Button>
               }
             />
+          ) : filteredEpics.length === 0 ? (
+            <EmptyState
+              icon={Layers}
+              title="Nenhuma epic encontrada"
+              description="Ajuste a busca ou o filtro para ver outras epics."
+            />
           ) : (
-            <div className="grid gap-4">
-              {epics.map((epic) => (
-                <div key={epic.id} className="relative group">
-                  <Link href={`/projects/${resolvedParams.id}/epics/${epic.id}`}>
-                    <Card
-                      className="hover:border-primary/50 hover:shadow-sm transition-all duration-300 cursor-pointer"
-                    >
-                      <CardHeader className="pb-4">
-                        <div className="flex justify-between items-start gap-3">
-                          <div className="space-y-1">
-                            <CardTitle className="text-lg font-semibold text-card-foreground group-hover:text-foreground transition-colors">
-                              {epic.title}
-                            </CardTitle>
-                            {epic.description && (
-                              <CardDescription className="text-sm text-muted-foreground group-hover:text-muted-foreground/80 line-clamp-2">
-                                {epic.description}
-                              </CardDescription>
-                            )}
-                          </div>
-                          <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <Badge
-                              variant={
-                                epic.status === "DONE" ? "outline-success" :
-                                  epic.status === "IN_PROGRESS" ? "outline-info" :
-                                    "outline"
-                              }
-                              className="transition-colors text-[10px] px-2 py-0"
-                            >
-                              {epic.status}
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground group-hover:text-muted-foreground/80 font-medium">
-                              {epic._count?.features || 0} features
-                            </span>
-                          </div>
+            <div className="space-y-10">
+              <div className="space-y-4">
+                {epicsView === "table" ? (
+                  <EpicsTableView
+                    epics={openEpics}
+                    projectId={resolvedParams.id}
+                    onEdit={handleEditEpicClick}
+                    onDelete={handleDeleteEpicClick}
+                  />
+                ) : (
+                  <div className="grid gap-4">
+                    {openEpics.map((epic) => (
+                      <div key={epic.id} className="relative group">
+                        <Link href={`/projects/${resolvedParams.id}/epics/${epic.id}`}>
+                          <Card className="cursor-pointer transition-all duration-300 hover:border-primary/50 hover:shadow-sm">
+                            <CardHeader className="pb-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="space-y-2 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="outline" className="font-mono text-[10px]">
+                                      E-{epic.id.slice(0, 4)}
+                                    </Badge>
+                                    <Badge variant={epic.status === "OPEN" ? "outline-success" : "outline"}>
+                                      {epic.status === "OPEN" ? "Aberta" : "Fechada"}
+                                    </Badge>
+                                    {epic.risk ? (
+                                      <EpicRiskBadge
+                                        risk={epic.risk}
+                                        riskReason={epic.riskReason}
+                                        riskUpdatedAt={epic.riskUpdatedAt}
+                                        showLabel
+                                      />
+                                    ) : null}
+                                  </div>
+                                  <CardTitle className="text-lg font-semibold text-card-foreground transition-colors group-hover:text-foreground">
+                                    {epic.title}
+                                  </CardTitle>
+                                  {epic.description ? (
+                                    <CardDescription className="line-clamp-2 text-sm text-muted-foreground">
+                                      {epic.description}
+                                    </CardDescription>
+                                  ) : null}
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <div className="text-lg font-semibold">{epic._count?.features || 0}</div>
+                                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                    Features
+                                  </div>
+                                </div>
+                              </div>
+                            </CardHeader>
+                          </Card>
+                        </Link>
+                        <div className="absolute top-4 right-4 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => handleEditEpicClick(epic)}>
+                                <Pencil className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={() => handleDeleteEpicClick(epic)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      </CardHeader>
-                    </Card>
-                  </Link>
-                  {/* Action Menu */}
-                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => handleEditEpicClick(epic)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={() => handleDeleteEpicClick(epic)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {closedEpics.length > 0 && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <h3 className="text-sm font-medium uppercase tracking-wider">
+                      Fechadas ({closedEpics.length})
+                    </h3>
+                    <div className="h-px flex-1 bg-border" />
+                  </div>
+
+                  <div className="opacity-75 grayscale-[0.15]">
+                    {epicsView === "table" ? (
+                      <EpicsTableView
+                        epics={closedEpics}
+                        projectId={resolvedParams.id}
+                        onEdit={handleEditEpicClick}
+                        onDelete={handleDeleteEpicClick}
+                      />
+                    ) : (
+                      <div className="grid gap-4">
+                        {closedEpics.map((epic) => (
+                          <div key={epic.id} className="relative group">
+                            <Link href={`/projects/${resolvedParams.id}/epics/${epic.id}`}>
+                              <Card className="cursor-pointer transition-all duration-300 hover:border-primary/40 hover:shadow-sm">
+                                <CardHeader className="pb-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-2 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <Badge variant="outline" className="font-mono text-[10px]">
+                                          E-{epic.id.slice(0, 4)}
+                                        </Badge>
+                                        <Badge variant="outline">Fechada</Badge>
+                                      </div>
+                                      <CardTitle className="text-lg font-semibold">{epic.title}</CardTitle>
+                                      {epic.description ? (
+                                        <CardDescription className="line-clamp-2 text-sm text-muted-foreground">
+                                          {epic.description}
+                                        </CardDescription>
+                                      ) : null}
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      <div className="text-lg font-semibold">{epic._count?.features || 0}</div>
+                                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                                        Features
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CardHeader>
+                              </Card>
+                            </Link>
+                            <div className="absolute top-4 right-4 z-10 opacity-0 transition-opacity group-hover:opacity-100">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 bg-background/80 backdrop-blur-sm">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onSelect={() => handleEditEpicClick(epic)}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() => handleDeleteEpicClick(epic)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

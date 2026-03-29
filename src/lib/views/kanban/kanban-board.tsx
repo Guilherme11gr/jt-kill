@@ -83,17 +83,21 @@ export function KanbanBoard({
       onDragStart={handleDragStart}
       onDragEnd={dndHandleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4 max-w-full">
-        {KANBAN_COLUMNS.map((status) => (
-          <KanbanColumn
-            key={status}
-            status={status}
-            tasks={tasksByStatus[status]}
-            onTaskClick={onTaskClick}
-            onEdit={onEdit}
-            onDelete={onDelete}
-          />
-        ))}
+      <div className="w-full min-w-0 overflow-hidden">
+        <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden pb-4 overscroll-x-contain">
+          <div className="flex min-w-max gap-4 pr-1">
+            {KANBAN_COLUMNS.map((status) => (
+              <KanbanColumn
+                key={status}
+                status={status}
+                tasks={tasksByStatus[status]}
+                onTaskClick={onTaskClick}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Drag overlay - renders in portal above everything */}

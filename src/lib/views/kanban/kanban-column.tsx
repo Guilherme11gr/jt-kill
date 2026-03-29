@@ -84,7 +84,9 @@ export function KanbanColumn({ status, tasks, onTaskClick, onEdit, onDelete }: K
         'flex-shrink-0 bg-muted/30 rounded-xl border border-transparent hover:border-border/40 transition-all duration-300',
         isOver && 'bg-accent/40 ring-2 ring-primary/20 border-primary/30',
         // Width and padding: collapsed DONE is narrower and more compact
-        status === 'DONE' && isCollapsed ? 'w-14 p-2' : 'w-80 p-4'
+        status === 'DONE' && isCollapsed
+          ? 'w-14 p-2'
+          : 'w-[min(18rem,calc(100vw-5rem))] sm:w-72 xl:w-80 p-4'
       )}
     >
       {/* Header */}

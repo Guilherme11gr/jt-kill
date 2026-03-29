@@ -50,7 +50,7 @@ export function TaskSkeleton({ variant = 'card', className }: TaskSkeletonProps)
 // Column skeleton for Kanban loading state
 export function KanbanColumnSkeleton() {
   return (
-    <div className="flex-shrink-0 w-72 bg-card rounded-lg p-4 animate-pulse">
+    <div className="flex-shrink-0 w-[min(18rem,calc(100vw-5rem))] sm:w-72 xl:w-80 bg-card rounded-lg p-4 animate-pulse">
       <div className="flex items-center gap-2 mb-4">
         <div className="h-5 w-20 bg-muted rounded" />
         <div className="h-4 w-6 bg-muted rounded" />
@@ -67,10 +67,14 @@ export function KanbanColumnSkeleton() {
 // Full Kanban board skeleton
 export function KanbanBoardSkeleton() {
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <KanbanColumnSkeleton key={i} />
-      ))}
+    <div className="w-full min-w-0 overflow-hidden">
+      <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden pb-4 overscroll-x-contain">
+        <div className="flex min-w-max gap-4 pr-1">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <KanbanColumnSkeleton key={i} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

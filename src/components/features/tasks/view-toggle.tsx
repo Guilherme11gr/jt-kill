@@ -9,9 +9,17 @@ interface ViewToggleProps {
   value: ViewMode;
   onChange: (value: ViewMode) => void;
   className?: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
 }
 
-export function ViewToggle({ value, onChange, className }: ViewToggleProps) {
+export function ViewToggle({
+  value,
+  onChange,
+  className,
+  primaryLabel = 'Kanban',
+  secondaryLabel = 'Table',
+}: ViewToggleProps) {
   return (
     <div className={cn('flex items-center gap-1 p-1 rounded-lg bg-muted', className)}>
       <button
@@ -25,7 +33,7 @@ export function ViewToggle({ value, onChange, className }: ViewToggleProps) {
         )}
       >
         <LayoutGrid className="w-4 h-4" />
-        <span className="hidden sm:inline">Kanban</span>
+        <span className="hidden sm:inline">{primaryLabel}</span>
       </button>
       <button
         onClick={() => onChange('table')}
@@ -38,7 +46,7 @@ export function ViewToggle({ value, onChange, className }: ViewToggleProps) {
         )}
       >
         <List className="w-4 h-4" />
-        <span className="hidden sm:inline">Table</span>
+        <span className="hidden sm:inline">{secondaryLabel}</span>
       </button>
     </div>
   );

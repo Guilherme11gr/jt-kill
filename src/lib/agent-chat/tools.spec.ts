@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildAgentChatSystemPrompt, buildAgentChatTools } from './tools';
 import { InternalAgentApiClient } from './internal-api';
 
@@ -24,6 +24,10 @@ function getTool(name: string) {
 }
 
 describe('agent-chat/tools', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('includes instructions for discovery and safe tool usage', () => {
     const prompt = buildAgentChatSystemPrompt(context);
 
@@ -243,6 +247,64 @@ describe('agent-chat/tools', () => {
     patch.mockRestore();
   });
 
+  it('coerces comma-separated task ids in bulk updates', async () => {
+    const resolveTaskId = vi
+      .spyOn(InternalAgentApiClient.prototype, 'resolveTaskId')
+      .mockResolvedValueOnce('task-1')
+      .mockResolvedValueOnce('task-2');
+    const patch = vi
+      .spyOn(InternalAgentApiClient.prototype, 'patch')
+      .mockResolvedValueOnce({ id: 'task-1', blocked: true })
+      .mockResolvedValueOnce({ id: 'task-2', blocked: true });
+
+    const bulkUpdateTasks = getTool('bulk_update_tasks');
+    const result = await bulkUpdateTasks.execute({
+      ids: 'JKILL-1, JKILL-2',
+      blocked: 'true',
+    });
+
+    expect(resolveTaskId).toHaveBeenNthCalledWith(1, 'JKILL-1');
+    expect(resolveTaskId).toHaveBeenNthCalledWith(2, 'JKILL-2');
+    expect(patch).toHaveBeenNthCalledWith(1, '/api/tasks/task-1', { blocked: true });
+    expect(patch).toHaveBeenNthCalledWith(2, '/api/tasks/task-2', { blocked: true });
+    expect(result).toEqual({
+      count: 2,
+      tasks: [
+        { id: 'task-1', blocked: true },
+        { id: 'task-2', blocked: true },
+      ],
+    });
+
+    resolveTaskId.mockRestore();
+    patch.mockRestore();
+  });
+
+  it('coerces string boolean and JSON-string array in block_tasks', async () => {
+    const resolveTaskId = vi
+      .spyOn(InternalAgentApiClient.prototype, 'resolveTaskId')
+      .mockResolvedValue('task-123');
+    const patch = vi
+      .spyOn(InternalAgentApiClient.prototype, 'patch')
+      .mockResolvedValue({ id: 'task-123', blocked: false });
+
+    const blockTasks = getTool('block_tasks');
+    const result = await blockTasks.execute({
+      ids: '["JKILL-9"]',
+      blocked: 'false',
+    });
+
+    expect(resolveTaskId).toHaveBeenCalledWith('JKILL-9');
+    expect(patch).toHaveBeenCalledWith('/api/tasks/task-123', { blocked: false });
+    expect(result).toEqual({
+      count: 1,
+      blocked: false,
+      tasks: [{ id: 'task-123', blocked: false }],
+    });
+
+    resolveTaskId.mockRestore();
+    patch.mockRestore();
+  });
+
   it('sets task tags using tag names and infers the project from the task', async () => {
     const resolveTaskId = vi
       .spyOn(InternalAgentApiClient.prototype, 'resolveTaskId')
@@ -263,6 +325,40 @@ describe('agent-chat/tools', () => {
     const result = await setTaskTags.execute({
       taskId: 'JKILL-1',
       tagNames: ['blocked', 'backend'],
+    });
+
+    expect(resolveTaskId).toHaveBeenCalledWith('JKILL-1');
+    expect(getTaskProjectId).toHaveBeenCalledWith('task-123');
+    expect(resolveTaskTagId).toHaveBeenNthCalledWith(1, 'project-123', 'blocked');
+    expect(resolveTaskTagId).toHaveBeenNthCalledWith(2, 'project-123', 'backend');
+    expect(put).toHaveBeenCalledWith('/api/tasks/task-123/tags', { tagIds: ['tag-1', 'tag-2'] });
+    expect(result).toEqual([{ id: 'tag-1' }, { id: 'tag-2' }]);
+
+    resolveTaskId.mockRestore();
+    getTaskProjectId.mockRestore();
+    resolveTaskTagId.mockRestore();
+    put.mockRestore();
+  });
+
+  it('coerces tagNames from JSON string when setting task tags', async () => {
+    const resolveTaskId = vi
+      .spyOn(InternalAgentApiClient.prototype, 'resolveTaskId')
+      .mockResolvedValue('task-123');
+    const getTaskProjectId = vi
+      .spyOn(InternalAgentApiClient.prototype, 'getTaskProjectId')
+      .mockResolvedValue('project-123');
+    const resolveTaskTagId = vi
+      .spyOn(InternalAgentApiClient.prototype, 'resolveTaskTagId')
+      .mockResolvedValueOnce('tag-1')
+      .mockResolvedValueOnce('tag-2');
+    const put = vi
+      .spyOn(InternalAgentApiClient.prototype, 'put')
+      .mockResolvedValue([{ id: 'tag-1' }, { id: 'tag-2' }]);
+
+    const setTaskTags = getTool('set_task_tags');
+    const result = await setTaskTags.execute({
+      readableId: 'JKILL-1',
+      tagNames: '["blocked","backend"]',
     });
 
     expect(resolveTaskId).toHaveBeenCalledWith('JKILL-1');

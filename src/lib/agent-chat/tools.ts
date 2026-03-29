@@ -12,6 +12,95 @@ const taskTagColorSchema = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 
 const optionalNonEmptyStringSchema = z.string().trim().min(1).optional();
 
+function parseStringArrayLike(value: unknown): string[] | undefined {
+  if (value === undefined || value === null || value === '') {
+    return undefined;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => String(item).trim())
+          .filter(Boolean);
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  return trimmed
+    .split(/[,\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function parseBooleanLike(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLocaleLowerCase('pt-BR');
+  if (['true', '1', 'yes', 'sim'].includes(normalized)) {
+    return true;
+  }
+
+  if (['false', '0', 'no', 'nao', 'não'].includes(normalized)) {
+    return false;
+  }
+
+  return undefined;
+}
+
+const stringArrayLikeSchema = z.preprocess(
+  (value) => parseStringArrayLike(value),
+  z.array(z.string().min(1))
+);
+
+const uuidArrayLikeSchema = z.preprocess(
+  (value) => parseStringArrayLike(value),
+  z.array(z.string().uuid())
+);
+
+const taskRefArrayLikeSchema = z.preprocess(
+  (value) => {
+    const normalized = parseStringArrayLike(value);
+    return normalized?.map((id) => ({ id }));
+  },
+  z.array(z.object({
+    id: optionalNonEmptyStringSchema,
+    taskId: optionalNonEmptyStringSchema,
+    readableId: optionalNonEmptyStringSchema,
+  }).refine((item) => Boolean(item.id || item.taskId || item.readableId), {
+    message: 'Informe id, taskId ou readableId',
+  }))
+);
+
+const booleanLikeSchema = z.preprocess(
+  (value) => parseBooleanLike(value),
+  z.boolean()
+);
+
 function compactObject<T extends Record<string, unknown>>(input: T): Partial<T> {
   return Object.fromEntries(
     Object.entries(input).filter(([, value]) => value !== undefined)
@@ -28,6 +117,26 @@ function requireValue<T>(value: T | null | undefined, message: string): T {
   }
 
   return value;
+}
+
+function normalizeStringArrayInput(value: unknown, fieldName: string): string[] | undefined {
+  const normalized = parseStringArrayLike(value);
+
+  if (value !== undefined && value !== null && normalized === undefined) {
+    throw new Error(`${fieldName} deve ser uma lista válida.`);
+  }
+
+  return normalized;
+}
+
+function normalizeBooleanInput(value: unknown, fieldName: string): boolean | undefined {
+  const normalized = parseBooleanLike(value);
+
+  if (value !== undefined && normalized === undefined) {
+    throw new Error(`${fieldName} deve ser boolean (true/false).`);
+  }
+
+  return normalized;
 }
 
 async function getFeatureProjectId(api: InternalAgentApiClient, featureId: string): Promise<string> {
@@ -85,6 +194,9 @@ export function buildAgentChatSystemPrompt(context: AgentChatContext): string {
     'As tools já estão limitadas ao tenant atual. Nunca invente IDs, estados ou resultados que você não consultou.',
     'Quando o usuário não souber IDs, descubra antes usando as tools de listagem e resolução.',
     'Para atualizar features, você pode usar id ou featureTitle. Se o pedido envolver várias features, prefira bulk_update_features.',
+    'Quando uma tool aceitar arrays, envie arrays reais. Exemplo: tagNames: ["backend", "blocked"]. Evite strings como "[...]" quando não forem necessárias.',
+    'Quando uma tool aceitar booleanos, envie true/false de verdade. Exemplo: blocked: true.',
+    'Se mesmo assim você só tiver um valor em texto, prefira ids, taskIds, featureIds ou tagNames separados por vírgula a deixar o campo vazio.',
     'Quando o usuário mencionar pessoas, busque membros com list_users antes de atribuir trabalho.',
     'Quando o usuário mencionar tags, use list_task_tags ou get_task_tags para descobrir o estado atual antes de mudar algo.',
     'Para ações destrutivas ou ambíguas, faça uma pergunta curta antes de executar.',
@@ -487,16 +599,17 @@ export function buildAgentChatTools(context: AgentChatContext) {
     }),
     defineTool({
       name: 'bulk_update_features',
-      description: 'Atualiza várias features de uma vez usando ids ou títulos, útil para fechar um lote rapidamente.',
+      description: 'Atualiza várias features de uma vez usando items, featureIds ou títulos. Para listas, prefira arrays reais; também aceito string JSON ou valores separados por vírgula.',
       parameters: z.object({
         items: z.array(featureLookupSchema).min(1).max(25).optional(),
-        featureIds: z.array(z.string().min(1)).min(1).max(25).optional(),
+        featureIds: stringArrayLikeSchema.pipe(z.array(z.string().min(1)).min(1).max(25)).optional(),
         title: z.string().min(3).max(200).optional(),
         description: z.string().max(5000).nullable().optional(),
         status: featureStatusSchema.optional(),
       }),
       execute: async ({ items, featureIds, ...changes }) => {
-        const normalizedItems = items || featureIds?.map((id) => ({ id })) || [];
+        const normalizedFeatureIds = normalizeStringArrayInput(featureIds, 'featureIds');
+        const normalizedItems = items || normalizedFeatureIds?.map((id) => ({ id })) || [];
         if (normalizedItems.length === 0) {
           throw new Error('Informe items ou featureIds para atualizar features em lote.');
         }
@@ -686,20 +799,25 @@ export function buildAgentChatTools(context: AgentChatContext) {
     }),
     defineTool({
       name: 'bulk_update_tasks',
-      description: 'Atualiza várias tasks de uma vez, útil para mudanças em lote.',
+      description: 'Atualiza várias tasks de uma vez. Aceita ids, taskIds ou items. Arrays podem vir como lista real, JSON string ou string separada por vírgula.',
       parameters: z.object({
-        ids: z.array(z.string().min(1)).min(1).max(25).optional(),
-        taskIds: z.array(z.string().min(1)).min(1).max(25).optional(),
-        items: z.array(taskRefSchema).min(1).max(25).optional(),
+        ids: stringArrayLikeSchema.pipe(z.array(z.string().min(1)).min(1).max(25)).optional(),
+        taskIds: stringArrayLikeSchema.pipe(z.array(z.string().min(1)).min(1).max(25)).optional(),
+        items: z.union([z.array(taskRefSchema).min(1).max(25), taskRefArrayLikeSchema]).optional(),
         status: taskStatusSchema.optional(),
         priority: taskPrioritySchema.optional(),
         type: taskTypeSchema.optional(),
         assigneeId: z.string().uuid().nullable().optional(),
-        blocked: z.boolean().optional(),
+        blocked: booleanLikeSchema.optional(),
         blockReason: z.string().trim().min(10).max(500).nullable().optional(),
       }),
       execute: async ({ ids, taskIds, items, ...changes }) => {
-        const refs = items || ids?.map((id) => ({ id })) || taskIds?.map((taskId) => ({ taskId })) || [];
+        const normalizedIds = normalizeStringArrayInput(ids, 'ids');
+        const normalizedTaskIds = normalizeStringArrayInput(taskIds, 'taskIds');
+        const refs = items
+          || normalizedIds?.map((id) => ({ id }))
+          || normalizedTaskIds?.map((taskId) => ({ taskId }))
+          || [];
         if (refs.length === 0) {
           throw new Error('Informe ids, taskIds ou items para atualizar tasks em lote.');
         }
@@ -707,7 +825,10 @@ export function buildAgentChatTools(context: AgentChatContext) {
         const resolvedIds = await Promise.all(refs.map((ref) => resolveTaskIdFromLookup(api, ref)));
         const results = await Promise.all(
           resolvedIds.map((taskId) =>
-            api.patch(`/api/tasks/${taskId}`, compactObject(changes))
+            api.patch(`/api/tasks/${taskId}`, compactObject({
+              ...changes,
+              blocked: normalizeBooleanInput(changes.blocked, 'blocked'),
+            }))
           )
         );
 
@@ -719,16 +840,25 @@ export function buildAgentChatTools(context: AgentChatContext) {
     }),
     defineTool({
       name: 'block_tasks',
-      description: 'Bloqueia ou desbloqueia várias tasks em lote.',
+      description: 'Bloqueia ou desbloqueia várias tasks em lote. blocked aceita boolean ou string "true"/"false". Arrays podem vir como lista real, JSON string ou string separada por vírgula.',
       parameters: z.object({
-        ids: z.array(z.string().min(1)).min(1).max(25).optional(),
-        taskIds: z.array(z.string().min(1)).min(1).max(25).optional(),
-        items: z.array(taskRefSchema).min(1).max(25).optional(),
-        blocked: z.boolean(),
+        ids: stringArrayLikeSchema.pipe(z.array(z.string().min(1)).min(1).max(25)).optional(),
+        taskIds: stringArrayLikeSchema.pipe(z.array(z.string().min(1)).min(1).max(25)).optional(),
+        items: z.union([z.array(taskRefSchema).min(1).max(25), taskRefArrayLikeSchema]).optional(),
+        blocked: booleanLikeSchema,
         blockReason: z.string().trim().min(10).max(500).nullable().optional(),
       }),
       execute: async ({ ids, taskIds, items, blocked, blockReason }) => {
-        const refs = items || ids?.map((id) => ({ id })) || taskIds?.map((taskId) => ({ taskId })) || [];
+        const normalizedIds = normalizeStringArrayInput(ids, 'ids');
+        const normalizedTaskIds = normalizeStringArrayInput(taskIds, 'taskIds');
+        const normalizedBlocked = requireValue(
+          normalizeBooleanInput(blocked, 'blocked'),
+          'Informe blocked como true ou false.'
+        );
+        const refs = items
+          || normalizedIds?.map((id) => ({ id }))
+          || normalizedTaskIds?.map((taskId) => ({ taskId }))
+          || [];
         if (refs.length === 0) {
           throw new Error('Informe ids, taskIds ou items para bloquear tasks em lote.');
         }
@@ -737,7 +867,7 @@ export function buildAgentChatTools(context: AgentChatContext) {
         const tasks = await Promise.all(
           resolvedIds.map((taskId) =>
             api.patch(`/api/tasks/${taskId}`, compactObject({
-              blocked,
+              blocked: normalizedBlocked,
               blockReason,
             }))
           )
@@ -745,7 +875,7 @@ export function buildAgentChatTools(context: AgentChatContext) {
 
         return {
           count: tasks.length,
-          blocked,
+          blocked: normalizedBlocked,
           tasks,
         };
       },
@@ -919,24 +1049,26 @@ export function buildAgentChatTools(context: AgentChatContext) {
     }),
     defineTool({
       name: 'set_task_tags',
-      description: 'Substitui todas as tags de uma task por uma nova lista.',
+      description: 'Substitui todas as tags de uma task por uma nova lista. Aceita tagIds ou tagNames como array real, JSON string ou string separada por vírgula.',
       parameters: taskRefSchema.extend({
-        tagIds: z.array(z.string().uuid()).max(20).optional(),
-        tagNames: z.array(z.string().min(1)).max(20).optional(),
+        tagIds: uuidArrayLikeSchema.pipe(z.array(z.string().uuid()).max(20)).optional(),
+        tagNames: stringArrayLikeSchema.pipe(z.array(z.string().min(1)).max(20)).optional(),
         projectId: z.string().uuid().optional(),
         projectName: optionalNonEmptyStringSchema,
       }),
       execute: async ({ id, taskId, readableId, tagIds, tagNames, projectId, projectName }) => {
         const resolvedTaskId = await resolveTaskIdFromLookup(api, { id, taskId, readableId });
+        const normalizedTagIds = normalizeStringArrayInput(tagIds, 'tagIds');
+        const normalizedTagNames = normalizeStringArrayInput(tagNames, 'tagNames');
 
-        let resolvedTagIds = tagIds;
-        if ((!resolvedTagIds || resolvedTagIds.length === 0) && tagNames && tagNames.length > 0) {
+        let resolvedTagIds = normalizedTagIds;
+        if ((!resolvedTagIds || resolvedTagIds.length === 0) && normalizedTagNames && normalizedTagNames.length > 0) {
           const resolvedProjectId = projectId
             || (projectName ? await api.resolveProjectId(projectName) : undefined)
             || await api.getTaskProjectId(resolvedTaskId);
 
           resolvedTagIds = await Promise.all(
-            tagNames.map((tagName) => api.resolveTaskTagId(resolvedProjectId, tagName))
+            normalizedTagNames.map((tagName) => api.resolveTaskTagId(resolvedProjectId, tagName))
           );
         }
 

@@ -21,7 +21,6 @@ import {
 import { LogoutButton } from "@/components/layout/logout-button";
 import { OrgSwitcher } from "@/components/layout/org-switcher";
 import { TaskModalProvider } from "@/providers/task-modal-provider";
-import { ConnectionBadge } from "@/components/ui/connection-badge";
 import { useAuth } from "@/hooks/use-auth";
 import { DashboardAgentChat } from "@/components/layout/dashboard-agent-chat";
 
@@ -107,12 +106,6 @@ export function DashboardShell({
           <OrgSwitcher isCollapsed={isDesktopCollapsed} />
         </div>
 
-        <div className={`border-b border-border ${
-          isDesktopCollapsed ? 'px-2 py-2 flex justify-center' : 'px-4 py-2'
-        }`}>
-          <ConnectionBadge size="sm" iconOnly={isDesktopCollapsed} />
-        </div>
-
         <nav className={`flex-1 space-y-1 ${
           isDesktopCollapsed ? 'p-2' : 'p-4'
         }`}>
@@ -168,9 +161,6 @@ export function DashboardShell({
               <OrgSwitcher />
             </div>
 
-            <div className="px-4 py-2 border-b border-border">
-              <ConnectionBadge size="sm" />
-            </div>
             <nav className="flex-1 p-4 space-y-1">
               {sidebarItems.map((item) => (
                 <Link

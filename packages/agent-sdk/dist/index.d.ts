@@ -1037,6 +1037,8 @@ interface AgentChatProps {
     sessionId?: string;
     /** Custom icon rendered in the FAB button and header avatar. Falls back to default sparkles. */
     icon?: React$1.ReactNode;
+    /** Custom accent color (hex, e.g. '#6366f1'). Overrides the default purple accent. */
+    accentColor?: string;
     labels?: {
         placeholder?: string;
         processing?: string;

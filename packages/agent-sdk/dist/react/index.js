@@ -1,7 +1,7 @@
 "use client";
 
 // src/react/AgentChat.tsx
-import React, { useState as useState4, useRef as useRef4, useEffect as useEffect2, useCallback as useCallback4 } from "react";
+import React, { useState as useState4, useRef as useRef4, useEffect as useEffect2, useCallback as useCallback4, useMemo } from "react";
 
 // src/react/hooks/useChat.ts
 import { useState, useCallback, useRef } from "react";
@@ -492,6 +492,25 @@ function useAgentChat(options = {}) {
 
 // src/react/AgentChat.tsx
 import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+function buildAccentVars(hex) {
+  const parse = (h) => {
+    const clean = h.replace("#", "");
+    return [
+      parseInt(clean.slice(0, 2), 16),
+      parseInt(clean.slice(2, 4), 16),
+      parseInt(clean.slice(4, 6), 16)
+    ];
+  };
+  const toHex = (r2, g2, b2) => "#" + [r2, g2, b2].map((c) => Math.max(0, Math.min(255, Math.round(c))).toString(16).padStart(2, "0")).join("");
+  const [r, g, b] = parse(hex);
+  const secondary = toHex(r * 0.8, g * 0.8, b * 0.8);
+  const tertiary = toHex(r + (255 - r) * 0.25, g + (255 - g) * 0.25, b + (255 - b) * 0.25);
+  return {
+    "--accent-primary": hex,
+    "--accent-secondary": secondary,
+    "--accent-tertiary": tertiary
+  };
+}
 function AgentChat({
   endpoint,
   title = "Assistente",
@@ -502,7 +521,8 @@ function AgentChat({
   onToolExecuted,
   sessionId: propSessionId,
   labels = {},
-  icon
+  icon,
+  accentColor
 }) {
   const [sessionResetVersion, setSessionResetVersion] = useState4(0);
   const [isOpen, setIsOpen] = useState4(false);
@@ -524,6 +544,7 @@ function AgentChat({
       sessionId: effectiveSessionId,
       labels,
       icon,
+      accentColor,
       isOpen,
       isMinimized,
       setIsOpen,
@@ -544,6 +565,7 @@ function AgentChatSession({
   sessionId: propSessionId,
   labels = {},
   icon,
+  accentColor,
   isOpen,
   isMinimized,
   setIsOpen,
@@ -565,6 +587,10 @@ function AgentChatSession({
   const [showScrollBtn, setShowScrollBtn] = useState4(false);
   const [size, setSize] = useState4({ width: 420, height: 580 });
   const isResizing = useRef4(false);
+  const accentStyle = useMemo(
+    () => accentColor ? buildAccentVars(accentColor) : void 0,
+    [accentColor]
+  );
   const scrollToBottom = useCallback4((behavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
   }, []);
@@ -626,7 +652,9 @@ function AgentChatSession({
     document.addEventListener("mouseup", onMouseUp);
   }, []);
   if (!isOpen) {
+    const fabAccentVars = accentColor ? `.agent-chat-fab, .agent-chat-pulse .pulse-dot { --accent-primary: ${accentColor}; --accent-secondary: ${buildAccentVars(accentColor)["--accent-secondary"]}; --accent-tertiary: ${buildAccentVars(accentColor)["--accent-tertiary"]}; }` : "";
     return /* @__PURE__ */ jsxs(Fragment, { children: [
+      fabAccentVars && /* @__PURE__ */ jsx("style", { children: fabAccentVars }),
       /* @__PURE__ */ jsxs(
         "button",
         {
@@ -650,7 +678,7 @@ function AgentChatSession({
     {
       ref: containerRef,
       className: `agent-chat-container ${theme} ${isMinimized ? "minimized" : ""}`,
-      style: { width: size.width, height: isMinimized ? void 0 : size.height },
+      style: { width: size.width, height: isMinimized ? void 0 : size.height, ...accentStyle },
       children: [
         !isMinimized && /* @__PURE__ */ jsx("div", { className: "resize-grip", onMouseDown: handleResizeStart }),
         /* @__PURE__ */ jsxs("header", { className: "agent-chat-header", children: [
@@ -1030,7 +1058,7 @@ var fabStyles = `
   height: 56px;
   border-radius: 16px;
   border: none;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+  background: linear-gradient(135deg, var(--accent-secondary) 0%, var(--accent-primary) 50%, var(--accent-tertiary) 100%);
   color: white;
   cursor: pointer;
   z-index: 9999;
@@ -1101,7 +1129,7 @@ var fabStyles = `
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #a855f7;
+  background: var(--accent-tertiary);
   animation: pulse-ring 1.5s ease-out infinite;
 }
 

@@ -508,7 +508,10 @@ function buildAccentVars(hex) {
   return {
     "--accent-primary": hex,
     "--accent-secondary": secondary,
-    "--accent-tertiary": tertiary
+    "--accent-tertiary": tertiary,
+    "--accent-r": String(r),
+    "--accent-g": String(g),
+    "--accent-b": String(b)
   };
 }
 function AgentChat({
@@ -652,7 +655,7 @@ function AgentChatSession({
     document.addEventListener("mouseup", onMouseUp);
   }, []);
   if (!isOpen) {
-    const fabAccentVars = accentColor ? `.agent-chat-fab, .agent-chat-pulse .pulse-dot { --accent-primary: ${accentColor}; --accent-secondary: ${buildAccentVars(accentColor)["--accent-secondary"]}; --accent-tertiary: ${buildAccentVars(accentColor)["--accent-tertiary"]}; }` : "";
+    const fabAccentVars = accentColor ? `.agent-chat-fab, .agent-chat-pulse .pulse-dot { --accent-primary: ${accentColor}; --accent-secondary: ${buildAccentVars(accentColor)["--accent-secondary"]}; --accent-tertiary: ${buildAccentVars(accentColor)["--accent-tertiary"]}; --accent-r: ${buildAccentVars(accentColor)["--accent-r"]}; --accent-g: ${buildAccentVars(accentColor)["--accent-g"]}; --accent-b: ${buildAccentVars(accentColor)["--accent-b"]}; }` : "";
     return /* @__PURE__ */ jsxs(Fragment, { children: [
       fabAccentVars && /* @__PURE__ */ jsx("style", { children: fabAccentVars }),
       /* @__PURE__ */ jsxs(
@@ -1066,8 +1069,8 @@ var fabStyles = `
   align-items: center;
   justify-content: center;
   box-shadow:
-    0 4px 20px rgba(99, 102, 241, 0.4),
-    0 8px 40px rgba(139, 92, 246, 0.3),
+    0 4px 20px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4),
+    0 8px 40px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.3),
     inset 0 1px 0 rgba(255,255,255,0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -1076,8 +1079,8 @@ var fabStyles = `
 .agent-chat-fab:hover {
   transform: translateY(-2px) scale(1.02);
   box-shadow:
-    0 6px 24px rgba(99, 102, 241, 0.5),
-    0 12px 48px rgba(139, 92, 246, 0.4),
+    0 6px 24px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.5),
+    0 12px 48px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4),
     inset 0 1px 0 rgba(255,255,255,0.3);
 }
 
@@ -1135,10 +1138,10 @@ var fabStyles = `
 
 @keyframes pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.7);
+    box-shadow: 0 0 0 0 rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.7);
   }
   100% {
-    box-shadow: 0 0 0 20px rgba(168, 85, 247, 0);
+    box-shadow: 0 0 0 20px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0);
   }
 }
 `;
@@ -1154,6 +1157,7 @@ var chatStyles = `
   --accent-primary: #8b5cf6;
   --accent-secondary: #6366f1;
   --accent-tertiary: #a855f7;
+  --accent-r: 139; --accent-g: 92; --accent-b: 246;
   --border-color: rgba(255,255,255,0.08);
   --border-subtle: rgba(255,255,255,0.04);
   --success: #10b981;
@@ -1177,7 +1181,7 @@ var chatStyles = `
   box-shadow:
     0 0 0 1px var(--border-subtle),
     0 20px 50px -10px rgba(0, 0, 0, 0.5),
-    0 0 100px -20px rgba(139, 92, 246, 0.2);
+    0 0 100px -20px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.2);
   z-index: 9998;
   display: flex;
   flex-direction: column;
@@ -1198,7 +1202,7 @@ var chatStyles = `
   box-shadow:
     0 0 0 1px var(--border-subtle),
     0 20px 50px -10px rgba(0, 0, 0, 0.15),
-    0 0 100px -20px rgba(139, 92, 246, 0.1);
+    0 0 100px -20px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.1);
 }
 
 .agent-chat-container.minimized {
@@ -1759,7 +1763,7 @@ var chatStyles = `
   margin: 8px 0;
   padding: 8px 12px;
   border-left: 3px solid var(--accent-primary);
-  background: rgba(139, 92, 246, 0.06);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06);
   border-radius: 0 6px 6px 0;
   color: var(--text-secondary);
   font-style: italic;
@@ -1773,7 +1777,7 @@ var chatStyles = `
 }
 
 .agent-chat-container.light .md-blockquote {
-  background: rgba(139, 92, 246, 0.06);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.06);
 }
 
 .agent-chat-container.light .md-inline-code {
@@ -1884,7 +1888,7 @@ var chatStyles = `
 
 .input-wrapper input:focus {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.15);
 }
 
 .input-wrapper input:disabled {
@@ -1909,7 +1913,7 @@ var chatStyles = `
 
 .send-btn:hover:not(:disabled) {
   transform: scale(1.05);
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 4px 16px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.4);
 }
 
 .send-btn:disabled {

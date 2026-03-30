@@ -29,8 +29,8 @@ export default async function PublicDocPage({ params }: PublicDocPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {/* Header */}
-      <header className="border-b sticky top-0 z-10 bg-background/80 backdrop-blur-sm">
+      {/* Header - non-sticky */}
+      <header className="border-b">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
@@ -49,18 +49,16 @@ export default async function PublicDocPage({ params }: PublicDocPageProps) {
       </header>
 
       {/* Doc Header */}
-      <div className="border-b">
-        <div className="container mx-auto px-6 py-8">
-          <h2 className="text-4xl font-bold tracking-tight mb-3">{doc.title}</h2>
-          {doc.sharedAt && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>
-                Compartilhado {formatDistanceToNow(new Date(doc.sharedAt), { locale: ptBR, addSuffix: true })}
-              </span>
-            </div>
-          )}
-        </div>
+      <div className="container mx-auto px-6 pt-8 pb-4">
+        <h2 className="text-2xl font-bold tracking-tight mb-3">{doc.title}</h2>
+        {doc.sharedAt && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="h-4 w-4" />
+            <span>
+              Compartilhado {formatDistanceToNow(new Date(doc.sharedAt), { locale: ptBR, addSuffix: true })}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Doc Content - full width markdown */}
@@ -85,7 +83,7 @@ export default async function PublicDocPage({ params }: PublicDocPageProps) {
       </main>
 
       {/* Footer */}
-      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
+      <footer className="mt-auto border-t py-6 text-center text-sm text-muted-foreground">
         <p>
           Compartilhado via <span className="font-mono text-xs bg-muted px-2 py-1 rounded">Fluxo</span>
         </p>

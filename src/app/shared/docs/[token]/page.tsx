@@ -77,8 +77,9 @@ export default async function PublicDocPage({ params }: PublicDocPageProps) {
                     prose-pre:overflow-x-auto prose-pre:max-w-full
                     prose-hr:border-border prose-a:text-primary prose-a:no-underline hover:prose-a:underline
                     prose-table:w-full prose-th:border prose-th:p-2 prose-th:text-left
-                    prose-td:border prose-td:p-2 prose-img:rounded-lg prose-img:shadow-md">
-          <MarkdownViewer value={doc.content} />
+                    prose-td:border prose-td:p-2 prose-img:rounded-lg prose-img:shadow-md
+                    max-h-none overflow-visible">
+          <MarkdownViewer value={doc.content} className="max-h-none overflow-visible text-base" />
         </div>
       </main>
 

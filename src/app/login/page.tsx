@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Zap } from "lucide-react";
+import { Loader2, Infinity } from "lucide-react";
 import { signIn } from "@/lib/auth-client";
 
 function LoginContent() {
@@ -84,9 +84,9 @@ function LoginContent() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-6 h-6 text-primary-foreground" />
+            <Infinity className="w-6 h-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl">Bem-vindo ao Jira Killer</CardTitle>
+          <CardTitle className="text-2xl">Bem-vindo ao FluXo</CardTitle>
           <CardDescription>Faça login para continuar</CardDescription>
         </CardHeader>
         <CardContent>

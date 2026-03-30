@@ -1,10 +1,10 @@
-# Relatório de Status do Projeto: Jira Killer
+# Relatório de Status do Projeto: FluXo
 
 **Data:** 20/12/2025
 **Versão:** 0.1.0
 
 ## 📊 Visão Geral
-O projeto "Jira Killer" é um sistema de gerenciamento de projetos focado em engenharia, atualmente em fase ativa de desenvolvimento. A infraestrutura base (Next.js 16.1, Supabase, Prisma) está sólida, e as funcionalidades core de gerenciamento (Projetos, Epics, Features, Tasks) estão implementadas.
+O projeto "FluXo" é um sistema de gerenciamento de projetos focado em engenharia, atualmente em fase ativa de desenvolvimento. A infraestrutura base (Next.js 16.1, Supabase, Prisma) está sólida, e as funcionalidades core de gerenciamento (Projetos, Epics, Features, Tasks) estão implementadas.
 
 ## 🛠️ Stack Tecnológica Atual
 - **Frontend:** Next.js 16.1.0 (App Router), React 19.2.3, Tailwind CSS v4.

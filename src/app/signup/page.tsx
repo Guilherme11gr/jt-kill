@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Zap, Users } from "lucide-react";
+import { Loader2, Infinity, Users } from "lucide-react";
 import { signIn, signUp } from "@/lib/auth-client";
 
 interface InviteInfo {
@@ -171,7 +171,7 @@ function SignupContent() {
             {isInviteFlow ? (
               <Users className="w-6 h-6 text-primary-foreground" />
             ) : (
-              <Zap className="w-6 h-6 text-primary-foreground" />
+              <Infinity className="w-6 h-6 text-primary-foreground" />
             )}
           </div>
           <CardTitle className="text-2xl">

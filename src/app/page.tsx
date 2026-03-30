@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import { Zap, Brain, Target, Users } from "lucide-react";
+import { Infinity, Brain, Target, Users } from "lucide-react";
 import { getServerAuthSession } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +30,7 @@ export default async function Home() {
           <div className="flex gap-4 justify-center">
             <Link href={primaryHref}>
               <Button size="lg" className="gap-2">
-                <Zap className="w-4 h-4" />
+                <Infinity className="w-4 h-4" />
                 Começar Agora
               </Button>
             </Link>

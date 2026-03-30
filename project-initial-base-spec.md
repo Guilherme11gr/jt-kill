@@ -1,4 +1,4 @@
-Assumindo a persona do **Product Owner** focado em entregar um produto robusto, enxuto e de alto valor (o "Jira Killer"), apresento a **Bíblia do Projeto (System Reference Document)**.
+Assumindo a persona do **Product Owner** focado em entregar um produto robusto, enxuto e de alto valor (o "FluXo"), apresento a **Bíblia do Projeto (System Reference Document)**.
 
 Estes três documentos mestres consolidam todas as decisões de escopo, arquitetura, *workflow* e regras de negócio que validamos. Eles devem ser a **Fonte da Verdade** (Source of Truth) para seus Agentes de Desenvolvimento, garantindo que o produto seja entregue exatamente como planejado em até 2 semanas.
 
@@ -15,7 +15,7 @@ Este documento define o comportamento do sistema e o modelo de domínio (DDD).
 
 ## 1. Visão e Filosofia
 
-*   **Produto:** "Jira Killer" (Internal MVP).
+*   **Produto:** "FluXo" (Internal MVP).
 *   **Conceito:** Gerenciador de projetos focado em engenharia, **"Opinionated"** (fluxo rígido) e **"Low Friction"** (rápido de usar).
 *   **Diferencial (Killer Feature):** **"AI Scribe"** – Transforma anotações desestruturadas ("Brain Dumps") em tarefas técnicas estruturadas, usando o contexto do projeto.
 *   **Anti-Patterns (O que NÃO somos):** Não somos o Notion (sem campos infinitos), não somos o Jira (sem configuração complexa).

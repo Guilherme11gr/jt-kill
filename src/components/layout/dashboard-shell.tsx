@@ -7,6 +7,8 @@ import {
   FolderKanban,
   CheckSquare,
   Settings,
+  Infinity,
+  type LucideIcon,
   Zap,
   Menu,
   Users,
@@ -81,10 +83,10 @@ export function DashboardShell({
             <>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
-                  <Zap className="w-5 h-5 text-primary-foreground" />
+                  <Infinity className="w-5 h-5 text-primary-foreground" />
                 </div>
                 <h1 className="text-xl font-bold tracking-tight">
-                  Jira Killer
+                  FluXo
                 </h1>
               </div>
               <Button
@@ -138,10 +140,10 @@ export function DashboardShell({
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 border-b border-border bg-background z-40 flex items-center px-4 justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-            <Zap className="w-5 h-5 text-primary-foreground" />
+            <Infinity className="w-5 h-5 text-primary-foreground" />
           </div>
           <span className="font-bold text-lg">
-            Jira Killer
+            FluXo
           </span>
         </div>
         <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
@@ -151,10 +153,10 @@ export function DashboardShell({
           <SheetContent side="left" className="w-64 bg-card border-r border-border p-0">
             <div className="p-6 border-b border-border flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center">
-                <Zap className="w-5 h-5 text-primary-foreground" />
+                <Infinity className="w-5 h-5 text-primary-foreground" />
               </div>
               <h1 className="text-xl font-bold tracking-tight">
-                Jira Killer
+                FluXo
               </h1>
             </div>
             <div className="px-4 py-3 border-b border-border">

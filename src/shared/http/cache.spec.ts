@@ -35,15 +35,17 @@ describe('Cache Helpers', () => {
   });
 
   describe('privateCacheHeaders', () => {
-    it('should return default private cache headers', () => {
+    it('should return default private cache headers with no-cache', () => {
       expect(privateCacheHeaders()).toEqual({
-        'Cache-Control': 'private, max-age=60',
+        'Cache-Control': 'private, max-age=0, must-revalidate',
+        'Vary': 'Cookie',
       });
     });
 
     it('should return private cache headers with custom maxAge', () => {
       expect(privateCacheHeaders(120)).toEqual({
-        'Cache-Control': 'private, max-age=120',
+        'Cache-Control': 'private, max-age=120, must-revalidate',
+        'Vary': 'Cookie',
       });
     });
   });

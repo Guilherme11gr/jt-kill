@@ -29,10 +29,13 @@ export function cacheHeaders(duration: CacheDuration): HeadersInit {
  * Uses private directive - cached by browser but not CDN.
  * 
  * CRITICAL for multi-tenant: Uses Vary: Cookie to invalidate cache when org cookie changes.
+ * 
+ * Default max-age=0 to prevent stale data after mutations.
+ * Use briefCacheHeaders() if you need short-lived browser cache for relatively static data.
  */
-export function privateCacheHeaders(maxAge: number = 60): HeadersInit {
+export function privateCacheHeaders(maxAge: number = 0): HeadersInit {
   return {
-    'Cache-Control': `private, max-age=${maxAge}`,
+    'Cache-Control': `private, max-age=${maxAge}, must-revalidate`,
     'Vary': 'Cookie', // Invalidate cache when cookies change (org switch)
   };
 }

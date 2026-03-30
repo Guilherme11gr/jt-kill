@@ -28,10 +28,10 @@ export default async function PublicDocPage({ params }: PublicDocPageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-muted/30 via-background to-muted/20">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       {/* Header */}
-      <header className="bg-background/80 backdrop-blur-sm border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between max-w-4xl">
+      <header className="border-b sticky top-0 z-10 bg-background/80 backdrop-blur-sm">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-lg">
               <FileText className="h-5 w-5 text-primary" />
@@ -48,58 +48,51 @@ export default async function PublicDocPage({ params }: PublicDocPageProps) {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Doc Header */}
-        <div className="mb-8">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div className="flex-1">
-              <h2 className="text-3xl font-bold mb-3 tracking-tight">{doc.title}</h2>
-              {doc.sharedAt && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>
-                    Compartilhado {formatDistanceToNow(new Date(doc.sharedAt), { locale: ptBR, addSuffix: true })}
-                  </span>
-                </div>
-              )}
+      {/* Doc Header */}
+      <div className="border-b">
+        <div className="container mx-auto px-6 py-8">
+          <h2 className="text-4xl font-bold tracking-tight mb-3">{doc.title}</h2>
+          {doc.sharedAt && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>
+                Compartilhado {formatDistanceToNow(new Date(doc.sharedAt), { locale: ptBR, addSuffix: true })}
+              </span>
             </div>
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* Doc Content */}
-        <div className="bg-background rounded-xl border shadow-sm p-8">
-          <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none
-                      prose-headings:font-semibold prose-headings:text-foreground/90
-                      prose-p:leading-relaxed prose-p:text-muted-foreground
-                      prose-strong:text-foreground
-                      prose-blockquote:border-violet-300 prose-blockquote:bg-violet-50/50
-                      prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-sm
-                      prose-blockquote:not-italic prose-blockquote:text-violet-700
-                      dark:prose-blockquote:bg-violet-900/20 dark:prose-blockquote:border-violet-700
-                      dark:prose-blockquote:text-violet-300
-                      prose-code:break-words prose-pre:overflow-x-auto prose-pre:max-w-full
-                      prose-hr:border-border">
-            <MarkdownViewer value={doc.content} />
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>
-            Compartilhado via <span className="font-mono text-xs bg-muted px-2 py-1 rounded">Jira Killer</span>
-          </p>
-          <p className="text-xs mt-1">
-            Este é um link público de leitura. Qualquer pessoa com o link pode visualizar este documento.
-          </p>
+      {/* Doc Content - full width markdown */}
+      <main className="flex-1 container mx-auto px-6 py-10">
+        <div className="prose prose-lg dark:prose-invert max-w-none
+                    prose-headings:font-semibold prose-headings:text-foreground
+                    prose-p:leading-relaxed prose-p:text-muted-foreground
+                    prose-strong:text-foreground
+                    prose-blockquote:border-l-4 prose-blockquote:border-violet-400
+                    prose-blockquote:bg-muted/40 prose-blockquote:py-2 prose-blockquote:px-5
+                    prose-blockquote:rounded-r-lg prose-blockquote:not-italic
+                    prose-blockquote:text-violet-700 dark:prose-blockquote:text-violet-300
+                    prose-code:break-words prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5
+                    prose-code:rounded prose-code:text-sm prose-code:font-mono
+                    prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg
+                    prose-pre:overflow-x-auto prose-pre:max-w-full
+                    prose-hr:border-border prose-a:text-primary prose-a:no-underline hover:prose-a:underline
+                    prose-table:w-full prose-th:border prose-th:p-2 prose-th:text-left
+                    prose-td:border prose-td:p-2 prose-img:rounded-lg prose-img:shadow-md">
+          <MarkdownViewer value={doc.content} />
         </div>
       </main>
 
-      {/* Background Decoration */}
-      <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl" />
-      </div>
+      {/* Footer */}
+      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
+        <p>
+          Compartilhado via <span className="font-mono text-xs bg-muted px-2 py-1 rounded">Fluxo</span>
+        </p>
+        <p className="text-xs mt-1">
+          Este é um link público de leitura. Qualquer pessoa com o link pode visualizar este documento.
+        </p>
+      </footer>
     </div>
   );
 }

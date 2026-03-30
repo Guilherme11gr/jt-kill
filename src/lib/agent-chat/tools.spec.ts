@@ -395,4 +395,107 @@ describe('agent-chat/tools', () => {
     resolveTaskId.mockRestore();
     get.mockRestore();
   });
+
+  it('lists all organization members', async () => {
+    const get = vi
+      .spyOn(InternalAgentApiClient.prototype, 'get')
+      .mockResolvedValue([
+        { id: 'u-1', displayName: 'Guilherme', email: 'g@test.com', role: 'OWNER' },
+        { id: 'u-2', displayName: 'Gepeto', email: 'gepeto@test.com', role: 'MEMBER' },
+      ]);
+
+    const listMembers = getTool('list_members');
+    const result: any = await listMembers.execute({});
+
+    expect(get).toHaveBeenCalledWith('/api/users');
+    expect(result).toHaveLength(2);
+    expect(result[0].displayName).toBe('Guilherme');
+
+    get.mockRestore();
+  });
+
+  it('searches members by partial name (case-insensitive)', async () => {
+    const get = vi
+      .spyOn(InternalAgentApiClient.prototype, 'get')
+      .mockResolvedValue([
+        { id: 'u-1', displayName: 'Guilherme', email: 'g@test.com' },
+        { id: 'u-2', displayName: 'Gepeto', email: 'gepeto@test.com' },
+        { id: 'u-3', displayName: 'Ana', email: 'ana@test.com' },
+      ]);
+
+    const searchMember = getTool('search_member');
+    const result: any = await searchMember.execute({ name: 'gui' });
+
+    expect(get).toHaveBeenCalledWith('/api/users');
+    expect(result.members).toHaveLength(1);
+    expect(result.members[0].id).toBe('u-1');
+
+    get.mockRestore();
+  });
+
+  it('searches members by email when name does not match', async () => {
+    const get = vi
+      .spyOn(InternalAgentApiClient.prototype, 'get')
+      .mockResolvedValue([
+        { id: 'u-1', displayName: 'Guilherme', email: 'guilherme@fluxo.com' },
+        { id: 'u-2', displayName: 'Dev Bot', email: 'dev@fluxo.com' },
+      ]);
+
+    const searchMember = getTool('search_member');
+    const result: any = await searchMember.execute({ name: 'dev@fluxo' });
+
+    expect(result.members).toHaveLength(1);
+    expect(result.members[0].displayName).toBe('Dev Bot');
+
+    get.mockRestore();
+  });
+
+  it('returns empty array when no member matches search', async () => {
+    const get = vi
+      .spyOn(InternalAgentApiClient.prototype, 'get')
+      .mockResolvedValue([
+        { id: 'u-1', displayName: 'Guilherme', email: 'g@test.com' },
+      ]);
+
+    const searchMember = getTool('search_member');
+    const result: any = await searchMember.execute({ name: 'xyz' });
+
+    expect(result.members).toHaveLength(0);
+    expect(result.message).toContain('xyz');
+
+    get.mockRestore();
+  });
+
+  it('lists tasks of the current user excluding DONE by default', async () => {
+    const get = vi
+      .spyOn(InternalAgentApiClient.prototype, 'get')
+      .mockResolvedValue({ items: [{ id: 't-1', title: 'Fix bug' }], total: 1 });
+
+    const myTasks = getTool('my_tasks');
+    const result: any = await myTasks.execute({ includeDone: false, limit: 25 });
+
+    expect(get).toHaveBeenCalledWith('/api/dashboard/my-tasks', {
+      limit: 25,
+      includeDone: 'false',
+    });
+    expect(result.items).toHaveLength(1);
+
+    get.mockRestore();
+  });
+
+  it('includes DONE tasks when includeDone is true', async () => {
+    const get = vi
+      .spyOn(InternalAgentApiClient.prototype, 'get')
+      .mockResolvedValue({ items: [{ id: 't-1', title: 'Old task', status: 'DONE' }], total: 1 });
+
+    const myTasks = getTool('my_tasks');
+    const result = await myTasks.execute({ includeDone: true, limit: 10 });
+
+    expect(get).toHaveBeenCalledWith('/api/dashboard/my-tasks', {
+      limit: 10,
+      includeDone: 'true',
+    });
+
+    get.mockRestore();
+  });
 });

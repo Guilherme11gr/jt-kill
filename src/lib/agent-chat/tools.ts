@@ -1114,9 +1114,8 @@ export function buildAgentChatTools(context: AgentChatContext) {
       }),
       execute: async ({ includeDone, limit }) =>
         api.get('/api/dashboard/my-tasks', {
-          page: 1,
-          pageSize: limit,
-          includeDone: String(includeDone),
+          limit: limit ?? 25,
+          includeDone: String(includeDone ?? false),
         }),
     }),
   ];

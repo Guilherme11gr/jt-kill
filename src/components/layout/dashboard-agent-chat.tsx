@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { AgentChat } from '@guilherme/agent-sdk/react';
+import { Infinity } from 'lucide-react';
 import { invalidateAndRefetchAll } from '@/lib/query';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -42,6 +43,7 @@ export function DashboardAgentChat() {
       title="FluXo"
       subtitle={subtitle}
       theme="dark"
+      icon={<Infinity className="w-5 h-5" />}
       examples={[
         'Liste minhas tasks em DOING e destaque as bloqueadas.',
         'Quem está no workspace e quais tasks estão com cada pessoa?',

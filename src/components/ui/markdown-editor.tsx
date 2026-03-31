@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { Textarea } from "@/components/ui/textarea";
 import { AIImproveButton } from "@/components/ui/ai-improve-button";
 import { cn } from "@/lib/utils";
+import { sanitizeUrl } from "@/shared/utils/sanitize-url";
 
 interface MarkdownEditorProps {
   value: string;

@@ -33,6 +33,9 @@ export interface Project {
   key: string; // Prefix for task IDs (APP, SDK, etc)
   description: string | null;
   modules: string[];
+  githubInstallationId: number | null;
+  githubRepoFullName: string | null;
+  githubRepoUrl: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

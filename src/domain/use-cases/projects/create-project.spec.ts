@@ -33,6 +33,9 @@ describe('createProject', () => {
       key: input.key,
       description: input.description,
       modules: input.modules,
+      githubInstallationId: null,
+      githubRepoFullName: null,
+      githubRepoUrl: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

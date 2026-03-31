@@ -6,3 +6,6 @@ export { DocEditorModal } from './doc-editor-modal';
 export { ProjectNotesList } from './project-notes-list';
 export { NoteEditorModal } from './note-editor-modal';
 export { ConvertNoteModal } from './convert-note-modal';
+
+// GitHub integration
+export { GitHubIntegrationCard } from './github-integration-card';

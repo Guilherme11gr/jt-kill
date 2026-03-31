@@ -22,10 +22,17 @@ export interface Task {
   createdBy?: string | null; // Quem criou a tarefa
   // Health check fields
   blocked: boolean;
-  blockReason?: string | null; // Motivo obrigatório ao bloquear
-  blockedAt?: Date | null; // Timestamp do último bloqueio
-  blockedBy?: string | null; // User ID que bloqueou (audit trail)
+  blockReason?: string | null;
+  blockedAt?: Date | null;
+  blockedBy?: string | null;
   statusChangedAt: Date | null;
+  // GitHub integration fields
+  githubIssueNumber?: number | null;
+  githubIssueUrl?: string | null;
+  githubPrNumber?: number | null;
+  githubPrUrl?: string | null;
+  githubPrStatus?: 'open' | 'closed' | 'merged' | null;
+  githubPrMergedAt?: Date | null;
 }
 
 

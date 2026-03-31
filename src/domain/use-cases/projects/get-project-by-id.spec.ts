@@ -27,6 +27,9 @@ describe('getProjectById', () => {
       key: 'P1',
       description: null,
       modules: [],
+      githubInstallationId: null,
+      githubRepoFullName: null,
+      githubRepoUrl: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

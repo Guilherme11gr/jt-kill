@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
+import { sanitizeUrl } from "@/shared/utils/sanitize-url";
 import { MermaidDiagram } from "./mermaid-diagram";
 
 interface MarkdownViewerProps {
@@ -51,7 +52,7 @@ export function MarkdownViewer({ value, className }: MarkdownViewerProps) {
               </div>
             )
           },
-          a: ({ node, ...props }) => <a className="font-medium text-primary underline underline-offset-4 hover:no-underline" {...props} />,
+          a: ({ node, href, ...props }) => <a className="font-medium text-primary underline underline-offset-4 hover:no-underline" href={sanitizeUrl(href)} target="_blank" rel="noopener noreferrer" {...props} />,
           hr: ({ node, ...props }) => <hr className="my-4 border-border" {...props} />,
           table: ({ node, ...props }) => <div className="my-4 w-full overflow-x-auto"><table className="w-full text-sm" {...props} /></div>,
           th: ({ node, ...props }) => <th className="border px-3 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right bg-muted/50" {...props} />,

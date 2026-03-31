@@ -147,9 +147,11 @@ model Project {
   name            String
   key             String
   description     String?
-  modules         String[]      @default([])
-  githubRepoUrl   String?       @map("github_repo_url")
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  modules              String[]      @default([])
+  githubRepoUrl        String?       @map("github_repo_url")
+  githubInstallationId Int?          @map("github_installation_id")
+  githubRepoFullName   String?       @map("github_repo_full_name")
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   createdBy       String?       @map("created_by") @db.Uuid
   epics           Epic[]
@@ -164,6 +166,8 @@ model Project {
   @@unique([orgId, key])
   @@index([orgId], map: "idx_projects_org")
   @@index([createdBy], map: "idx_projects_created_by")
+  @@index([githubInstallationId], map: "idx_projects_github_installation")
+  @@index([githubRepoFullName], map: "idx_projects_github_repo")
   @@map("projects")
   @@schema("public")
 }
@@ -316,6 +320,12 @@ model Task {
   blockReason     String?             @map("block_reason")
   blockedAt       DateTime?           @map("blocked_at") @db.Timestamptz(6)
   blockedBy       String?             @map("blocked_by") @db.Uuid
+  githubIssueNumber Int?             @map("github_issue_number")
+  githubIssueUrl    String?          @map("github_issue_url")
+  githubPrNumber    Int?             @map("github_pr_number")
+  githubPrUrl       String?          @map("github_pr_url")
+  githubPrStatus    String?          @map("github_pr_status") // "open" | "closed" | "merged"
+  githubPrMergedAt  DateTime?        @map("github_pr_merged_at") @db.Timestamptz(6)
   comments        Comment[]
   pokerSession    PokerSession?
   tagAssignments  TaskTagAssignment[]
@@ -961,6 +971,20 @@ model KaiCommand {
   @@index([status], map: "idx_kai_commands_status")
   @@index([createdAt], map: "idx_kai_commands_created")
   @@map("kai_commands")
+  @@schema("public")
+}
+
+model GitHubEvent {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId     String    @unique @map("event_id")
+  eventType   String    @map("event_type")
+  payload     Json
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([eventType], map: "idx_github_events_type")
+  @@index([processedAt], map: "idx_github_events_processed")
+  @@map("github_events")
   @@schema("public")
 }
 

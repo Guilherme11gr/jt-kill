@@ -11,7 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Bug, Ban } from 'lucide-react';
+import { Bug, Ban, GitPullRequest } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
 import { TagBadge } from '@/components/features/tags';
@@ -162,6 +162,37 @@ export function TaskCard({
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
               {task.points}
             </Badge>
+          )}
+          {task.githubPrUrl && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a
+                  href={task.githubPrUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex"
+                >
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      'text-[10px] px-1.5 py-0 gap-1 cursor-pointer hover:bg-accent/50',
+                      task.githubPrStatus === 'merged' && 'border-purple-500/50 text-purple-400',
+                      task.githubPrStatus === 'open' && 'border-green-500/50 text-green-400',
+                      task.githubPrStatus === 'closed' && 'border-red-500/50 text-red-400',
+                    )}
+                  >
+                    <GitPullRequest className="w-3 h-3" />
+                    #{task.githubPrNumber}
+                  </Badge>
+                </a>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">
+                  PR #{task.githubPrNumber} - {task.githubPrStatus || 'linked'}
+                </p>
+              </TooltipContent>
+            </Tooltip>
           )}
           {isBug && (
             <Bug className="w-3.5 h-3.5 text-red-500" />

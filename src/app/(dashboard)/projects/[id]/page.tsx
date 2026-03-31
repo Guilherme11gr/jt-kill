@@ -15,8 +15,8 @@ import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useProject, useEpics } from "@/lib/query";
 import { useCreateEpic, useUpdateEpic, useDeleteEpic } from "@/lib/query/hooks/use-epics";
-import { ProjectDocsList, ProjectNotesList } from "@/components/features/projects";
-import { FileText } from "lucide-react";
+import { ProjectDocsList, ProjectNotesList, GitHubIntegrationCard } from "@/components/features/projects";
+import { FileText, Github } from "lucide-react";
 import { PageHeaderSkeleton, CardsSkeleton } from '@/components/layout/page-skeleton';
 import { useTabQuery } from "@/hooks/use-tab-query";
 import { toast } from "sonner";
@@ -47,7 +47,7 @@ export default function ProjectDetailPage({
   const resolvedParams = use(params);
 
   // React Query hooks
-  const { data: project, isLoading: projectLoading } = useProject(resolvedParams.id);
+  const { data: project, isLoading: projectLoading, refetch: refetchProject } = useProject(resolvedParams.id);
   const { data: epics = [], isLoading: epicsLoading } = useEpics(resolvedParams.id);
 
 
@@ -64,7 +64,7 @@ export default function ProjectDetailPage({
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
 
   // Tab State
-  const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "docs", "ideas"]);
+  const { activeTab, setActiveTab } = useTabQuery("epics", ["epics", "docs", "ideas", "github"]);
   const [epicsView, setEpicsView] = useState<ViewMode>("table");
   const [epicSearch, setEpicSearch] = useState("");
   const [epicStatusFilter, setEpicStatusFilter] = useState<"all" | "OPEN" | "CLOSED">("all");
@@ -400,6 +400,17 @@ export default function ProjectDetailPage({
         >
           <Lightbulb className="w-4 h-4 inline mr-2" />
           Ideias
+        </button>
+
+        <button
+          onClick={() => setActiveTab("github")}
+          className={`pb-3 px-2 font-medium transition-colors whitespace-nowrap ${activeTab === "github"
+            ? "text-primary border-b-2 border-primary"
+            : "text-muted-foreground hover:text-foreground"
+            }`}
+        >
+          <Github className="w-4 h-4 inline mr-2" />
+          GitHub
         </button>
       </div>
 
@@ -840,6 +851,20 @@ export default function ProjectDetailPage({
       {/* Ideas Tab */}
       {activeTab === "ideas" && (
         <ProjectNotesList projectId={resolvedParams.id} />
+      )}
+
+      {/* GitHub Tab */}
+      {activeTab === "github" && project && (
+        <div className="max-w-2xl">
+          <GitHubIntegrationCard
+            projectId={project.id}
+            orgId={project.orgId}
+            githubInstallationId={project.githubInstallationId ?? null}
+            githubRepoFullName={project.githubRepoFullName ?? null}
+            githubRepoUrl={project.githubRepoUrl ?? null}
+            onUpdate={() => refetchProject()}
+          />
+        </div>
       )}
     </div>
   );

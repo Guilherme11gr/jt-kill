@@ -87,6 +87,9 @@ jobs:
             ${{ steps.image.outputs.image_repo }}:latest
           cache-from: type=gha,scope=fluxo-app
           cache-to: type=gha,mode=max,scope=fluxo-app
+          build-args: |
+            NEXT_PUBLIC_GITHUB_APP_ID=${{ vars.NEXT_PUBLIC_GITHUB_APP_ID }}
+            NEXT_PUBLIC_GITHUB_APP_SLUG=${{ vars.NEXT_PUBLIC_GITHUB_APP_SLUG }}
 
       - name: Install deploy tooling
         run: |

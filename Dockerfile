@@ -21,6 +21,9 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
 FROM deps AS builder
 
+ARG NEXT_PUBLIC_GITHUB_APP_ID
+ARG NEXT_PUBLIC_GITHUB_APP_SLUG
+
 COPY . .
 RUN --mount=type=cache,target=/app/.next/cache npm run build:docker
 

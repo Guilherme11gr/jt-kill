@@ -3,7 +3,7 @@ export interface PersonalBoardItem {
   columnId: string;
   title: string;
   description?: string | null;
-  priority: 'none' | 'low' | 'medium' | 'high' | 'urgent';
+  priority?: 'none' | 'low' | 'medium' | 'high' | 'urgent' | null;
   dueDate?: string | null;
   order: number;
   createdAt?: string;

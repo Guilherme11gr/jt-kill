@@ -34,7 +34,10 @@ function isValidUuid(value: unknown): value is string {
   return uuidRegex.test(value);
 }
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_DOMAIN || '';
+
 export async function GET(request: NextRequest) {
+  const baseUrl = APP_URL || request.url;
   const { searchParams } = new URL(request.url);
   const installationId = searchParams.get('installation_id');
   const setupAction = searchParams.get('setup_action');
@@ -42,14 +45,14 @@ export async function GET(request: NextRequest) {
 
   if (!installationId) {
     return NextResponse.redirect(
-      new URL('/projects?github_error=missing_installation', request.url)
+      new URL('/projects?github_error=missing_installation', baseUrl)
     );
   }
 
   const installationIdNum = parseInt(installationId, 10);
   if (Number.isNaN(installationIdNum)) {
     return NextResponse.redirect(
-      new URL('/projects?github_error=invalid_installation_id', request.url)
+      new URL('/projects?github_error=invalid_installation_id', baseUrl)
     );
   }
 
@@ -73,14 +76,14 @@ export async function GET(request: NextRequest) {
   if (state) {
     if (!verifyStateSignature(state)) {
       return NextResponse.redirect(
-        new URL('/projects?github_error=invalid_state_signature', request.url)
+        new URL('/projects?github_error=invalid_state_signature', baseUrl)
       );
     }
 
     const stateAge = Date.now() - state.timestamp;
     if (stateAge > 10 * 60 * 1000) {
       return NextResponse.redirect(
-        new URL('/projects?github_error=state_expired', request.url)
+        new URL('/projects?github_error=state_expired', baseUrl)
       );
     }
   }
@@ -101,7 +104,7 @@ export async function GET(request: NextRequest) {
       });
     }
     return NextResponse.redirect(
-      new URL(`/projects/${state?.projectId || ''}?github=uninstalled`, request.url)
+      new URL(`/projects/${state?.projectId || ''}?github=uninstalled`, baseUrl)
     );
   }
 
@@ -112,11 +115,11 @@ export async function GET(request: NextRequest) {
     });
     if (project) {
       return NextResponse.redirect(
-        new URL(`/projects/${project.id}?github=installed`, request.url)
+        new URL(`/projects/${project.id}?github=installed`, baseUrl)
       );
     }
     return NextResponse.redirect(
-      new URL('/projects?github=installed', request.url)
+      new URL('/projects?github=installed', baseUrl)
     );
   }
 
@@ -126,12 +129,12 @@ export async function GET(request: NextRequest) {
 
     if (tenantId !== state.orgId) {
       return NextResponse.redirect(
-        new URL('/projects?github_error=unauthorized_org', request.url)
+        new URL('/projects?github_error=unauthorized_org', baseUrl)
       );
     }
   } catch {
     return NextResponse.redirect(
-      new URL('/login?redirect_reason=auth_required', request.url)
+      new URL('/login?redirect_reason=auth_required', baseUrl)
     );
   }
 
@@ -143,6 +146,6 @@ export async function GET(request: NextRequest) {
   });
 
   return NextResponse.redirect(
-    new URL(`/projects/${state.projectId}?github=installed`, request.url)
+    new URL(`/projects/${state.projectId}?github=installed`, baseUrl)
   );
 }

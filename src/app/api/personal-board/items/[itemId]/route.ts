@@ -12,7 +12,7 @@ const updateItemSchema = z.object({
   title: z.string().min(1, 'Título é obrigatório').max(200, 'Título deve ter no máximo 200 caracteres').optional(),
   description: z.string().max(1000, 'Descrição deve ter no máximo 1000 caracteres').optional().nullable(),
   priority: z.enum(['none', 'low', 'medium', 'high', 'urgent']).optional().nullable(),
-  dueDate: z.string().datetime({ message: 'Data inválida' }).optional().nullable(),
+  dueDate: z.string().min(1, 'Data inválida').optional().nullable(),
 });
 
 async function getItemWithAuth(itemId: string, orgId: string, userId: string) {

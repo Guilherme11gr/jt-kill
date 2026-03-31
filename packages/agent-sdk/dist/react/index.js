@@ -1024,6 +1024,14 @@ function MessageBubble({
         /* @__PURE__ */ jsx("span", { children: step })
       ] })
     ] }, i)) }),
+    !message.isStreaming && message.toolCalls && message.toolCalls.length > 0 && renderToolCallSummary(message.toolCalls),
+    (message.content || !message.isStreaming && !message.pendingConfirm) && /* @__PURE__ */ jsxs("div", { className: `message-body ${isUser ? "user" : ""} ${isError ? "error" : ""}`, children: [
+      isError && /* @__PURE__ */ jsxs("div", { className: "error-header", children: [
+        /* @__PURE__ */ jsx(AlertIcon, { size: 14 }),
+        /* @__PURE__ */ jsx("span", { children: "Erro" })
+      ] }),
+      isError || isUser ? /* @__PURE__ */ jsx("p", { children: message.content }) : renderContent(message.content, message.isStreaming || false)
+    ] }),
     message.pendingConfirm && /* @__PURE__ */ jsxs("div", { className: "confirm-dialog", children: [
       /* @__PURE__ */ jsxs("div", { className: "confirm-message", children: [
         /* @__PURE__ */ jsx(AlertIcon, { size: 18 }),
@@ -1047,14 +1055,6 @@ function MessageBubble({
           }
         )
       ] })
-    ] }),
-    !message.isStreaming && message.toolCalls && message.toolCalls.length > 0 && renderToolCallSummary(message.toolCalls),
-    (message.content || !message.isStreaming && !message.pendingConfirm) && /* @__PURE__ */ jsxs("div", { className: `message-body ${isUser ? "user" : ""} ${isError ? "error" : ""}`, children: [
-      isError && /* @__PURE__ */ jsxs("div", { className: "error-header", children: [
-        /* @__PURE__ */ jsx(AlertIcon, { size: 14 }),
-        /* @__PURE__ */ jsx("span", { children: "Erro" })
-      ] }),
-      isError || isUser ? /* @__PURE__ */ jsx("p", { children: message.content }) : renderContent(message.content, message.isStreaming || false)
     ] }),
     isError && message.errorType === "api" && /* @__PURE__ */ jsxs("button", { className: "retry-btn", children: [
       /* @__PURE__ */ jsx(RotateCcwIcon, { size: 12 }),
@@ -1567,6 +1567,8 @@ var chatStyles = `
 /* Confirm Dialog */
 .confirm-dialog {
   padding: 16px;
+  margin-top: 12px;
+  border-top: 1px solid var(--border-color);
 }
 
 .confirm-message {

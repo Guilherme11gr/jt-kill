@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Bot, User, ArrowRight, Calendar, Lightbulb, MessageSquare, Link2, ExternalLink } from 'lucide-react';
 import type { ActivityItem } from '@/lib/query/hooks/use-dashboard';
 import { cn } from '@/lib/utils';
-import { useRouter } from 'next/navigation';
+import { useTaskModal } from '@/providers/task-modal-provider';
 
 interface ActivityDetailModalProps {
   activity: ActivityItem | null;
@@ -26,7 +26,7 @@ interface ActivityDetailModalProps {
  * Mostra informações ricas incluindo metadados de agente
  */
 export function ActivityDetailModal({ activity, open, onClose }: ActivityDetailModalProps) {
-  const router = useRouter();
+  const { openTaskById } = useTaskModal();
   
   if (!activity) return null;
 
@@ -180,7 +180,9 @@ export function ActivityDetailModal({ activity, open, onClose }: ActivityDetailM
               variant="outline"
               size="sm"
               onClick={() => {
-                router.push(`/tasks?task=${activity.targetId}`);
+                if (activity.targetId) {
+                  openTaskById(activity.targetId);
+                }
                 onClose();
               }}
               className="w-full"

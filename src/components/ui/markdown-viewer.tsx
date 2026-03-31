@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { sanitizeUrl } from "@/shared/utils/sanitize-url";
+import { MermaidDiagram } from "./mermaid-diagram";
 
 interface MarkdownViewerProps {
   value: string;
@@ -33,6 +34,11 @@ export function MarkdownViewer({ value, className }: MarkdownViewerProps) {
             const { children, className, node, ...rest } = props
             const match = /language-(\w+)/.exec(className || '')
             const isInline = !match && !props.className?.includes('language-') && !String(children).includes('\n');
+
+            // Mermaid diagram blocks
+            if (match?.[1] === "mermaid") {
+              return <MermaidDiagram chart={String(children)} />;
+            }
 
             return isInline ? (
               <code className="relative rounded bg-muted px-[0.4rem] py-[0.2rem] font-mono text-sm font-semibold text-foreground border border-border/50" {...rest}>

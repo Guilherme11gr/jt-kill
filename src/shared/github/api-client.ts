@@ -106,8 +106,39 @@ export async function updatePullRequest(installationId: number, params: UpdatePu
 
 export async function getRepository(installationId: number, owner: string, repo: string) {
   const headers = await getHeaders(installationId);
-  return githubFetch<{ full_name: string; html_url: string; id: number }>(
+  return githubFetch<{ full_name: string; html_url: string; id: number; default_branch: string }>(
     `https://api.github.com/repos/${owner}/${repo}`,
+    headers
+  );
+}
+
+export interface CreateBranchParams {
+  owner: string;
+  repo: string;
+  branchName: string;
+  sha: string;
+}
+
+export async function createBranch(installationId: number, params: CreateBranchParams) {
+  const headers = await getHeaders(installationId);
+  return githubFetch<{ ref: string; object: { sha: string } }>(
+    `https://api.github.com/repos/${params.owner}/${params.repo}/git/refs`,
+    headers,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        ref: `refs/heads/${params.branchName}`,
+        sha: params.sha,
+      }),
+    }
+  );
+}
+
+export async function getRef(installationId: number, owner: string, repo: string, ref: string) {
+  const headers = await getHeaders(installationId);
+  const encodedRef = ref.replace(/\//g, '%2F');
+  return githubFetch<{ ref: string; object: { sha: string; type: string; url: string } }>(
+    `https://api.github.com/repos/${owner}/${repo}/git/ref/${encodedRef}`,
     headers
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -11,13 +11,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Bug, Ban, GitPullRequest } from 'lucide-react';
+import { Bug, Ban, GitPullRequest, GitBranch, CircleDot, Loader2 } from 'lucide-react';
 import { StatusBadge } from './status-badge';
 import { PriorityIndicator } from './priority-indicator';
 import { TagBadge } from '@/components/features/tags';
 import { TaskHierarchyPath } from './task-hierarchy-path';
 import { BlockTaskDialog } from './block-task-dialog';
 import { useBlockTaskDialog } from '@/hooks/use-block-task-dialog';
+import { toast } from 'sonner';
 import { SyncIndicator } from '@/components/ui/sync-indicator';
 import { OptimisticWrapper } from '@/components/ui/optimistic-wrapper';
 import type { TaskWithReadableId } from '@/shared/types';
@@ -68,6 +69,8 @@ export function TaskCard({
 }: TaskCardProps) {
   const isBug = task.type === 'BUG';
   const blockDialog = useBlockTaskDialog(task);
+  const [isCreatingBranch, setIsCreatingBranch] = useState(false);
+  const isCreatingBranchRef = useRef(false);
 
   // Prefer new tags system, fallback to legacy modules
   const hasTags = task.tags && task.tags.length > 0;
@@ -76,6 +79,53 @@ export function TaskCard({
   const handleCheckboxClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation(); // Previne abertura do modal
   }, []);
+
+  const handleCreateBranch = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isCreatingBranchRef.current) return;
+    isCreatingBranchRef.current = true;
+    setIsCreatingBranch(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/github/branch`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error?.message || 'Erro ao criar branch');
+        return;
+      }
+      const branchName = data.data?.branchName || data.branchName;
+      const branchUrl = data.data?.branchUrl || data.branchUrl;
+      if (branchUrl) {
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span>Branch criada:</span>
+            <a
+              href={branchUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary hover:underline break-all text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {branchName}
+            </a>
+          </div>
+        );
+      } else {
+        toast.success(`Branch criada: ${branchName}`);
+      }
+      if (navigator.clipboard && window.isSecureContext && branchUrl) {
+        try {
+          await navigator.clipboard.writeText(branchUrl);
+        } catch {
+          // ignore clipboard failure
+        }
+      }
+    } catch {
+      toast.error('Erro ao criar branch');
+    } finally {
+      isCreatingBranchRef.current = false;
+      setIsCreatingBranch(false);
+    }
+  }, [task.id]);
 
   return (
     <OptimisticWrapper isOptimistic={isOptimistic}>
@@ -163,29 +213,46 @@ export function TaskCard({
               {task.points}
             </Badge>
           )}
-          {task.githubPrUrl && (
+          {task.githubPrNumber ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <a
-                  href={task.githubPrUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex"
-                >
+                {task.githubPrUrl ? (
+                  <a
+                    href={task.githubPrUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex"
+                  >
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[10px] px-1.5 py-0 gap-1 cursor-pointer hover:bg-accent/50',
+                        task.githubPrStatus === 'merged' && 'border-purple-500/50 text-purple-400',
+                        task.githubPrStatus === 'open' && 'border-green-500/50 text-green-400',
+                        task.githubPrStatus === 'closed' && 'border-red-500/50 text-red-400',
+                        !task.githubPrStatus && 'border-muted-foreground/30 text-muted-foreground',
+                      )}
+                    >
+                      <GitPullRequest className="w-3 h-3" />
+                      #{task.githubPrNumber}{task.githubPrStatus ? ` ${task.githubPrStatus}` : ''}
+                    </Badge>
+                  </a>
+                ) : (
                   <Badge
                     variant="outline"
                     className={cn(
-                      'text-[10px] px-1.5 py-0 gap-1 cursor-pointer hover:bg-accent/50',
+                      'text-[10px] px-1.5 py-0 gap-1',
                       task.githubPrStatus === 'merged' && 'border-purple-500/50 text-purple-400',
                       task.githubPrStatus === 'open' && 'border-green-500/50 text-green-400',
                       task.githubPrStatus === 'closed' && 'border-red-500/50 text-red-400',
+                      !task.githubPrStatus && 'border-muted-foreground/30 text-muted-foreground',
                     )}
                   >
                     <GitPullRequest className="w-3 h-3" />
-                    #{task.githubPrNumber}
+                    #{task.githubPrNumber}{task.githubPrStatus ? ` ${task.githubPrStatus}` : ''}
                   </Badge>
-                </a>
+                )}
               </TooltipTrigger>
               <TooltipContent>
                 <p className="text-xs">
@@ -193,6 +260,53 @@ export function TaskCard({
                 </p>
               </TooltipContent>
             </Tooltip>
+          ) : task.githubIssueNumber ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {task.githubIssueUrl ? (
+                  <a
+                    href={task.githubIssueUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex"
+                  >
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 gap-1 cursor-pointer hover:bg-accent/50 border-muted-foreground/30 text-muted-foreground"
+                    >
+                      <CircleDot className="w-3 h-3" />
+                      #{task.githubIssueNumber}
+                    </Badge>
+                  </a>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-1.5 py-0 gap-1 border-muted-foreground/30 text-muted-foreground"
+                  >
+                    <CircleDot className="w-3 h-3" />
+                    #{task.githubIssueNumber}
+                  </Badge>
+                )}
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Issue #{task.githubIssueNumber}</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
+          {(task.githubPrNumber || task.githubPrUrl) && (
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 gap-1 cursor-pointer hover:bg-accent/50 border-muted-foreground/30 text-muted-foreground"
+              onClick={handleCreateBranch}
+            >
+              {isCreatingBranch ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <GitBranch className="w-3 h-3" />
+              )}
+              Branch
+            </Badge>
           )}
           {isBug && (
             <Bug className="w-3.5 h-3.5 text-red-500" />

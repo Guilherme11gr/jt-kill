@@ -9,14 +9,20 @@ import {
 import { gitHubEventRepository } from '@/infra/adapters/prisma';
 
 export async function POST(request: NextRequest) {
-  const body = await request.text();
   const signature = request.headers.get('x-hub-signature-256');
   const eventType = request.headers.get('x-github-event');
   const eventId = request.headers.get('x-github-delivery');
 
+  if (!GITHUB_WEBHOOK_SECRET) {
+    console.error('[GitHub Webhook] GITHUB_WEBHOOK_SECRET is not configured');
+    return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 });
+  }
+
   if (!signature || !eventType || !eventId) {
     return NextResponse.json({ error: 'Missing required headers' }, { status: 400 });
   }
+
+  const body = await request.text();
 
   if (!verifyWebhookSignature(body, signature)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });

@@ -93,7 +93,7 @@ export async function handlePullRequest(event: WebhookEvent): Promise<void> {
 
   const localIds = matchingRefs.map((ref) => ref.localId);
   const tasks = await prisma.task.findMany({
-    where: { projectId: project.id, localId: { in: localIds } },
+    where: { projectId: project.id, localId: { in: localIds }, status: { not: 'DONE' } },
     select: { id: true },
   });
 
@@ -111,7 +111,6 @@ export async function handlePullRequest(event: WebhookEvent): Promise<void> {
           githubPrStatus: prStatus,
           githubPrMergedAt: pr.merged && pr.merged_at ? new Date(pr.merged_at) : null,
           ...(prStatus === 'merged' ? { status: 'DONE' } : {}),
-          ...(prStatus === 'open' && !pr.merged ? { status: 'REVIEW' } : {}),
         },
       })
     )

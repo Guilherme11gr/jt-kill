@@ -146,10 +146,3 @@ export async function GET(request: NextRequest) {
     new URL(`/projects/${state.projectId}?github=installed`, request.url)
   );
 }
-
-export function generateInstallState(projectId: string, orgId: string): string {
-  const timestamp = Date.now();
-  const signature = generateStateSignature(projectId, orgId, timestamp);
-  const payload: StatePayload = { projectId, orgId, timestamp, signature };
-  return Buffer.from(JSON.stringify(payload)).toString('base64url');
-}

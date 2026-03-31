@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 
 export interface Project {
   id: string;
+  orgId: string;
   name: string;
   key: string;
   description?: string | null;

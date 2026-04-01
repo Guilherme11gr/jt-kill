@@ -295,6 +295,7 @@ function useAgentChat(options = {}) {
   const [input, setInput] = useState3("");
   const [isLoading, setIsLoading] = useState3(false);
   const [error, setError] = useState3(null);
+  const [contextUsage, setContextUsage] = useState3(null);
   const pendingConfirmsRef = useRef3(/* @__PURE__ */ new Map());
   const abortControllerRef = useRef3(null);
   useEffect(() => {
@@ -397,6 +398,14 @@ function useAgentChat(options = {}) {
                   return;
                 }
                 break;
+              case "context_usage":
+                setContextUsage({
+                  tokens: data.tokens,
+                  maxTokens: data.maxTokens,
+                  messageCount: data.messageCount,
+                  usagePercent: data.usagePercent
+                });
+                break;
               case "done":
                 const finalToolCalls = toolCalls.length > 0 ? toolCalls : data.toolCalls ?? [];
                 setMessages((prev) => prev.map(
@@ -486,7 +495,9 @@ function useAgentChat(options = {}) {
       sendMessage();
     },
     handleConfirm,
-    sessionId
+    sessionId,
+    contextUsage,
+    setContextUsage
   };
 }
 
@@ -737,6 +748,49 @@ function AgentChatSession({
               }
             )
           ] })
+        ] }),
+        chat.contextUsage && chat.contextUsage.messageCount > 4 && /* @__PURE__ */ jsxs("div", { className: "context-usage-bar", children: [
+          /* @__PURE__ */ jsx("div", { className: "context-usage-info", children: /* @__PURE__ */ jsx(
+            "div",
+            {
+              className: `context-usage-fill ${chat.contextUsage.usagePercent > 80 ? "critical" : chat.contextUsage.usagePercent > 50 ? "warning" : "normal"}`,
+              style: { width: `${Math.min(chat.contextUsage.usagePercent, 100)}%` }
+            }
+          ) }),
+          /* @__PURE__ */ jsxs("span", { className: "context-usage-text", children: [
+            chat.contextUsage.messageCount,
+            " msgs \xB7 ",
+            Math.round(chat.contextUsage.tokens / 1e3),
+            "k tokens"
+          ] }),
+          chat.contextUsage.usagePercent > 60 && /* @__PURE__ */ jsx(
+            "button",
+            {
+              className: "context-compact-btn",
+              onClick: async () => {
+                try {
+                  const res = await fetch("/api/chat/compact", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sessionId: chat.sessionId, keepLast: 12 })
+                  });
+                  const data = await res.json();
+                  if (data.success && data.data?.compacted) {
+                    chat.setContextUsage((prev) => prev ? {
+                      ...prev,
+                      tokens: prev.tokens * 0.3,
+                      messageCount: data.data.after,
+                      usagePercent: Math.round(prev.tokens * 0.3 / prev.maxTokens * 100)
+                    } : null);
+                  }
+                } catch (e) {
+                  console.error("Compact failed:", e);
+                }
+              },
+              title: "Compactar contexto (manter \xFAltimas 12 mensagens)",
+              children: "Compactar"
+            }
+          )
         ] }),
         !isMinimized && /* @__PURE__ */ jsxs(
           "div",
@@ -2089,6 +2143,69 @@ var chatStyles = `
 .quick-prompt-icon {
   font-size: 13px;
   line-height: 1;
+}
+
+/* Context Usage Bar */
+.context-usage-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+}
+.context-usage-info {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.context-usage-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease, background 0.3s;
+}
+.context-usage-fill.normal { background: #4ade80; }
+.context-usage-fill.warning { background: #fbbf24; }
+.context-usage-fill.critical { background: #f87171; }
+.context-usage-text {
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.context-compact-btn {
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.context-compact-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+.agent-chat-container.light .context-usage-bar {
+  background: rgba(0, 0, 0, 0.04);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+.agent-chat-container.light .context-usage-info {
+  background: rgba(0, 0, 0, 0.06);
+}
+.agent-chat-container.light .context-usage-text {
+  color: rgba(0, 0, 0, 0.4);
+}
+.agent-chat-container.light .context-compact-btn {
+  border-color: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.5);
+}
+.agent-chat-container.light .context-compact-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.8);
 }
 `;
 function MessageIcon() {

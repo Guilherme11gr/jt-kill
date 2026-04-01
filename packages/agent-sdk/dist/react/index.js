@@ -487,8 +487,9 @@ function useAgentChat(options = {}) {
     try {
       const res = await fetch("/api/chat/sessions", { credentials: "include" });
       const data = await res.json();
-      if (data.success) {
-        setSessions(data.data.sessions);
+      const sessionsData = data.data?.sessions || data.sessions;
+      if (Array.isArray(sessionsData)) {
+        setSessions(sessionsData);
       }
     } catch (e) {
       console.error("Failed to load sessions:", e);
@@ -500,7 +501,7 @@ function useAgentChat(options = {}) {
     try {
       const res = await fetch(`/api/chat/sessions?sessionId=${encodeURIComponent(targetSessionId)}`, { method: "DELETE", credentials: "include" });
       const data = await res.json();
-      if (data.success) {
+      if (data.data?.deleted || res.ok) {
         setSessions((prev) => prev.filter((s) => s.id !== targetSessionId));
         if (targetSessionId === sessionId) {
           setSessionId(crypto.randomUUID());
@@ -891,7 +892,7 @@ function AgentChatSession({
                     credentials: "include"
                   });
                   const data = await res.json();
-                  if (data.success && data.data?.compacted) {
+                  if (data.data?.compacted) {
                     chat.setContextUsage((prev) => prev ? {
                       ...prev,
                       tokens: prev.tokens * 0.3,

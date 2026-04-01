@@ -82,12 +82,19 @@ export async function POST(request: NextRequest) {
     );
 
     // Fetch user's selected role, fallback to org default
+    // Priority: custom prompt > selected role > org default
     const membership = await prisma.orgMembership.findUnique({
       where: { userId_orgId: { userId, orgId: tenantId } },
-      select: { agentChatRole: { select: { prompt: true } } },
+      select: {
+        customAgentRolePrompt: true,
+        agentChatRole: { select: { prompt: true } },
+      },
     });
 
-    let rolePrompt: string | null = membership?.agentChatRole?.prompt || null;
+    let rolePrompt: string | null = membership?.customAgentRolePrompt || null;
+    if (!rolePrompt && membership?.agentChatRole?.prompt) {
+      rolePrompt = membership.agentChatRole.prompt;
+    }
     if (!rolePrompt) {
       const defaultRole = await prisma.agentChatRole.findFirst({
         where: { tenantId, isDefault: true },

@@ -9,6 +9,7 @@ import { useWorkspaceCTA } from "@/hooks/useWorkspaceCTA";
 import { CreateWorkspaceCTAModal } from "@/components/features/workspace-cta/CreateWorkspaceCTAModal";
 import { AgentAccessCard } from "@/components/features/settings/agent-access-card";
 import { AgentChatRolesCard } from "@/components/features/settings/agent-chat-roles-card";
+import { MyAgentRoleCard } from "@/components/features/settings/my-agent-role-card";
 
 export default function SettingsPage() {
   const { viewer } = useAuth();
@@ -102,6 +103,8 @@ export default function SettingsPage() {
           </Link>
         ))}
       </div>
+
+      <MyAgentRoleCard />
 
       {isOwner && <AgentAccessCard />}
 

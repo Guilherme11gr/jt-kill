@@ -71,13 +71,21 @@ function buildTaskParams(filters?: ResolvedFilters): URLSearchParams {
   return params;
 }
 
-async function fetchTasks(filters?: Partial<TaskFiltersState>): Promise<TasksResponse> {
+// ============ Helpers ============
+
+type ResolvedFilters = Partial<TaskFiltersState> & { excludeStatuses?: string };
+
+// ============ Fetch Functions ============
+
+async function fetchTasks(filters?: ResolvedFilters): Promise<TasksResponse> {
   const statuses = ['BACKLOG', 'TODO', 'DOING', 'REVIEW', 'QA_READY', 'DONE'];
-  const statusesToFetch = filters?.excludeStatuses
-    ? statuses.filter(s => !filters.excludeStatuses.includes(s))
-    : filters?.status
+  const statusesToFetch = filters?.status
     ? (Array.isArray(filters.status) ? filters.status : [filters.status])
-    : statuses.filter(s => s !== 'DONE'); // default: skip DONE
+    : filters?.excludeStatuses
+    ? statuses.filter(s => !filters.excludeStatuses!.split(',').includes(s))
+    : filters?.showDone
+    ? statuses
+    : statuses.filter(s => s !== 'DONE');
 
   const PER_COLUMN_LIMIT = 30;
 
@@ -89,7 +97,7 @@ async function fetchTasks(filters?: Partial<TaskFiltersState>): Promise<TasksRes
   baseParams.set('skipCount', 'true');
   // Remove status from base so each column overrides it
   baseParams.delete('status');
-  baseParams.delete('excludeStatuses');
+  baseParams.delete('showDone');
 
   // Fetch all columns in parallel
   const results = await Promise.all(
@@ -188,10 +196,8 @@ async function deleteTask(id: string): Promise<void> {
 
 // ============ Helpers ============
 
-type ResolvedFilters = Partial<TaskFiltersState> & { excludeStatuses?: string };
-
 function resolveMeFilter(
-  filters: Partial<TaskFiltersState> & { excludeStatuses?: string } | undefined,
+  filters: ResolvedFilters | undefined,
   currentUserId?: string
 ): ResolvedFilters | undefined {
   if (!filters) return undefined;
@@ -204,7 +210,7 @@ function resolveMeFilter(
 // ============ Hooks ============
 
 interface UseTasksOptions {
-  filters?: Partial<TaskFiltersState> & { excludeStatuses?: string };
+  filters?: ResolvedFilters;
   currentUserId?: string;
 }
 

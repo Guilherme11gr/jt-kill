@@ -224,9 +224,7 @@ export function AgentChatRolesCard() {
               Crie roles personalizadas para o assistente de IA. Cada membro pode escolher sua role.
             </CardDescription>
           </div>
-          <Badge variant="secondary">
-            {roles.length}/{MAX_ROLES} roles
-          </Badge>
+          <Badge variant="secondary">{roles.length}/{MAX_ROLES} roles</Badge>
         </CardHeader>
         <CardContent className="space-y-4">
           {loading ? (
@@ -244,9 +242,9 @@ export function AgentChatRolesCard() {
               {roles.map((role) => (
                 <div
                   key={role.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border p-3"
+                  className="group flex items-start justify-between gap-3 rounded-lg border p-4 transition-colors hover:bg-accent/30"
                 >
-                  <div className="min-w-0 flex-1 space-y-1">
+                  <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{role.name}</p>
                       {role.isDefault && (
@@ -260,11 +258,11 @@ export function AgentChatRolesCard() {
                         {truncate(role.description, 80)}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground font-mono">
+                    <p className="text-xs text-muted-foreground font-mono leading-relaxed">
                       {truncate(role.prompt, 100)}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     {!role.isDefault && (
                       <Button
                         variant="ghost"
@@ -305,14 +303,16 @@ export function AgentChatRolesCard() {
             </div>
           )}
 
-          <Button
-            onClick={openCreateDialog}
-            disabled={roles.length >= MAX_ROLES}
-            className="w-full"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Criar Role
-          </Button>
+          <div className="pt-2">
+            <Button
+              onClick={openCreateDialog}
+              disabled={roles.length >= MAX_ROLES}
+              className="w-full"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Criar Role
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

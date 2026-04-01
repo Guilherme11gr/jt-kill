@@ -8,6 +8,7 @@
 .mcp.json
 coverage
 dist
+!packages/agent-sdk/dist
 docs
 node_modules
 npm-debug.log

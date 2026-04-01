@@ -22,8 +22,35 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
+// Build DATABASE_URL with conservative pool settings for VPS
+// Prisma uses connection_limit from the URL to set pool_size
+// Default: num_cpus * 2 + 1 (can be 5-10 on dev, but we cap at 5 for prod)
+function buildPrismaUrl(): string {
+  const base = process.env.DATABASE_URL || '';
+  if (!base) return base;
+
+  try {
+    const url = new URL(base);
+    // Only add pool params if not already set
+    if (!url.searchParams.has('connection_limit')) {
+      url.searchParams.set('connection_limit', process.env.PRISMA_CONNECTION_LIMIT || '5');
+    }
+    if (!url.searchParams.has('pool_timeout')) {
+      url.searchParams.set('pool_timeout', '10');
+    }
+    return url.toString();
+  } catch {
+    return base;
+  }
+}
+
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  datasources: {
+    db: {
+      url: buildPrismaUrl(),
+    },
+  },
 });
 
 if (process.env.NODE_ENV !== 'production') {

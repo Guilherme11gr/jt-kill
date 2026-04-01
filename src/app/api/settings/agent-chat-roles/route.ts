@@ -12,9 +12,7 @@ const MAX_PROMPT_CHARS = 2000;
 export async function GET() {
   try {
     const authClient = await createClient();
-    const { userId, tenantId } = await extractAuthenticatedTenant(authClient);
-
-    await requireRole(authClient, userId, ['OWNER'], tenantId);
+    const { tenantId } = await extractAuthenticatedTenant(authClient);
 
     const roles = await prisma.agentChatRole.findMany({
       where: { tenantId },

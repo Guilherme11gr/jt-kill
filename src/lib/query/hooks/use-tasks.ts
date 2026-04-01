@@ -79,7 +79,7 @@ async function fetchTasks(filters?: Partial<TaskFiltersState>): Promise<TasksRes
     ? (Array.isArray(filters.status) ? filters.status : [filters.status])
     : statuses.filter(s => s !== 'DONE'); // default: skip DONE
 
-  const PER_COLUMN_LIMIT = 50;
+  const PER_COLUMN_LIMIT = 30;
 
   // Build params once (without status) then add per-column status
   const baseParams = buildTaskParams(filters);

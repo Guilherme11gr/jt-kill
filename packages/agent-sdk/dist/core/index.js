@@ -912,14 +912,49 @@ function postgresStore(pool) {
       return result.rows[0]?.messages || [];
     },
     async set(sessionId, messages) {
+      const firstUserMsg = messages.find((m) => m.role === "user");
+      const title = firstUserMsg?.content?.slice(0, 80) || null;
       await pool.query(
-        `INSERT INTO agent_sessions (id, messages, updated_at)
-         VALUES ($1, $2, NOW())
+        `INSERT INTO agent_sessions (id, messages, title, updated_at)
+         VALUES ($1, $2, $3, NOW())
          ON CONFLICT (id) DO UPDATE SET messages = $2, updated_at = NOW()`,
-        [sessionId, JSON.stringify(messages)]
+        [sessionId, JSON.stringify(messages), title]
       );
     },
     async clear(sessionId) {
+      await pool.query("DELETE FROM agent_sessions WHERE id = $1", [sessionId]);
+    }
+  };
+}
+function postgresSessionStore(pool) {
+  return {
+    async list(userId, tenantId, options) {
+      const limit = options?.limit || 30;
+      const offset = options?.offset || 0;
+      const result = await pool.query(
+        `SELECT id, title, created_at, updated_at, jsonb_array_length(messages) as message_count
+         FROM agent_sessions
+         WHERE user_id = $1 AND tenant_id = $2
+         ORDER BY updated_at DESC
+         LIMIT $3 OFFSET $4`,
+        [userId, tenantId, limit, offset]
+      );
+      const countResult = await pool.query(
+        `SELECT COUNT(*)::int as total FROM agent_sessions WHERE user_id = $1 AND tenant_id = $2`,
+        [userId, tenantId]
+      );
+      return {
+        sessions: result.rows,
+        total: countResult.rows[0]?.total || 0
+      };
+    },
+    async updateTitle(sessionId, title) {
+      await pool.query(
+        "UPDATE agent_sessions SET title = $1, updated_at = NOW() WHERE id = $2",
+        [title, sessionId]
+      );
+    },
+    async deleteSession(sessionId) {
       await pool.query("DELETE FROM agent_sessions WHERE id = $1", [sessionId]);
     }
   };
@@ -1287,6 +1322,7 @@ export {
   fileStore,
   generateText,
   memoryStore,
+  postgresSessionStore,
   postgresStore,
   redisStore,
   sqliteStore,

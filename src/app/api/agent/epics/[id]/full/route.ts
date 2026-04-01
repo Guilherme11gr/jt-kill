@@ -64,20 +64,17 @@ export async function GET(
             id: true,
             localId: true,
             title: true,
-            description: true,
             status: true,
             type: true,
             priority: true,
             blocked: true,
             assigneeId: true,
-            createdAt: true,
             assignee: {
               select: {
                 id: true,
                 user_profiles: {
                   select: {
                     displayName: true,
-                    avatarUrl: true
                   }
                 }
               }
@@ -99,14 +96,11 @@ export async function GET(
         description: epic.description,
         status: epic.status,
         projectId: epic.projectId,
-        createdAt: epic.createdAt,
-        updatedAt: epic.updatedAt,
         project: epic.project
       },
       features: features.map(f => ({
         id: f.id,
         title: f.title,
-        description: f.description,
         status: f.status,
         health: f.health,
         createdAt: f.createdAt,
@@ -114,17 +108,14 @@ export async function GET(
           id: t.id,
           readableId: `${epic.project.key}-${t.localId}`,
           title: t.title,
-          description: t.description,
           status: t.status,
           type: t.type,
           priority: t.priority,
           blocked: t.blocked,
           assigneeId: t.assigneeId,
-          createdAt: t.createdAt,
           assignee: t.assignee?.user_profiles ? {
             id: t.assignee.id,
-            displayName: t.assignee.user_profiles.displayName,
-            avatarUrl: t.assignee.user_profiles.avatarUrl
+            displayName: t.assignee.user_profiles.displayName
           } : null
         }))
       })),

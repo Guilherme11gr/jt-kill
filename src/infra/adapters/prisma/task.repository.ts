@@ -536,15 +536,15 @@ export class TaskRepository {
       where.feature = { epicId };
     }
 
-    // General board filter: exclude tasks from DONE features and CLOSED epics
+    // General board filter: only show tasks from active features (TODO/DOING) and open epics
     if (!featureId && !epicId) {
-      const excludeDoneFeatures = { feature: { status: { not: 'DONE' } } };
-      const excludeClosedEpics = { feature: { epic: { status: { not: 'CLOSED' } } } };
+      const activeFeatures = { feature: { status: { in: ['TODO', 'DOING'] } } };
+      const openEpics = { feature: { epic: { status: { not: 'CLOSED' } } } };
 
       if (where.AND && Array.isArray(where.AND)) {
-        where.AND.push(excludeDoneFeatures, excludeClosedEpics);
+        where.AND.push(activeFeatures, openEpics);
       } else {
-        where.AND = [excludeDoneFeatures, excludeClosedEpics];
+        where.AND = [activeFeatures, openEpics];
       }
     }
 

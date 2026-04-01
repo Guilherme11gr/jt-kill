@@ -18,6 +18,7 @@ import {
   normalizeAgentChatSessionId,
   resolveAgentChatInternalOrigin,
 } from '@/lib/agent-chat/route-helpers';
+import { checkRateLimit } from '@/lib/agent-chat/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,7 @@ const agentHandler = createAgentRoute({
   historySize: 24,
   temperature: 0.25,
   maxIterations: 8,
+  toolExecutionTimeout: 15_000,
   promptEnhancer: {
     timezone: 'America/Sao_Paulo',
     locale: 'pt-BR',
@@ -39,6 +41,25 @@ export async function POST(request: NextRequest) {
   try {
     const authClient = await createClient();
     const { userId, tenantId, memberships } = await extractAuthenticatedTenant(authClient);
+
+    // Rate limit: 1 request per user per second
+    const rateLimitKey = `${tenantId}:${userId}`;
+    const rateCheck = checkRateLimit(rateLimitKey, { maxRequests: 1, windowMs: 1000 });
+    if (!rateCheck.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: { code: 'RATE_LIMITED', message: 'Muitas requisições. Aguarde um momento.' },
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': String(Math.ceil((rateCheck.retryAfterMs || 1000) / 1000)),
+          },
+        }
+      );
+    }
+
     const profile = await userProfileRepository.findByIdGlobal(userId);
     const currentMembership =
       memberships.find((membership) => membership.orgId === tenantId) || memberships[0];

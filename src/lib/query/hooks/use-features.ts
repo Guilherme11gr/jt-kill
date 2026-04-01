@@ -238,7 +238,7 @@ export function useUpdateFeature() {
       // 2. Optimistic update: update specific feature in cache
       queryClient.setQueryData<Feature>(queryKeys.features.detail(orgId, variables.id), updatedFeature);
 
-      // 3. Update in lists (optimistic)
+      // 3. Update in all lists (optimistic) - avoids full table re-render
       const updateInList = (old: Feature[] | undefined) => {
         if (!old) return old;
         return old.map(f => f.id === updatedFeature.id ? { ...f, ...updatedFeature } : f);
@@ -247,18 +247,16 @@ export function useUpdateFeature() {
       queryClient.setQueriesData<Feature[]>({ queryKey: queryKeys.features.lists(orgId) }, updateInList);
       queryClient.setQueryData<Feature[]>(queryKeys.features.allList(orgId), updateInList);
 
-      // 4. Only invalidate if real-time is disconnected
-      // If RT is active, broadcast will handle invalidation
-      if (!isRealtimeActive) {
-        smartInvalidateImmediate(queryClient, queryKeys.features.lists(orgId));
-        smartInvalidateImmediate(queryClient, queryKeys.features.allList(orgId));
+      // 4. Soft background refresh (stale but keep cache - no flash)
+      // Real-time broadcast handles other clients; optimistic update handles this client
+      smartInvalidate(queryClient, queryKeys.features.lists(orgId));
+      smartInvalidate(queryClient, queryKeys.features.allList(orgId));
 
-        // 5. Invalidate epic detail (status/title changes may affect UI)
-        smartInvalidate(queryClient, queryKeys.epics.detail(orgId, updatedFeature.epicId));
+      // 5. Invalidate epic detail (status/title changes may affect UI)
+      smartInvalidate(queryClient, queryKeys.epics.detail(orgId, updatedFeature.epicId));
 
-        // 6. Invalidate tasks for this feature (tasks depend on feature.status)
-        smartInvalidate(queryClient, queryKeys.tasks.list(orgId, { featureId: variables.id }));
-      }
+      // 6. Invalidate tasks for this feature (tasks depend on feature.status)
+      smartInvalidate(queryClient, queryKeys.tasks.list(orgId, { featureId: variables.id }));
 
       toast.success('Feature atualizada');
     },

@@ -525,7 +525,8 @@ function AgentChat({
   sessionId: propSessionId,
   labels = {},
   icon,
-  accentColor
+  accentColor,
+  quickPrompts
 }) {
   const [sessionResetVersion, setSessionResetVersion] = useState4(0);
   const [isOpen, setIsOpen] = useState4(false);
@@ -548,6 +549,7 @@ function AgentChat({
       labels,
       icon,
       accentColor,
+      quickPrompts,
       isOpen,
       isMinimized,
       setIsOpen,
@@ -569,6 +571,7 @@ function AgentChatSession({
   labels = {},
   icon,
   accentColor,
+  quickPrompts,
   isOpen,
   isMinimized,
   setIsOpen,
@@ -798,6 +801,24 @@ function AgentChatSession({
           }
         ),
         !isMinimized && /* @__PURE__ */ jsxs("footer", { className: "agent-chat-input", children: [
+          quickPrompts && quickPrompts.length > 0 && /* @__PURE__ */ jsx("div", { className: "quick-prompts-bar", children: quickPrompts.map((qp, i) => /* @__PURE__ */ jsxs(
+            "button",
+            {
+              className: "quick-prompt-pill",
+              onClick: () => {
+                const current = chat.input.trim();
+                const newText = current ? `${current} ${qp.prompt}` : qp.prompt;
+                chat.setInput(newText);
+                inputRef.current?.focus();
+              },
+              title: qp.prompt,
+              children: [
+                qp.icon && /* @__PURE__ */ jsx("span", { className: "quick-prompt-icon", children: qp.icon }),
+                qp.label
+              ]
+            },
+            i
+          )) }),
           /* @__PURE__ */ jsxs("div", { className: "input-wrapper", children: [
             /* @__PURE__ */ jsx(
               "textarea",
@@ -985,6 +1006,25 @@ function MessageBubble({
   labels,
   onConfirm
 }) {
+  const [copied, setCopied] = useState4(false);
+  const handleCopy = async () => {
+    const text = message.content || "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2e3);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2e3);
+    }
+  };
   if (message.isStreaming && !message.content && !message.statusSteps?.length && !message.pendingConfirm) {
     return null;
   }
@@ -1032,6 +1072,19 @@ function MessageBubble({
       ] }),
       isError || isUser ? /* @__PURE__ */ jsx("p", { children: message.content }) : renderContent(message.content, message.isStreaming || false)
     ] }),
+    !isUser && !message.isStreaming && message.content && /* @__PURE__ */ jsxs(
+      "button",
+      {
+        onClick: handleCopy,
+        className: `copy-btn ${copied ? "copied" : ""}`,
+        title: copied ? "Copiado!" : "Copiar mensagem",
+        "aria-label": copied ? "Copiado!" : "Copiar mensagem",
+        children: [
+          copied ? /* @__PURE__ */ jsx(CheckMarkIcon, { size: 12 }) : /* @__PURE__ */ jsx(CopyIcon, { size: 12 }),
+          /* @__PURE__ */ jsx("span", { children: copied ? "Copiado" : "Copiar" })
+        ]
+      }
+    ),
     message.pendingConfirm && /* @__PURE__ */ jsxs("div", { className: "confirm-dialog", children: [
       /* @__PURE__ */ jsxs("div", { className: "confirm-message", children: [
         /* @__PURE__ */ jsx(AlertIcon, { size: 18 }),
@@ -1834,6 +1887,37 @@ var chatStyles = `
   text-decoration: underline;
 }
 
+/* Copy Button */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+.copy-btn.copied {
+  color: #4ade80;
+}
+.agent-chat-container.light .copy-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.4);
+}
+.agent-chat-container.light .copy-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.7);
+}
+
 /* Scroll to Bottom */
 .scroll-to-bottom {
   position: absolute;
@@ -1964,6 +2048,48 @@ var chatStyles = `
   background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
   opacity: 0.5;
 }
+
+/* Quick Prompts */
+.quick-prompts-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.quick-prompt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  line-height: 1.4;
+}
+
+.quick-prompt-pill:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.1);
+  box-shadow: 0 0 0 2px rgba(var(--accent-r), var(--accent-g), var(--accent-b), 0.08);
+}
+
+.quick-prompt-pill:active {
+  transform: scale(0.96);
+}
+
+.quick-prompt-icon {
+  font-size: 13px;
+  line-height: 1;
+}
 `;
 function MessageIcon() {
   return /* @__PURE__ */ jsx("svg", { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }) });
@@ -2009,6 +2135,15 @@ function RotateCcwIcon({ size = 11 }) {
 }
 function LightbulbIcon() {
   return /* @__PURE__ */ jsx("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx("path", { d: "M9 18h6M10 22h4M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" }) });
+}
+function CopyIcon({ size = 14 }) {
+  return /* @__PURE__ */ jsxs("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [
+    /* @__PURE__ */ jsx("rect", { x: "9", y: "9", width: "13", height: "13", rx: "2", ry: "2" }),
+    /* @__PURE__ */ jsx("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" })
+  ] });
+}
+function CheckMarkIcon({ size = 14 }) {
+  return /* @__PURE__ */ jsx("svg", { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx("polyline", { points: "20 6 9 17 4 12" }) });
 }
 
 // src/react/AgentBuilder.tsx
@@ -2190,7 +2325,7 @@ export const POST = createAgentRoute({
           " Testar"
         ] }),
         /* @__PURE__ */ jsxs2("button", { onClick: handleExport, className: "btn secondary", children: [
-          /* @__PURE__ */ jsx2(CopyIcon, {}),
+          /* @__PURE__ */ jsx2(CopyIcon2, {}),
           " Exportar"
         ] }),
         /* @__PURE__ */ jsxs2("button", { onClick: () => onSave?.(config), className: "btn primary", children: [
@@ -3359,7 +3494,7 @@ function SaveIcon() {
     /* @__PURE__ */ jsx2("polyline", { points: "7 3 7 8 15 8" })
   ] });
 }
-function CopyIcon() {
+function CopyIcon2() {
   return /* @__PURE__ */ jsxs2("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [
     /* @__PURE__ */ jsx2("rect", { x: "9", y: "9", width: "13", height: "13", rx: "2", ry: "2" }),
     /* @__PURE__ */ jsx2("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" })

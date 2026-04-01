@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useWorkspaceCTA } from "@/hooks/useWorkspaceCTA";
 import { CreateWorkspaceCTAModal } from "@/components/features/workspace-cta/CreateWorkspaceCTAModal";
 import { AgentAccessCard } from "@/components/features/settings/agent-access-card";
-import { AgentRolePromptCard } from "@/components/features/settings/agent-role-prompt-card";
+import { AgentChatRolesCard } from "@/components/features/settings/agent-chat-roles-card";
 
 export default function SettingsPage() {
   const { viewer } = useAuth();
@@ -105,7 +105,7 @@ export default function SettingsPage() {
 
       {isOwner && <AgentAccessCard />}
 
-      {isOwner && <AgentRolePromptCard />}
+      {isOwner && <AgentChatRolesCard />}
 
       {/* Modal for workspace creation */}
       <CreateWorkspaceCTAModal

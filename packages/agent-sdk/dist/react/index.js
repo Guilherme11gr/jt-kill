@@ -271,9 +271,13 @@ function useAgentChat(options = {}) {
     persist = true,
     onToolExecuted,
     headers,
-    body
+    body,
+    sessionManagement
   } = options;
-  const [sessionId] = useState3(() => {
+  const [sessions, setSessions] = useState3([]);
+  const [showSessions, setShowSessions] = useState3(false);
+  const [sessionsLoading, setSessionsLoading] = useState3(false);
+  const [sessionId, setSessionId] = useState3(() => {
     if (propSessionId) return propSessionId;
     if (typeof window === "undefined") return `session-${Date.now()}`;
     const params = new URLSearchParams(window.location.search);
@@ -477,6 +481,41 @@ function useAgentChat(options = {}) {
       }
     }
   }, [storageKeyRef, persist]);
+  const loadSessions = useCallback3(async () => {
+    if (!sessionManagement || sessionManagement.level === "none") return;
+    setSessionsLoading(true);
+    try {
+      const res = await fetch("/api/chat/sessions");
+      const data = await res.json();
+      if (data.success) {
+        setSessions(data.data.sessions);
+      }
+    } catch (e) {
+      console.error("Failed to load sessions:", e);
+    } finally {
+      setSessionsLoading(false);
+    }
+  }, [sessionManagement]);
+  const deleteSession = useCallback3(async (targetSessionId) => {
+    try {
+      const res = await fetch(`/api/chat/sessions?sessionId=${encodeURIComponent(targetSessionId)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        setSessions((prev) => prev.filter((s) => s.id !== targetSessionId));
+        if (targetSessionId === sessionId) {
+          setSessionId(crypto.randomUUID());
+          clearMessages();
+        }
+      }
+    } catch (e) {
+      console.error("Failed to delete session:", e);
+    }
+  }, [sessionId, clearMessages]);
+  const switchSession = useCallback3((targetSessionId) => {
+    setSessionId(targetSessionId);
+    clearMessages();
+    setShowSessions(false);
+  }, [clearMessages]);
   return {
     messages,
     input,
@@ -496,8 +535,16 @@ function useAgentChat(options = {}) {
     },
     handleConfirm,
     sessionId,
+    setSessionId,
     contextUsage,
-    setContextUsage
+    setContextUsage,
+    sessions,
+    showSessions,
+    setShowSessions,
+    sessionsLoading,
+    loadSessions,
+    deleteSession,
+    switchSession
   };
 }
 
@@ -537,7 +584,8 @@ function AgentChat({
   labels = {},
   icon,
   accentColor,
-  quickPrompts
+  quickPrompts,
+  sessionManagement
 }) {
   const [sessionResetVersion, setSessionResetVersion] = useState4(0);
   const [isOpen, setIsOpen] = useState4(false);
@@ -561,6 +609,7 @@ function AgentChat({
       icon,
       accentColor,
       quickPrompts,
+      sessionManagement,
       isOpen,
       isMinimized,
       setIsOpen,
@@ -583,6 +632,7 @@ function AgentChatSession({
   icon,
   accentColor,
   quickPrompts,
+  sessionManagement,
   isOpen,
   isMinimized,
   setIsOpen,
@@ -594,7 +644,8 @@ function AgentChatSession({
     sessionId: propSessionId,
     onToolExecuted,
     storageKey: "agent-chat",
-    persist: true
+    persist: true,
+    sessionManagement
   });
   const messagesEndRef = useRef4(null);
   const messagesContainerRef = useRef4(null);
@@ -714,6 +765,21 @@ function AgentChatSession({
             ] })
           ] }),
           /* @__PURE__ */ jsxs("div", { className: "header-actions", children: [
+            sessionManagement && sessionManagement.level !== "none" && /* @__PURE__ */ jsx(
+              "button",
+              {
+                className: "session-list-btn",
+                onClick: () => {
+                  chat.loadSessions();
+                  chat.setShowSessions(!chat.showSessions);
+                },
+                title: "Sessoes",
+                children: /* @__PURE__ */ jsxs("svg", { width: "16", height: "16", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: [
+                  /* @__PURE__ */ jsx("circle", { cx: "12", cy: "12", r: "10" }),
+                  /* @__PURE__ */ jsx("polyline", { points: "12 6 12 12 16 14" })
+                ] })
+              }
+            ),
             /* @__PURE__ */ jsx(
               "button",
               {
@@ -749,6 +815,55 @@ function AgentChatSession({
             )
           ] })
         ] }),
+        chat.showSessions && sessionManagement && sessionManagement.level !== "none" && /* @__PURE__ */ jsx("div", { className: "session-drawer-overlay", onClick: () => chat.setShowSessions(false), children: /* @__PURE__ */ jsxs("div", { className: "session-drawer", onClick: (e) => e.stopPropagation(), children: [
+          /* @__PURE__ */ jsxs("div", { className: "session-drawer-header", children: [
+            /* @__PURE__ */ jsx("h3", { children: "Sessoes" }),
+            /* @__PURE__ */ jsx("button", { className: "session-drawer-close", onClick: () => chat.setShowSessions(false), children: "x" })
+          ] }),
+          /* @__PURE__ */ jsx("div", { className: "session-drawer-list", children: chat.sessionsLoading ? /* @__PURE__ */ jsx("div", { className: "session-drawer-empty", children: "Carregando..." }) : chat.sessions.length === 0 ? /* @__PURE__ */ jsx("div", { className: "session-drawer-empty", children: "Nenhuma sessao" }) : chat.sessions.map((session) => /* @__PURE__ */ jsxs(
+            "div",
+            {
+              className: `session-drawer-item ${session.id === chat.sessionId ? "active" : ""}`,
+              onClick: () => chat.switchSession(session.id),
+              children: [
+                /* @__PURE__ */ jsx("div", { className: "session-drawer-item-title", children: session.title || "Nova conversa" }),
+                /* @__PURE__ */ jsxs("div", { className: "session-drawer-item-meta", children: [
+                  session.messageCount,
+                  " msgs \xB7 ",
+                  new Date(session.updatedAt).toLocaleDateString("pt-BR")
+                ] }),
+                (sessionManagement.level === "basic" || sessionManagement.level === "full") && /* @__PURE__ */ jsx(
+                  "button",
+                  {
+                    className: "session-drawer-item-delete",
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      chat.deleteSession(session.id);
+                    },
+                    title: "Apagar sessao",
+                    children: /* @__PURE__ */ jsxs("svg", { width: "12", height: "12", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+                      /* @__PURE__ */ jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+                      /* @__PURE__ */ jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+                    ] })
+                  }
+                )
+              ]
+            },
+            session.id
+          )) }),
+          /* @__PURE__ */ jsx(
+            "button",
+            {
+              className: "session-drawer-new",
+              onClick: () => {
+                chat.setSessionId(crypto.randomUUID());
+                chat.clearMessages();
+                chat.setShowSessions(false);
+              },
+              children: "+ Nova conversa"
+            }
+          )
+        ] }) }),
         chat.contextUsage && chat.contextUsage.messageCount > 4 && /* @__PURE__ */ jsxs("div", { className: "context-usage-bar", children: [
           /* @__PURE__ */ jsx("div", { className: "context-usage-info", children: /* @__PURE__ */ jsx(
             "div",
@@ -2207,6 +2322,162 @@ var chatStyles = `
   background: rgba(0, 0, 0, 0.06);
   color: rgba(0, 0, 0, 0.8);
 }
+
+/* Session management */
+.session-list-btn {
+  padding: 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+}
+.session-list-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+}
+.session-drawer-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+}
+.session-drawer {
+  width: 280px;
+  height: 100%;
+  background: #1a1a2e;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.2s ease;
+}
+@keyframes slideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.session-drawer-header {
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.session-drawer-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+.session-drawer-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+}
+.session-drawer-close:hover { color: rgba(255, 255, 255, 0.8); }
+.session-drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+.session-drawer-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 13px;
+  padding: 24px;
+}
+.session-drawer-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 2px;
+  position: relative;
+}
+.session-drawer-item:hover { background: rgba(255, 255, 255, 0.06); }
+.session-drawer-item.active { background: rgba(255, 255, 255, 0.1); }
+.session-drawer-item-title {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 24px;
+}
+.session-drawer-item-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 2px;
+}
+.session-drawer-item-delete {
+  position: absolute;
+  top: 10px;
+  right: 8px;
+  padding: 4px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s;
+}
+.session-drawer-item:hover .session-drawer-item-delete { opacity: 1; }
+.session-drawer-item-delete:hover { color: #f87171; background: rgba(248, 113, 113, 0.1); }
+.session-drawer-new {
+  margin: 8px;
+  padding: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.session-drawer-new:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.04);
+}
+/* Session management - light theme */
+.agent-chat-container.light .session-drawer {
+  background: #fff;
+  border-left-color: rgba(0, 0, 0, 0.08);
+}
+.agent-chat-container.light .session-drawer-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+.agent-chat-container.light .session-drawer-header h3 { color: rgba(0, 0, 0, 0.9); }
+.agent-chat-container.light .session-drawer-close { color: rgba(0, 0, 0, 0.4); }
+.agent-chat-container.light .session-drawer-empty { color: rgba(0, 0, 0, 0.3); }
+.agent-chat-container.light .session-drawer-item:hover { background: rgba(0, 0, 0, 0.04); }
+.agent-chat-container.light .session-drawer-item.active { background: rgba(0, 0, 0, 0.06); }
+.agent-chat-container.light .session-drawer-item-title { color: rgba(0, 0, 0, 0.85); }
+.agent-chat-container.light .session-drawer-item-meta { color: rgba(0, 0, 0, 0.35); }
+.agent-chat-container.light .session-drawer-item-delete { color: rgba(0, 0, 0, 0.2); }
+.agent-chat-container.light .session-drawer-item-delete:hover { color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+.agent-chat-container.light .session-drawer-new {
+  border-color: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.5);
+}
+.agent-chat-container.light .session-drawer-new:hover {
+  border-color: rgba(0, 0, 0, 0.25);
+  color: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.02);
+}
+.agent-chat-container.light .session-list-btn { color: rgba(0, 0, 0, 0.5); }
+.agent-chat-container.light .session-list-btn:hover { background: rgba(0, 0, 0, 0.06); color: rgba(0, 0, 0, 0.8); }
 `;
 function MessageIcon() {
   return /* @__PURE__ */ jsx("svg", { width: "24", height: "24", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round", children: /* @__PURE__ */ jsx("path", { d: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" }) });

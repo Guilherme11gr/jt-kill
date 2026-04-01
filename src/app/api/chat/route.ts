@@ -81,14 +81,24 @@ export async function POST(request: NextRequest) {
       encodeAgentChatHeader(resolveAgentChatInternalOrigin(request.nextUrl.origin))
     );
 
-    // Fetch org's default role prompt
-    const org = await prisma.organization.findUnique({
-      where: { id: tenantId },
-      select: { defaultAgentRolePrompt: true },
+    // Fetch user's selected role, fallback to org default
+    const membership = await prisma.orgMembership.findUnique({
+      where: { userId_orgId: { userId, orgId: tenantId } },
+      select: { agentChatRole: { select: { prompt: true } } },
     });
+
+    let rolePrompt: string | null = membership?.agentChatRole?.prompt || null;
+    if (!rolePrompt) {
+      const defaultRole = await prisma.agentChatRole.findFirst({
+        where: { tenantId, isDefault: true },
+        select: { prompt: true },
+      });
+      rolePrompt = defaultRole?.prompt || null;
+    }
+
     rewrittenHeaders.set(
-      AGENT_CHAT_HEADER_NAMES.defaultAgentRolePrompt,
-      encodeAgentChatHeader(org?.defaultAgentRolePrompt || '')
+      AGENT_CHAT_HEADER_NAMES.agentRolePrompt,
+      encodeAgentChatHeader(rolePrompt || '')
     );
 
     const rewrittenBody = JSON.stringify({

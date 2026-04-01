@@ -14,6 +14,12 @@ interface AgentChatProps {
     icon?: React$1.ReactNode;
     /** Custom accent color (hex, e.g. '#6366f1'). Overrides the default purple accent. */
     accentColor?: string;
+    /** Predefined quick prompts rendered as clickable pills above the input. */
+    quickPrompts?: {
+        label: string;
+        prompt: string;
+        icon?: string;
+    }[];
     labels?: {
         placeholder?: string;
         processing?: string;
@@ -24,7 +30,7 @@ interface AgentChatProps {
         cancel?: string;
     };
 }
-declare function AgentChat({ endpoint, title, subtitle, theme, examples, toolLabels, onToolExecuted, sessionId: propSessionId, labels, icon, accentColor, }: AgentChatProps): react_jsx_runtime.JSX.Element;
+declare function AgentChat({ endpoint, title, subtitle, theme, examples, toolLabels, onToolExecuted, sessionId: propSessionId, labels, icon, accentColor, quickPrompts, }: AgentChatProps): react_jsx_runtime.JSX.Element;
 
 interface BuilderAgentConfig {
     name: string;

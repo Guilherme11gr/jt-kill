@@ -29,8 +29,14 @@ interface AgentChatProps {
         confirm?: string;
         cancel?: string;
     };
+    /** Session management configuration */
+    sessionManagement?: {
+        level: 'none' | 'basic' | 'full';
+        maxSessions?: number;
+        persistDays?: number;
+    };
 }
-declare function AgentChat({ endpoint, title, subtitle, theme, examples, toolLabels, onToolExecuted, sessionId: propSessionId, labels, icon, accentColor, quickPrompts, }: AgentChatProps): react_jsx_runtime.JSX.Element;
+declare function AgentChat({ endpoint, title, subtitle, theme, examples, toolLabels, onToolExecuted, sessionId: propSessionId, labels, icon, accentColor, quickPrompts, sessionManagement, }: AgentChatProps): react_jsx_runtime.JSX.Element;
 
 interface BuilderAgentConfig {
     name: string;
@@ -253,6 +259,23 @@ interface UseCompletionReturn {
 declare function useCompletion(options?: UseCompletionOptions): UseCompletionReturn;
 
 /**
+ * HistoryStore - Interface para armazenamento de histórico
+ *
+ * Implementações: memory, Redis, PostgreSQL
+ */
+
+/**
+ * Session metadata for listing/management
+ */
+interface SessionMetadata {
+    id: string;
+    title?: string;
+    createdAt: string;
+    updatedAt: string;
+    messageCount: number;
+}
+
+/**
  * @guilherme/agent-sdk/react/useAgentChat
  *
  * Extended hook for AgentChat with confirmation dialogs,
@@ -285,6 +308,12 @@ interface UseAgentChatOptions {
     headers?: Record<string, string>;
     /** Custom body fields */
     body?: Record<string, any>;
+    /** Session management configuration */
+    sessionManagement?: {
+        level: 'none' | 'basic' | 'full';
+        maxSessions?: number;
+        persistDays?: number;
+    };
 }
 interface UseAgentChatReturn {
     /** Array of chat messages */
@@ -327,6 +356,16 @@ interface UseAgentChatReturn {
         messageCount: number;
         usagePercent: number;
     } | null>>;
+    /** Set session ID (for switching sessions) */
+    setSessionId: (id: string) => void;
+    /** Session management */
+    sessions: SessionMetadata[];
+    showSessions: boolean;
+    setShowSessions: React.Dispatch<React.SetStateAction<boolean>>;
+    sessionsLoading: boolean;
+    loadSessions: () => Promise<void>;
+    deleteSession: (sessionId: string) => Promise<void>;
+    switchSession: (sessionId: string) => void;
 }
 /**
  * Hook for AgentChat with extended features

@@ -1024,6 +1024,20 @@ interface UseAgentChatReturn {
     handleConfirm: (confirmId: string, confirmed: boolean) => Promise<void>;
     /** Session ID */
     sessionId: string;
+    /** Context usage information */
+    contextUsage: {
+        tokens: number;
+        maxTokens: number;
+        messageCount: number;
+        usagePercent: number;
+    } | null;
+    /** Update context usage (e.g. after compact) */
+    setContextUsage: React.Dispatch<React.SetStateAction<{
+        tokens: number;
+        maxTokens: number;
+        messageCount: number;
+        usagePercent: number;
+    } | null>>;
 }
 
 interface AgentChatProps {

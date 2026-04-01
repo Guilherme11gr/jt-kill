@@ -69,7 +69,17 @@ export async function GET(request: NextRequest) {
     // Apply limit
     epics = epics.slice(0, limit);
 
-    return agentList(epics, epics.length);
+    // Map to lightweight response (strip heavy fields for agent)
+    const mappedEpics = epics.map((e: any) => ({
+      id: e.id,
+      title: e.title,
+      status: e.status,
+      projectId: e.projectId,
+      createdAt: e.createdAt,
+      ...(e.project ? { project: { id: e.project.id, key: e.project.key, name: e.project.name } } : {}),
+    }));
+
+    return agentList(mappedEpics, mappedEpics.length);
   } catch (error) {
     return handleAgentError(error);
   }

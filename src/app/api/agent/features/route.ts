@@ -68,7 +68,18 @@ export async function GET(request: NextRequest) {
     // Apply limit
     features = features.slice(0, limit);
 
-    return agentList(features, features.length);
+    // Map to lightweight response (strip heavy fields for agent)
+    const mappedFeatures = features.map((f: any) => ({
+      id: f.id,
+      title: f.title,
+      status: f.status,
+      epicId: f.epicId,
+      createdAt: f.createdAt,
+      ...(f._count ? { taskCount: f._count.tasks } : {}),
+      ...(f.health ? { health: f.health } : {}),
+    }));
+
+    return agentList(mappedFeatures, mappedFeatures.length);
   } catch (error) {
     return handleAgentError(error);
   }

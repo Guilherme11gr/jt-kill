@@ -154,7 +154,7 @@ export function FeaturesTableView({
                         data: { status: newStatus as any },
                       });
                     }}
-                    disabled={updateFeature.isPending}
+                    disabled={updateFeature.isPending && updateFeature.variables?.id === feature.id}
                   >
                     <SelectTrigger className="h-7 w-[110px] text-xs font-normal capitalize">
                       <SelectValue />

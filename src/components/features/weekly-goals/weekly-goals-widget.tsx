@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Plus, Loader2, X, Target, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Plus, Loader2, X, Target, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -95,6 +95,7 @@ export function WeeklyGoalsWidget() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
 
   const fetchGoals = useCallback(async () => {
     try {
@@ -137,6 +138,30 @@ export function WeeklyGoalsWidget() {
   const handleGoalAdded = () => {
     fetchGoals();
   };
+
+  const toggleProject = (projectId: string) => {
+    setCollapsedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return next;
+    });
+  };
+
+  const goalsByProject = useMemo(() => {
+    const map = new Map<string, { name: string; goals: WeeklyGoal[] }>();
+    for (const goal of goals) {
+      const id = goal.feature.epic?.project?.id || '_no-project';
+      const name = goal.feature.epic?.project?.name || 'Sem projeto';
+      if (!map.has(id)) map.set(id, { name, goals: [] });
+      map.get(id)!.goals.push(goal);
+    }
+    return Array.from(map.entries()).sort((a, b) => {
+      if (a[0] === '_no-project') return 1;
+      if (b[0] === '_no-project') return -1;
+      return a[1].name.localeCompare(b[1].name);
+    });
+  }, [goals]);
 
   if (loading) {
     return (
@@ -207,86 +232,93 @@ export function WeeklyGoalsWidget() {
               </Button>
             </div>
           ) : (
-            <div className="space-y-1">
-              {goals.map((goal) => {
-                const percentage =
-                  goal.progress.total > 0
-                    ? Math.round((goal.progress.done / goal.progress.total) * 100)
-                    : 0;
-                const health = getHealthIcon(goal.feature.health);
-
+            <div className="space-y-2">
+              {goalsByProject.map(([projectId, project]) => {
+                const isCollapsed = collapsedProjects.has(projectId);
                 return (
-                  <div
-                    key={goal.id}
-                    className="group flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors"
-                  >
-                    <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2', health.dot)} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-0.5">
-                        <h3 className="text-sm font-medium truncate">
-                          {goal.feature.title}
-                        </h3>
-                        <button
-                          onClick={() => handleDelete(goal.id)}
-                          disabled={deletingId === goal.id}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50 flex-shrink-0"
-                          title="Remover meta"
-                        >
-                          {deletingId === goal.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <X className="h-3.5 w-3.5" />
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
-                        {goal.feature.epic?.project?.name && (
-                          <>
-                            <span className="truncate">{goal.feature.epic.project.name}</span>
-                            {goal.feature.epic?.title && (
-                              <span className="text-muted-foreground/40">/</span>
-                            )}
-                          </>
-                        )}
-                        {goal.feature.epic?.title && (
-                          <span className="truncate">{goal.feature.epic.title}</span>
-                        )}
-                        <span className="text-muted-foreground/40 mx-0.5">·</span>
-                        <span>{getStatusLabel(goal.feature.status)}</span>
-                        {health.label && (
-                          <>
-                            <span className="text-muted-foreground/40 mx-0.5">·</span>
-                            <span className={cn(
-                              health.dot === 'bg-green-500' && 'text-green-600 dark:text-green-400',
-                              health.dot === 'bg-yellow-500' && 'text-yellow-600 dark:text-yellow-400',
-                              health.dot === 'bg-red-500' && 'text-red-600 dark:text-red-400',
-                            )}>
-                              {health.label}
-                            </span>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              'h-full rounded-full transition-all duration-300',
-                              percentage === 100
-                                ? 'bg-green-500'
-                                : percentage > 50
-                                  ? 'bg-yellow-500'
-                                  : 'bg-blue-500'
-                            )}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                        <span className="text-[11px] text-muted-foreground w-12 text-right flex-shrink-0 tabular-nums">
-                          {goal.progress.done}/{goal.progress.total} <span className="text-muted-foreground/60">{percentage}%</span>
+                  <div key={projectId}>
+                    {goalsByProject.length > 1 && (
+                      <button
+                        onClick={() => toggleProject(projectId)}
+                        className="w-full flex items-center gap-2 px-1 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide hover:text-foreground transition-colors"
+                      >
+                        {isCollapsed
+                          ? <ChevronRight className="h-3.5 w-3.5" />
+                          : <ChevronDown className="h-3.5 w-3.5" />}
+                        <span>{project.name}</span>
+                        <span className="text-muted-foreground/60 font-normal normal-case">
+                          {project.goals.length}
                         </span>
+                      </button>
+                    )}
+                    {!isCollapsed && (
+                      <div className="space-y-1">
+                        {project.goals.map((goal) => {
+                          const pct = goal.progress.total > 0
+                            ? Math.round((goal.progress.done / goal.progress.total) * 100)
+                            : 0;
+                          const health = getHealthIcon(goal.feature.health);
+                          return (
+                            <div
+                              key={goal.id}
+                              className="group flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors"
+                            >
+                              <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2', health.dot)} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2 mb-0.5">
+                                  <h3 className="text-sm font-medium truncate">{goal.feature.title}</h3>
+                                  <button
+                                    onClick={() => handleDelete(goal.id)}
+                                    disabled={deletingId === goal.id}
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50 flex-shrink-0"
+                                    title="Remover meta"
+                                  >
+                                    {deletingId === goal.id
+                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      : <X className="h-3.5 w-3.5" />}
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                                  {goal.feature.epic?.project?.name && (
+                                    <>
+                                      <span className="truncate">{goal.feature.epic.project.name}</span>
+                                      {goal.feature.epic?.title && <span className="text-muted-foreground/40">/</span>}
+                                    </>
+                                  )}
+                                  {goal.feature.epic?.title && <span className="truncate">{goal.feature.epic.title}</span>}
+                                  <span className="text-muted-foreground/40 mx-0.5">·</span>
+                                  <span>{getStatusLabel(goal.feature.status)}</span>
+                                  {health.label && (
+                                    <>
+                                      <span className="text-muted-foreground/40 mx-0.5">·</span>
+                                      <span className={cn(
+                                        health.dot === 'bg-green-500' && 'text-green-600 dark:text-green-400',
+                                        health.dot === 'bg-yellow-500' && 'text-yellow-600 dark:text-yellow-400',
+                                        health.dot === 'bg-red-500' && 'text-red-600 dark:text-red-400',
+                                      )}>{health.label}</span>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                    <div
+                                      className={cn(
+                                        'h-full rounded-full transition-all duration-300',
+                                        pct === 100 ? 'bg-green-500' : pct > 50 ? 'bg-yellow-500' : 'bg-blue-500',
+                                      )}
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[11px] text-muted-foreground w-12 text-right flex-shrink-0 tabular-nums">
+                                    {goal.progress.done}/{goal.progress.total} <span className="text-muted-foreground/60">{pct}%</span>
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}

@@ -110,6 +110,31 @@ export class FeatureRepository {
     });
   }
 
+  async findByProject(projectId: string, orgId: string) {
+    return await this.prisma.feature.findMany({
+      where: { epic: { projectId }, orgId },
+      include: {
+        epic: {
+          select: {
+            id: true,
+            title: true,
+            project: {
+              select: {
+                id: true,
+                name: true,
+                key: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: { tasks: true },
+        },
+      },
+      orderBy: { title: 'asc' },
+    });
+  }
+
   /**
    * Ligthweight list for dropdowns
    * 

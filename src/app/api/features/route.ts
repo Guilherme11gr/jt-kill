@@ -11,9 +11,11 @@ export const dynamic = 'force-dynamic';
 
 const featuresQuerySchema = z.object({
     epicId: z.string().uuid().optional(),
+    projectId: z.string().uuid().optional(),
     status: z.enum(['BACKLOG', 'TODO', 'DOING', 'DONE']).optional(),
+    statuses: z.string().optional(),
     search: z.string().optional(),
-    limit: z.coerce.number().int().min(1).max(50).default(50),
+    limit: z.coerce.number().int().min(1).max(200).default(200),
 });
 
 /**
@@ -31,17 +33,22 @@ export async function GET(request: NextRequest) {
       return jsonError('INVALID_PARAMS', parsed.error.issues.map(i => i.message).join(', '), 400);
     }
 
-    const { epicId, status, search, limit } = parsed.data;
+    const { epicId, projectId, status, statuses, search, limit } = parsed.data;
 
     let features;
     if (epicId) {
       features = await featureRepository.findManyWithStats(epicId, tenantId);
+    } else if (projectId) {
+      features = await featureRepository.findByProject(projectId, tenantId);
     } else {
       features = await featureRepository.findAll(tenantId);
     }
 
     if (status) {
       features = features.filter(f => f.status === status);
+    } else if (statuses) {
+      const statusSet = new Set(statuses.split(','));
+      features = features.filter(f => f.status && statusSet.has(f.status));
     }
 
     if (search) {

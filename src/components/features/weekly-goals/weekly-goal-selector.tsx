@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Loader2, Search, Check } from 'lucide-react';
+import { Loader2, Search, Check, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -11,13 +11,12 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+
+interface Project {
+  id: string;
+  name: string;
+  key: string;
+}
 
 interface Feature {
   id: string;
@@ -62,47 +61,76 @@ export function WeeklyGoalSelector({
   onGoalAdded,
   existingGoalIds,
 }: WeeklyGoalSelectorProps) {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
   const [features, setFeatures] = useState<Feature[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [featuresLoading, setFeaturesLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
-  const [fetched, setFetched] = useState(false);
-  const [projectFilter, setProjectFilter] = useState<string>('ALL');
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
-  const fetchFeatures = useCallback(async () => {
-    setLoading(true);
+  // Step 1: fetch projects on open
+  const fetchProjects = useCallback(async () => {
+    setProjectsLoading(true);
     try {
-      const res = await fetch('/api/features?limit=50');
+      const res = await fetch('/api/projects');
+      if (!res.ok) throw new Error('Failed to fetch projects');
+      const json = await res.json();
+      const data: Project[] = (json.data || []).map((p: { id: string; name: string; key: string }) => ({
+        id: p.id,
+        name: p.name,
+        key: p.key,
+      }));
+      setProjects(data);
+    } catch {
+      toast.error('Erro ao carregar projetos.');
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, []);
+
+  // Step 2: fetch features for selected project
+  const fetchFeatures = useCallback(async (projectId: string) => {
+    setFeaturesLoading(true);
+    try {
+      const res = await fetch(`/api/features?projectId=${projectId}&statuses=TODO,DOING`);
       if (!res.ok) throw new Error('Failed to fetch features');
       const json = await res.json();
       const data: Feature[] = json.data || [];
-      const filtered = data.filter(
-        (f) => f.status === 'TODO' || f.status === 'DOING'
-      );
-      setFeatures(filtered);
+      setFeatures(data);
     } catch {
       toast.error('Erro ao carregar features.');
     } finally {
-      setLoading(false);
-      setFetched(true);
+      setFeaturesLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (open && !fetched && !loading) {
-      fetchFeatures();
+    if (open && projects.length === 0 && !projectsLoading) {
+      fetchProjects();
     }
-  }, [open, fetched, loading, fetchFeatures]);
+  }, [open, projects.length, projectsLoading, fetchProjects]);
 
   useEffect(() => {
     if (!open) {
       setSearch('');
       setSaving(false);
-      setFetched(false);
       setFeatures([]);
-      setProjectFilter('ALL');
+      setSelectedProject(null);
     }
   }, [open]);
+
+  const handleSelectProject = (project: Project) => {
+    setSelectedProject(project);
+    setSearch('');
+    fetchFeatures(project.id);
+  };
+
+  const handleBack = () => {
+    setSelectedProject(null);
+    setFeatures([]);
+    setSearch('');
+  };
 
   const handleSelect = async (featureId: string) => {
     setSaving(true);
@@ -133,124 +161,158 @@ export function WeeklyGoalSelector({
     }
   };
 
+  const filteredProjects = useMemo(() => {
+    if (!search) return projects;
+    const lower = search.toLowerCase();
+    return projects.filter(p =>
+      p.name.toLowerCase().includes(lower) ||
+      p.key.toLowerCase().includes(lower)
+    );
+  }, [projects, search]);
+
   const filteredFeatures = useMemo(() => {
-    return features.filter((f) => {
-      const matchesSearch = !search
-        ? true
-        : f.title.toLowerCase().includes(search.toLowerCase()) ||
-          f.epic?.title.toLowerCase().includes(search.toLowerCase()) ||
-          f.epic?.project?.name.toLowerCase().includes(search.toLowerCase());
-      const matchesProject =
-        projectFilter === 'ALL' || f.epic?.project?.id === projectFilter;
-      return matchesSearch && matchesProject;
-    });
-  }, [features, search, projectFilter]);
+    if (!search) return features;
+    const lower = search.toLowerCase();
+    return features.filter(f =>
+      f.title.toLowerCase().includes(lower) ||
+      f.epic?.title.toLowerCase().includes(lower)
+    );
+  }, [features, search]);
 
-  const projectList = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const f of features) {
-      const id = f.epic?.project?.id;
-      const name = f.epic?.project?.name;
-      if (id && name && !map.has(id)) {
-        map.set(id, name);
-      }
-    }
-    return Array.from(map.entries())
-      .sort((a, b) => a[1].localeCompare(b[1]))
-      .map(([id, name]) => ({ id, name }));
-  }, [features]);
-
-  const groupedByProject = useMemo(() => {
-    const groups: { projectName: string; projectKey: string; features: Feature[] }[] = [];
-    const map = new Map<string, { projectName: string; projectKey: string; features: Feature[] }>();
+  const groupedByEpic = useMemo(() => {
+    const map = new Map<string, { epicTitle: string; features: Feature[] }>();
 
     for (const f of filteredFeatures) {
-      const key = f.epic?.project?.id || '_no-project';
-      const name = f.epic?.project?.name || 'Sem projeto';
-      const pkey = f.epic?.project?.key || '';
-
-      if (!map.has(key)) {
-        map.set(key, { projectName: name, projectKey: pkey, features: [] });
-      }
+      const key = f.epic?.id || '_no-epic';
+      const title = f.epic?.title || 'Sem epic';
+      if (!map.has(key)) map.set(key, { epicTitle: title, features: [] });
       map.get(key)!.features.push(f);
     }
 
-    for (const group of map.values()) {
-      group.features.sort((a, b) => {
-        const epicA = a.epic?.title || '';
-        const epicB = b.epic?.title || '';
-        if (epicA !== epicB) return epicA.localeCompare(epicB);
-        return a.title.localeCompare(b.title);
-      });
-      groups.push(group);
-    }
-
+    const groups = Array.from(map.values());
     groups.sort((a, b) => {
-      if (a.projectName === 'Sem projeto') return 1;
-      if (b.projectName === 'Sem projeto') return -1;
-      return a.projectName.localeCompare(b.projectName);
+      if (a.epicTitle === 'Sem epic') return 1;
+      if (b.epicTitle === 'Sem epic') return -1;
+      return a.epicTitle.localeCompare(b.epicTitle);
     });
 
     return groups;
   }, [filteredFeatures]);
 
+  // --- Project selection view ---
+  if (!selectedProject) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar meta da semana</DialogTitle>
+            <DialogDescription>
+              Primeiro, escolha o projeto.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar projeto..."
+                className="pl-9"
+              />
+            </div>
+
+            <div className="max-h-[24rem] overflow-y-auto pr-1">
+              {projectsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredProjects.length === 0 ? (
+                <div className="text-center py-10">
+                  <p className="text-sm text-muted-foreground">
+                    {search ? 'Nenhum projeto encontrado.' : 'Nenhum projeto disponivel.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {filteredProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      onClick={() => handleSelectProject(project)}
+                      className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-accent/50 transition-colors text-left group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate leading-tight">
+                          {project.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {project.key}
+                        </p>
+                      </div>
+                      <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                        Selecionar
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // --- Feature selection view ---
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Adicionar meta da semana</DialogTitle>
           <DialogDescription>
-            Selecione uma feature para acompanhar esta semana.
+            Projeto: {selectedProject.name} — selecione uma feature.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 py-2">
           <div className="flex gap-2">
+            <button
+              onClick={handleBack}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-2 rounded-lg hover:bg-accent/50 flex-shrink-0"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Voltar
+            </button>
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar por feature, epic ou projeto..."
+                placeholder="Buscar feature ou epic..."
                 className="pl-9"
               />
             </div>
-            {projectList.length > 1 && (
-              <Select value={projectFilter} onValueChange={setProjectFilter}>
-                <SelectTrigger className="w-[160px] h-10">
-                  <SelectValue placeholder="Projeto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">Todos</SelectItem>
-                  {projectList.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
           </div>
 
           <div className="max-h-[24rem] overflow-y-auto pr-1">
-            {loading ? (
+            {featuresLoading ? (
               <div className="flex items-center justify-center py-10">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ) : groupedByProject.length === 0 ? (
+            ) : filteredFeatures.length === 0 ? (
               <div className="text-center py-10">
                 <p className="text-sm text-muted-foreground">
                   {search
                     ? 'Nenhuma feature encontrada.'
-                    : 'Nenhuma feature disponivel.'}
+                    : 'Nenhuma feature disponivel (TODO ou DOING).'}
                 </p>
               </div>
             ) : (
-              groupedByProject.map((group) => (
-                <div key={group.projectKey || '_no-project'} className="mb-4 last:mb-0">
+              groupedByEpic.map((group) => (
+                <div key={group.epicTitle} className="mb-4 last:mb-0">
                   <div className="flex items-center gap-2 px-1 pb-1.5">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      {group.projectName}
+                      {group.epicTitle}
                     </p>
                     <span className="text-[10px] text-muted-foreground/60">
                       {group.features.length}
@@ -261,7 +323,6 @@ export function WeeklyGoalSelector({
                     {group.features.map((feature) => {
                       const isAlreadyGoal = existingGoalIds.includes(feature.id);
                       const subtitleParts: string[] = [];
-                      if (feature.epic?.title) subtitleParts.push(feature.epic.title);
                       if (feature._count?.tasks != null) {
                         subtitleParts.push(`${feature._count.tasks} ${feature._count.tasks === 1 ? 'task' : 'tasks'}`);
                       }

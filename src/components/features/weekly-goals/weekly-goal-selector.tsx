@@ -114,7 +114,7 @@ export function WeeklyGoalSelector({
   const fetchFeatures = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/features?limit=100');
+      const res = await fetch('/api/features?limit=50');
       if (!res.ok) throw new Error('Failed to fetch features');
       const json = await res.json();
       const data: Feature[] = json.data || [];

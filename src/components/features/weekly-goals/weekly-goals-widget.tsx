@@ -5,7 +5,6 @@ import { Plus, Loader2, X, Target, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WeeklyGoalSelector } from './weekly-goal-selector';
@@ -14,7 +13,17 @@ interface WeeklyGoalFeature {
   id: string;
   title: string;
   status: string;
-  health: string;
+  health: string | null;
+  healthReason: string | null;
+  epic?: {
+    id: string;
+    title: string;
+    project?: {
+      id: string;
+      name: string;
+      key: string;
+    };
+  } | null;
 }
 
 interface WeeklyGoalProgress {
@@ -43,28 +52,27 @@ function getWeekLabel(weekStart: string): string {
   end.setDate(start.getDate() + 6);
 
   const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  const startDay = start.getDate();
-  const endDay = end.getDate();
-  const month = months[start.getMonth()];
-
-  return `${startDay} ${month} - ${endDay} ${months[end.getMonth()]}`;
+  return `${start.getDate()} ${months[start.getMonth()]} - ${end.getDate()} ${months[end.getMonth()]}`;
 }
 
-function getStatusBadge(status: string) {
-  const statusMap: Record<string, { label: string; className: string }> = {
-    TODO: { label: 'A Fazer', className: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-    DOING: { label: 'Fazendo', className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
-    DONE: { label: 'Feito', className: 'bg-green-500/10 text-green-500 border-green-500/20' },
-    BACKLOG: { label: 'Backlog', className: 'bg-muted text-muted-foreground border-border' },
-  };
+function getHealthIcon(health: string | null): { dot: string; label: string } {
+  switch (health) {
+    case 'ON_TRACK':
+      return { dot: 'bg-green-500', label: 'No prazo' };
+    case 'AT_RISK':
+      return { dot: 'bg-yellow-500', label: 'Atencao' };
+    case 'OFF_TRACK':
+      return { dot: 'bg-red-500', label: 'Atrasado' };
+    default:
+      return { dot: 'bg-gray-300 dark:bg-gray-600', label: '' };
+  }
+}
 
-  const config = statusMap[status] || statusMap.BACKLOG;
-
-  return (
-    <span className={cn('inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium', config.className)}>
-      {config.label}
-    </span>
-  );
+function getStatusLabel(status: string): string {
+  if (status === 'TODO') return 'A fazer';
+  if (status === 'DOING') return 'Em progresso';
+  if (status === 'DONE') return 'Feito';
+  return status;
 }
 
 function GoalItemSkeleton() {
@@ -109,9 +117,7 @@ export function WeeklyGoalsWidget() {
     setDeletingId(goalId);
     try {
       const res = await fetch(`/api/weekly-goals/${goalId}`, { method: 'DELETE' });
-      if (!res.ok) {
-        throw new Error('Failed to delete goal');
-      }
+      if (!res.ok) throw new Error('Failed to delete goal');
       toast.success('Meta removida da semana.');
       setData((prev) => {
         if (!prev) return prev;
@@ -171,7 +177,7 @@ export function WeeklyGoalsWidget() {
               {data?.limitWarning && (
                 <span className="inline-flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400">
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  Limite prximo
+                  Limite proximo
                 </span>
               )}
             </div>
@@ -207,35 +213,63 @@ export function WeeklyGoalsWidget() {
                   goal.progress.total > 0
                     ? Math.round((goal.progress.done / goal.progress.total) * 100)
                     : 0;
+                const health = getHealthIcon(goal.feature.health);
 
                 return (
                   <div
                     key={goal.id}
                     className="group flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors"
                   >
+                    <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2', health.dot)} />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
                         <h3 className="text-sm font-medium truncate">
                           {goal.feature.title}
                         </h3>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {getStatusBadge(goal.feature.status)}
-                          <button
-                            onClick={() => handleDelete(goal.id)}
-                            disabled={deletingId === goal.id}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50"
-                            title="Remover meta"
-                          >
-                            {deletingId === goal.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <X className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => handleDelete(goal.id)}
+                          disabled={deletingId === goal.id}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50 flex-shrink-0"
+                          title="Remover meta"
+                        >
+                          {deletingId === goal.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <X className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       </div>
+
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                        {goal.feature.epic?.project?.name && (
+                          <>
+                            <span className="truncate">{goal.feature.epic.project.name}</span>
+                            {goal.feature.epic?.title && (
+                              <span className="text-muted-foreground/40">/</span>
+                            )}
+                          </>
+                        )}
+                        {goal.feature.epic?.title && (
+                          <span className="truncate">{goal.feature.epic.title}</span>
+                        )}
+                        <span className="text-muted-foreground/40 mx-0.5">·</span>
+                        <span>{getStatusLabel(goal.feature.status)}</span>
+                        {health.label && (
+                          <>
+                            <span className="text-muted-foreground/40 mx-0.5">·</span>
+                            <span className={cn(
+                              health.dot === 'bg-green-500' && 'text-green-600 dark:text-green-400',
+                              health.dot === 'bg-yellow-500' && 'text-yellow-600 dark:text-yellow-400',
+                              health.dot === 'bg-red-500' && 'text-red-600 dark:text-red-400',
+                            )}>
+                              {health.label}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
                       <div className="flex items-center gap-3">
-                        <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                           <div
                             className={cn(
                               'h-full rounded-full transition-all duration-300',
@@ -248,8 +282,8 @@ export function WeeklyGoalsWidget() {
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
-                        <span className="text-xs text-muted-foreground w-10 text-right flex-shrink-0">
-                          {percentage}%
+                        <span className="text-[11px] text-muted-foreground w-12 text-right flex-shrink-0 tabular-nums">
+                          {goal.progress.done}/{goal.progress.total} <span className="text-muted-foreground/60">{percentage}%</span>
                         </span>
                       </div>
                     </div>

@@ -61,6 +61,19 @@ export async function GET() {
             healthReason: true,
             createdAt: true,
             updatedAt: true,
+            epic: {
+              select: {
+                id: true,
+                title: true,
+                project: {
+                  select: {
+                    id: true,
+                    name: true,
+                    key: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -161,6 +174,19 @@ export async function POST(request: NextRequest) {
             healthReason: true,
             createdAt: true,
             updatedAt: true,
+            epic: {
+              select: {
+                id: true,
+                title: true,
+                project: {
+                  select: {
+                    id: true,
+                    name: true,
+                    key: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

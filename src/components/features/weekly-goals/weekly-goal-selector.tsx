@@ -109,6 +109,7 @@ export function WeeklyGoalSelector({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [epicFilter, setEpicFilter] = useState<string>('ALL');
   const [collapsedEpics, setCollapsedEpics] = useState<Set<string>>(new Set());
+  const [fetched, setFetched] = useState(false);
 
   const fetchFeatures = useCallback(async () => {
     setLoading(true);
@@ -125,14 +126,15 @@ export function WeeklyGoalSelector({
       toast.error('Erro ao carregar features.');
     } finally {
       setLoading(false);
+      setFetched(true);
     }
   }, []);
 
   useEffect(() => {
-    if (open && features.length === 0 && !loading) {
+    if (open && !fetched && !loading) {
       fetchFeatures();
     }
-  }, [open, features.length, loading, fetchFeatures]);
+  }, [open, fetched, loading, fetchFeatures]);
 
   useEffect(() => {
     if (!open) {
@@ -141,6 +143,8 @@ export function WeeklyGoalSelector({
       setStatusFilter('ALL');
       setEpicFilter('ALL');
       setCollapsedEpics(new Set());
+      setFetched(false);
+      setFeatures([]);
     }
   }, [open]);
 

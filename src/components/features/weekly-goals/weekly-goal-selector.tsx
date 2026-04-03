@@ -351,6 +351,14 @@ export function WeeklyGoalSelector({
                                 </Badge>
                               </div>
                               <div className="flex items-center gap-2">
+                                {feature.epic?.project && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] bg-muted/50 border-muted-foreground/20 text-muted-foreground"
+                                  >
+                                    {feature.epic.project.name}
+                                  </Badge>
+                                )}
                                 {feature.epic && (
                                   <Badge
                                     variant="outline"

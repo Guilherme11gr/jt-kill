@@ -9,8 +9,14 @@ export default function BoardPage() {
   return (
     <div className="flex flex-col gap-6">
       <QuickCapture />
-      <WeeklyGoalsWidget />
-      <PersonalNotesWidget />
+      <div>
+        <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">Minha Semana</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <WeeklyGoalsWidget />
+          <PersonalNotesWidget />
+        </div>
+      </div>
+      <div className="border-t border-border/50" />
       <PersonalBoard />
     </div>
   );

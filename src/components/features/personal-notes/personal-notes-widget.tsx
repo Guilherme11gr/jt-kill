@@ -62,7 +62,8 @@ export function PersonalNotesWidget() {
       const res = await fetch('/api/personal-notes');
       if (!res.ok) throw new Error('Failed to fetch notes');
       const json = await res.json();
-      setNotes((json as NotesResponse).notes);
+      const notesData = json.data?.notes ?? json.notes ?? [];
+      setNotes(Array.isArray(notesData) ? notesData : []);
     } catch {
       toast.error('Erro ao carregar notas.');
     } finally {
@@ -97,7 +98,8 @@ export function PersonalNotesWidget() {
       if (!res.ok) throw new Error('Failed to create note');
 
       const json = await res.json();
-      setNotes((prev) => [json.data.note, ...prev]);
+      const createdNote = json.data?.note;
+      if (createdNote) setNotes((prev) => [createdNote, ...prev]);
       setNewContent('');
       setNewIsPinned(false);
       setShowNewNote(false);
@@ -122,7 +124,7 @@ export function PersonalNotesWidget() {
       const json = await res.json();
       setNotes((prev) =>
         prev
-          .map((n) => (n.id === note.id ? json.data.note : n))
+          .map((n) => (n.id === note.id ? (json.data?.note ?? n) : n))
           .sort((a, b) => {
             if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
             return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
@@ -169,7 +171,7 @@ export function PersonalNotesWidget() {
       if (!res.ok) throw new Error('Failed to update note');
 
       const json = await res.json();
-      setNotes((prev) => prev.map((n) => (n.id === noteId ? json.data.note : n)));
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? (json.data?.note ?? n) : n)));
       setEditingId(null);
     } catch {
       toast.error('Erro ao salvar nota.');

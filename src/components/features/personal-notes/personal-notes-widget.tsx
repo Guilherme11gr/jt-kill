@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { StickyNote, Pin, PinOff, Trash2, Plus, Loader2 } from 'lucide-react';
+import { StickyNote, Pin, PinOff, Trash2, Plus, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,7 @@ export function PersonalNotesWidget() {
   const [showNewNote, setShowNewNote] = useState(false);
   const [newContent, setNewContent] = useState('');
   const [newIsPinned, setNewIsPinned] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -110,6 +111,7 @@ export function PersonalNotesWidget() {
       setNewContent('');
       setNewIsPinned(false);
       setShowNewNote(false);
+      setCollapsed(false);
       toast.success('Nota criada!');
     } catch {
       toast.error('Erro ao criar nota.');
@@ -228,19 +230,37 @@ export function PersonalNotesWidget() {
     );
   }
 
+  const pinnedNotes = notes.filter((n) => n.isPinned);
+  const canCollapse = notes.length > 0;
+
   return (
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader
+        className={cn('pb-3', canCollapse && 'cursor-pointer select-none')}
+        onClick={() => canCollapse && setCollapsed(!collapsed)}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
+            {canCollapse && (
+              collapsed ? (
+                <ChevronRight className="h-4 w-4 text-muted-foreground/60" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground/60" />
+              )
+            )}
             <StickyNote className="h-5 w-5 text-amber-500" />
             <CardTitle className="text-base font-semibold">Notas Rápidas</CardTitle>
+            {canCollapse && (
+              <span className="text-[11px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                {notes.length} {notes.length === 1 ? 'nota' : 'notas'}
+              </span>
+            )}
           </div>
           <Button
             variant="outline"
             size="sm"
             className="h-7 gap-1 text-xs"
-            onClick={() => setShowNewNote(!showNewNote)}
+            onClick={(e) => { e.stopPropagation(); setShowNewNote(!showNewNote); setCollapsed(false); }}
           >
             <Plus className="h-3.5 w-3.5" />
             Nova nota
@@ -248,7 +268,18 @@ export function PersonalNotesWidget() {
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        {showNewNote && (
+        {collapsed && pinnedNotes.length > 0 && (
+          <p className="text-xs text-muted-foreground/60 line-clamp-1 pl-6 -mt-1 mb-2">
+            {pinnedNotes[0].content}
+          </p>
+        )}
+        <div
+          className={cn(
+            'overflow-hidden transition-all duration-300 ease-in-out',
+            collapsed && canCollapse ? 'max-h-0' : 'max-h-[2000px]'
+          )}
+        >
+          {showNewNote && (
           <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40">
             <Textarea
               ref={textareaRef}
@@ -391,6 +422,7 @@ export function PersonalNotesWidget() {
             ))}
           </div>
         )}
+        </div>
       </CardContent>
     </Card>
   );

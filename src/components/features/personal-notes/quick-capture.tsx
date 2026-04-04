@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { Zap, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -39,40 +39,37 @@ export function QuickCapture() {
     }
   };
 
-  useEffect(() => {
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, []);
-
   return (
-    <form onSubmit={handleSubmit} className="w-full">
-      <div
-        className={cn(
-          'flex items-center gap-2 px-4 py-2.5 rounded-xl border bg-card transition-all duration-300',
-          flash
-            ? 'border-green-400 bg-green-50 dark:bg-green-950/20 shadow-sm shadow-green-200 dark:shadow-green-900/20'
-            : 'border-border hover:border-primary/30 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20'
-        )}
-      >
-        <Zap className={cn(
-          'h-4 w-4 flex-shrink-0 transition-colors',
-          flash ? 'text-green-500' : 'text-amber-500'
-        )} />
-        <Input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Anote algo rápido... (Enter para salvar)"
-          className="border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm placeholder:text-muted-foreground"
-          disabled={saving}
-          maxLength={1000}
-        />
-        {saving && (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground flex-shrink-0" />
-        )}
-      </div>
-    </form>
+    <div className="sticky top-0 z-10 -mx-1 px-1 pb-3 pt-1 bg-background/80 backdrop-blur-sm">
+      <form onSubmit={handleSubmit} className="w-full">
+        <div
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 rounded-xl border bg-card transition-all duration-300',
+            flash
+              ? 'border-green-400 bg-green-50 dark:bg-green-950/20 shadow-sm shadow-green-200 dark:shadow-green-900/20'
+              : 'border-border hover:border-primary/30 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20'
+          )}
+        >
+          <Zap className={cn(
+            'h-4 w-4 flex-shrink-0 transition-colors',
+            flash ? 'text-green-500' : 'text-amber-500'
+          )} />
+          <Input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="Anote algo rápido... (Enter para salvar)"
+            className="border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 text-sm placeholder:text-muted-foreground"
+            disabled={saving}
+            maxLength={1000}
+          />
+          <span className="text-[10px] text-muted-foreground/50 bg-muted rounded px-1.5 py-0.5 font-mono pointer-events-none">⌘K</span>
+          {saving && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground flex-shrink-0" />
+          )}
+        </div>
+      </form>
+    </div>
   );
 }
